@@ -762,27 +762,26 @@ async function submitHotpost() {
 
                 // 🚀 FLAWLESS TEXT WRAPPING ENGINE
                 textElements.forEach(tObj => {
-                    // 1. Match the 6.5vw base size from CSS
+                    ctx.save(); // Save context before transforming
+
+                    // 1. Calculate at 1x Base Scale ONLY (Matches CSS 6.5vw)
                     const baseFontSize = finalWidth * 0.065; 
-                    const finalFontSize = Math.floor(baseFontSize * tObj.scale); 
                     
-                    ctx.font = `800 ${finalFontSize}px Inter, sans-serif`;
+                    ctx.font = `800 ${baseFontSize}px Inter, sans-serif`;
                     ctx.fillStyle = "white";
                     ctx.textAlign = "center";
                     ctx.textBaseline = "middle";
-                    ctx.shadowColor = "rgba(0,0,0,0.9)";
-                    ctx.shadowBlur = 20;
                     
                     const finalX = finalWidth * tObj.x;
                     const finalY = finalHeight * tObj.y;
                     
-                    // 2. Scale the bounding box exactly as the text scales, 
-                    // ensuring line breaks happen in the exact same place!
-                    const maxWidth = (finalWidth * 0.85) * tObj.scale; 
+                    // 2. Set max width at 1x scale (Matches CSS 85% exactly)
+                    const maxWidth = finalWidth * 0.85; 
                     
                     const paragraphs = tObj.content.split('\n');
                     let wrappedLines = [];
                     
+                    // 3. Wrap the text at 1x scale
                     paragraphs.forEach(paragraph => {
                         if (!paragraph) {
                             wrappedLines.push('');
@@ -804,15 +803,25 @@ async function submitHotpost() {
                         wrappedLines.push(currentLine.trim());
                     });
 
-                    // 3. Render perfectly centered multi-line text
-                    const lineHeight = finalFontSize * 1.2;
+                    // 4. Move origin to text center, THEN scale the canvas!
+                    // This perfectly mimics how CSS "transform: scale()" works visually.
+                    ctx.translate(finalX, finalY);
+                    ctx.scale(tObj.scale, tObj.scale);
+
+                    ctx.shadowColor = "rgba(0,0,0,0.9)";
+                    ctx.shadowBlur = 20;
+
+                    // 5. Draw the wrapped text at the scaled origin
+                    const lineHeight = baseFontSize * 1.2;
                     const totalHeight = wrappedLines.length * lineHeight;
-                    const startY = finalY - (totalHeight / 2) + (lineHeight / 2);
+                    const startY = -(totalHeight / 2) + (lineHeight / 2);
 
                     wrappedLines.forEach((line, index) => {
                         const lineY = startY + (index * lineHeight);
-                        ctx.fillText(line, finalX, lineY);
+                        ctx.fillText(line, 0, lineY); // X is 0 because of ctx.translate
                     });
+
+                    ctx.restore(); // Reset context for the next text block
                 });
 
                 bakeCanvas.toBlob(resolve, 'image/webp', 0.65); 
