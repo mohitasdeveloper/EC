@@ -760,10 +760,10 @@ async function submitHotpost() {
                     ctx.drawImage(doodleCanvas, 0, 0, finalWidth, finalHeight);
                 }
 
-                // 🚀 TEXT WRAPPING ENGINE
+                // 🚀 FLAWLESS TEXT WRAPPING ENGINE
                 textElements.forEach(tObj => {
-                    // 1. Reduced base font size from 0.08 to 0.055 for a cleaner look
-                    const baseFontSize = Math.floor(finalWidth * 0.055); 
+                    // 1. Match the 6.5vw base size from CSS
+                    const baseFontSize = finalWidth * 0.065; 
                     const finalFontSize = Math.floor(baseFontSize * tObj.scale); 
                     
                     ctx.font = `800 ${finalFontSize}px Inter, sans-serif`;
@@ -775,18 +775,25 @@ async function submitHotpost() {
                     
                     const finalX = finalWidth * tObj.x;
                     const finalY = finalHeight * tObj.y;
-                    const maxWidth = finalWidth * 0.85; // Constrain to 85% of image width
                     
-                    // 2. Mathematically wrap words that exceed screen width
+                    // 2. Scale the bounding box exactly as the text scales, 
+                    // ensuring line breaks happen in the exact same place!
+                    const maxWidth = (finalWidth * 0.85) * tObj.scale; 
+                    
                     const paragraphs = tObj.content.split('\n');
                     let wrappedLines = [];
                     
                     paragraphs.forEach(paragraph => {
+                        if (!paragraph) {
+                            wrappedLines.push('');
+                            return;
+                        }
                         const words = paragraph.split(' ');
                         let currentLine = '';
                         for (let i = 0; i < words.length; i++) {
                             const testLine = currentLine + words[i] + ' ';
                             const metrics = ctx.measureText(testLine);
+                            
                             if (metrics.width > maxWidth && i > 0) {
                                 wrappedLines.push(currentLine.trim());
                                 currentLine = words[i] + ' ';
@@ -797,9 +804,13 @@ async function submitHotpost() {
                         wrappedLines.push(currentLine.trim());
                     });
 
-                    // 3. Draw the newly calculated multi-line text
+                    // 3. Render perfectly centered multi-line text
+                    const lineHeight = finalFontSize * 1.2;
+                    const totalHeight = wrappedLines.length * lineHeight;
+                    const startY = finalY - (totalHeight / 2) + (lineHeight / 2);
+
                     wrappedLines.forEach((line, index) => {
-                        const lineY = finalY + (index - (wrappedLines.length - 1) / 2) * finalFontSize * 1.2;
+                        const lineY = startY + (index * lineHeight);
                         ctx.fillText(line, finalX, lineY);
                     });
                 });
@@ -848,6 +859,7 @@ async function submitHotpost() {
         fetchHotposts(); 
     }
 }
+
 window.toggleRewatchSetting = function() {
     const btn = document.getElementById('hotpost-rewatch-toggle');
     const icon = document.getElementById('rewatch-icon');
