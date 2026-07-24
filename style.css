@@ -344,14 +344,16 @@ input, textarea {
     background: transparent !important;
     animation: uploadSpin 2s linear infinite;
 }
-/* Constrain draggable text width so it auto-wraps cleanly */
+/* Constrain draggable text width so it auto-wraps perfectly */
 .hotpost-draggable-text {
     position: absolute;
     max-width: 85%;
     word-wrap: break-word;
     text-align: center;
-    white-space: pre-wrap; /* Preserves newlines and spaces */
+    white-space: pre-wrap; /* Preserves explicit 'Enter' newlines */
     color: white;
     font-weight: 800;
+    font-size: 6.5vw; /* 🚀 Base font size locked to screen width */
+    line-height: 1.2;
     text-shadow: 0 0 20px rgba(0,0,0,0.9);
 }
