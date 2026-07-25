@@ -551,6 +551,10 @@ function renderTextElements() {
         let bgCSS = '';
         let shadowCSS = '';
         
+        // 🚀 Mapped Flexbox alignments matching user choice
+        const alignMap = { left: 'flex-start', right: 'flex-end', center: 'center' };
+        const flexAlign = alignMap[tObj.align || 'center'];
+
         if (tObj.hasBg) {
             bgCSS = `background-color: ${tObj.color}; color: ${getContrastYIQ(tObj.color)}; padding: 6px 12px; border-radius: 8px;`;
             shadowCSS = `text-shadow: none;`;
@@ -570,8 +574,9 @@ function renderTextElements() {
                 <div class="text-handle handle-bl" data-action="duplicate"><span class="material-symbols-outlined text-[16px]">content_copy</span></div>
                 <div class="text-handle handle-br" data-action="scale"><span class="material-symbols-outlined text-[18px]">open_in_full</span></div>
                 <div class="text-handle handle-rm" data-action="width"></div>
-                <div class="text-widget-content" style="width: ${tObj.width}px; font-size: 24px; font-family: ${tObj.font.replace(/"/g, "'")}; text-align: ${tObj.align || 'center'}; line-height: 1.3;">
-                    <span style="${bgCSS} ${shadowCSS} box-decoration-break: clone; -webkit-box-decoration-break: clone;">${tObj.content}</span>
+                <!-- 🚀 Enforced flex column alignment so background boxes align cleanly -->
+                <div class="text-widget-content" style="width: ${tObj.width}px; font-size: 24px; font-family: ${tObj.font.replace(/"/g, "'")}; display: flex; flex-direction: column; align-items: ${flexAlign}; line-height: 1.3;">
+                    <span style="${bgCSS} ${shadowCSS} text-align: ${tObj.align || 'center'}; box-decoration-break: clone; -webkit-box-decoration-break: clone;">${tObj.content}</span>
                 </div>
             </div>
         `;
@@ -661,10 +666,14 @@ function setupEditorTouchPhysics() {
         const handle = e.target.closest('.text-handle');
         const widget = e.target.closest('.text-widget');
 
-        if (handle) {
+   if (handle) {
             e.stopPropagation(); 
             touchMode = handle.dataset.action; 
             
+            // 🚀 CRITICAL FIX: Ensure activeTextId is locked to the widget being edited
+            activeTextIdForTouch = widget.id;
+            activeTextId = widget.id;
+
             startX = e.touches[0].clientX;
             startY = e.touches[0].clientY;
 
@@ -675,7 +684,7 @@ function setupEditorTouchPhysics() {
                 if (widgetEl) widgetEl.remove();
                 touchMode = 'idle';
             } else if (touchMode === 'edit') {
-                activateTextTool(activeTextIdForTouch);
+                activateTextTool(activeTextIdForTouch); // Now correctly passes the ID!
                 touchMode = 'idle';
             } else if (touchMode === 'duplicate') {
                 const tObj = textElements.find(t => t.id === activeTextIdForTouch);
@@ -695,7 +704,7 @@ function setupEditorTouchPhysics() {
             }
             return;
         }
-
+        
         if (widget && !isDrawMode) {
             touchMode = 'drag_text';
             activeTextIdForTouch = widget.id;
