@@ -13,16 +13,18 @@ body {
     overscroll-behavior-y: none;
     transition: background-color 0.3s ease, color 0.3s ease;
     
-    /* 🚀 ADD THESE 3 LINES: Locks the screen like a native app */
-    -webkit-user-select: none; /* Safari/Android */
-    user-select: none; /* Standard */
-    -webkit-touch-callout: none; /* Disables the long-press popup magnifier */
+    /* Locks the screen like a native app */
+    -webkit-user-select: none; 
+    user-select: none; 
+    -webkit-touch-callout: none; 
 }
-/* 🚀 ADD THIS NEW BLOCK: Ensures users can still type and edit text */
+
+/* Ensures users can still type and edit text */
 input, textarea {
     -webkit-user-select: auto !important;
     user-select: auto !important;
 }
+
 /* Scrollbar Control */
 .hide-scrollbar::-webkit-scrollbar {
     display: none;
@@ -35,27 +37,13 @@ input, textarea {
 
 /* Animations */
 @keyframes slideUp {
-    from {
-        transform: translateY(100%);
-        opacity: 0;
-    }
-
-    to {
-        transform: translateY(0);
-        opacity: 1;
-    }
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
 }
 
 @keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: scale(0.95);
-    }
-
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
 }
 
 .animate-slideUp {
@@ -82,13 +70,8 @@ input, textarea {
 }
 
 @keyframes fill-progress {
-    from {
-        width: 0%;
-    }
-
-    to {
-        width: 100%;
-    }
+    from { width: 0%; }
+    to { width: 100%; }
 }
 
 .filter-btn {
@@ -118,9 +101,11 @@ input, textarea {
     width: 90%;
     z-index: 25;
 }
+
 .hotpost-text-overlay-input::placeholder {
     color: rgba(255, 255, 255, 0.6);
 }
+
 /* =========================================================
    ULTIMATE HOTPOSTS ENGINE (Native UI & Gestures)
    ========================================================= */
@@ -135,22 +120,58 @@ input, textarea {
     user-select: none;
 }
 
-/* 2. Draggable & Zoomable Text */
-.hotpost-draggable-text {
+/* ==========================================
+   2. HOTPOST TEXT BOUNDING BOX TOOL
+   ========================================== */
+.text-widget {
     position: absolute;
-    /* Translate anchors it to center, Scale handles pinch-to-zoom */
-    transform: translate(-50%, -50%) scale(1);
     transform-origin: center center;
+    z-index: 50;
+}
+.text-widget-box {
+    position: relative;
+    border: 1.5px solid transparent;
+    padding: 10px 16px;
+}
+/* Show borders and handles only when active */
+.text-widget.active .text-widget-box {
+    border-color: rgba(255, 255, 255, 0.9);
+}
+.text-handle {
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: none;
+    align-items: center;
+    justify-content: center;
     color: white;
-    font-size: 2.5rem;
-    font-weight: 800;
-    text-align: center;
-    text-shadow: 0px 4px 25px rgba(0, 0, 0, 1), 0px 1px 5px rgba(0, 0, 0, 0.8);
-    white-space: pre-wrap;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
     z-index: 60;
-    font-family: 'Inter', sans-serif;
-    /* Must be auto to drag it directly */
-    pointer-events: auto; 
+    cursor: pointer;
+}
+.text-widget.active .text-handle {
+    display: flex;
+}
+
+/* Position the 5 Tool Handles */
+.handle-tl { top: -16px; left: -16px; background: #1f1f1f; border: 2px solid #444; } /* Delete X */
+.handle-tr { top: -16px; right: -16px; background: #ff2a5f; } /* Edit Pencil */
+.handle-bl { bottom: -16px; left: -16px; background: #ff2a5f; } /* Duplicate */
+.handle-br { bottom: -16px; right: -16px; background: #ff2a5f; } /* Scale Arrows */
+.handle-rm { top: 50%; right: -12px; transform: translateY(-50%); background: #ff2a5f; width: 24px; height: 24px; } /* Width Adjuster */
+
+/* The Text Itself */
+.text-widget-content {
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    text-align: center;
+    color: white;
+    font-weight: 800;
+    line-height: 1.2;
+    text-shadow: 0 0 20px rgba(0,0,0,0.9);
+    min-width: 50px;
+    min-height: 28px;
 }
 
 /* 3. Doodle Canvas Layer */
@@ -166,22 +187,10 @@ input, textarea {
 
 /* 4. Snapchat-Style Filter Toast Animations */
 @keyframes fadeOutUp {
-    0% {
-        opacity: 0;
-        transform: translate(-50%, -40%) scale(0.9);
-    }
-    20% {
-        opacity: 1;
-        transform: translate(-50%, -50%) scale(1.1);
-    }
-    70% {
-        opacity: 1;
-        transform: translate(-50%, -50%) scale(1);
-    }
-    100% {
-        opacity: 0;
-        transform: translate(-50%, -60%) scale(0.9);
-    }
+    0% { opacity: 0; transform: translate(-50%, -40%) scale(0.9); }
+    20% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+    70% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -60%) scale(0.9); }
 }
 
 .filter-name-toast {
@@ -197,27 +206,21 @@ input, textarea {
     text-shadow: 0px 4px 25px rgba(0, 0, 0, 0.9), 0px 0px 15px rgba(0, 0, 0, 0.5);
     pointer-events: none;
     z-index: 60;
-    opacity: 0; /* Hidden by default, animated by JS */
+    opacity: 0; 
 }
 
 /* 5. Custom Modal Animations */
 @keyframes popIn {
-    0% {
-        opacity: 0;
-        transform: scale(0.9);
-    }
-    100% {
-        opacity: 1;
-        transform: scale(1);
-    }
+    0% { opacity: 0; transform: scale(0.9); }
+    100% { opacity: 1; transform: scale(1); }
 }
 
 .animate-popIn {
     animation: popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
 /* 6. Native 3D Push-Back Effect for Stories */
 #hotpost-viewer-content {
-    /* Smooth, physics-based transition */
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease, border-radius 0.4s ease;
     transform-origin: center top; 
     background-color: #000;
@@ -229,24 +232,23 @@ input, textarea {
     border-radius: 24px !important;
     overflow: hidden;
 }
+
 /* =========================================================
    NATIVE SAFE AREA (NOTCH & HOME BAR) SUPPORT
    ========================================================= */
 .safe-pt {
-    /* Pushes content down exactly the height of the phone's status bar/notch */
     padding-top: env(safe-area-inset-top, 0px) !important;
 }
 
 .safe-pb {
-    /* 1.5rem (24px) is your default Tailwind pb-6. This ensures it never shrinks smaller than that, but expands if the phone has a tall Home Bar */
     padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px)) !important;
 }
 
 .modal-header-safe {
-    /* For full-screen modals to avoid the notch */
     padding-top: env(safe-area-inset-top, 0px) !important;
     min-height: calc(4rem + env(safe-area-inset-top, 0px));
 }
+
 /* =========================================================
    PROFESSIONAL SHIMMER LOADING ENGINE
    ========================================================= */
@@ -266,45 +268,41 @@ input, textarea {
     background-size: 1000px 100%;
     animation: shimmer 2s infinite linear forwards;
 }
+
 /* The satisfying Like Pop Animation */
-        .like-pop {
-            animation: heartPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-        }
-        @keyframes heartPop {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.3); }
-            100% { transform: scale(1); }
-        }
+.like-pop {
+    animation: heartPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+@keyframes heartPop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.3); }
+    100% { transform: scale(1); }
+}
+
 /* =========================================================
    MODERN CONTEXT-AWARE PULL-TO-REFRESH STYLES
    ========================================================= */
 @keyframes ptr-spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
-/* Toggled via JS when the refresh action is executing */
 .ptr-loading-icon {
     animation: ptr-spin 0.8s linear infinite !important;
-    color: #6200ee !important; /* Forces your primary brand accent color during load */
+    color: #6200ee !important; 
 }
 
-/* Prevents text highlighting or accidental callouts during active drag gestures */
 #ptr-container {
     user-select: none;
     -webkit-user-select: none;
     will-change: transform, opacity;
 }
 
-/* Quick utility class used by JS to prevent awkward scrolling jumps while active */
 .ptr-dragging-active {
     overscroll-behavior-y: contain !important;
     touch-action: pan-y !important;
 }
+
 /* Pen Size Slider */
 .pen-size-slider {
     -webkit-appearance: slider-vertical;
@@ -343,17 +341,4 @@ input, textarea {
     border: 2px dashed #006e1c !important;
     background: transparent !important;
     animation: uploadSpin 2s linear infinite;
-}
-/* Constrain draggable text width so it auto-wraps perfectly */
-.hotpost-draggable-text {
-    position: absolute;
-    max-width: 85%;
-    word-wrap: break-word;
-    text-align: center;
-    white-space: pre-wrap; /* Preserves explicit 'Enter' newlines */
-    color: white;
-    font-weight: 800;
-    font-size: 6.5vw; /* 🚀 Base font size locked to screen width */
-    line-height: 1.2;
-    text-shadow: 0 0 20px rgba(0,0,0,0.9);
 }
