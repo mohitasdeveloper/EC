@@ -950,20 +950,16 @@
         </div>
     </div>
 
- <!-- HOTPOST CAMERA & EDITOR MODAL (Ultimate Native Engine) -->
+<!-- HOTPOST CAMERA & EDITOR MODAL (Ultimate Native Engine) -->
    <div id="modal-hotpost-camera" class="fixed inset-0 z-[200] bg-black hidden flex-col justify-center items-center">
-        <!-- 🚀 Video feed now supports touch for pre-capture zooming -->
         <video id="hotpost-camera-feed" class="absolute w-full h-full object-cover origin-center transition-transform duration-75" playsinline autoplay></video>
         
         <div id="hotpost-preview-container" class="absolute w-full h-full hidden overflow-hidden bg-black">
             <div id="hotpost-bg-wrapper" class="absolute w-full h-full flex items-center justify-center pointer-events-none">
                 <img id="hotpost-preview-img" class="w-full h-full object-cover pointer-events-none" />
             </div>
-            
             <canvas id="hotpost-doodle-canvas" class="absolute top-0 left-0 w-full h-full pointer-events-none z-40"></canvas>
             <div id="filter-name-toast" class="filter-name-toast hidden"></div>
-            
-           
         </div>
         
         <div id="editor-tools-container" class="absolute top-[max(1.25rem,env(safe-area-inset-top))] right-4 z-50 hidden flex-col gap-4 items-center">
@@ -978,11 +974,9 @@
         </div>
 
         <div class="absolute top-[max(1.25rem,env(safe-area-inset-top))] left-4 z-50 flex gap-4">
-            <!-- 🚀 Changed to a generic 'Close' button that triggers a warning -->
             <button id="close-hotpost-camera-btn" class="text-white p-2.5 bg-black/40 backdrop-blur-md rounded-full active:scale-95 transition-transform w-11 h-11 flex items-center justify-center"><span class="material-symbols-outlined text-[24px]">close</span></button>
         </div>
         
-        <!-- Switch Camera Button -->
         <button id="switch-hotpost-camera-btn" class="absolute top-[max(1.25rem,env(safe-area-inset-top))] right-4 z-50 text-white p-2.5 bg-black/40 backdrop-blur-md rounded-full active:scale-95 transition-transform w-11 h-11 flex items-center justify-center"><span class="material-symbols-outlined text-[24px]">cameraswitch</span></button>
 
         <div id="doodle-color-picker" class="absolute top-20 left-1/2 -translate-x-1/2 z-50 hidden gap-3 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 shadow-lg">
@@ -993,13 +987,27 @@
             <button class="doodle-color-btn w-6 h-6 rounded-full bg-[#007AFF] border-2 border-transparent active:scale-90 transition-transform" data-color="#007AFF"></button>
         </div>
 
+        <!-- 🚀 NEW INSTAGRAM STYLE TEXT EDITOR OVERLAY -->
         <div id="hotpost-text-editor-overlay" class="absolute inset-0 z-[100] bg-black/70 backdrop-blur-sm hidden flex-col">
             <div class="flex justify-between items-center p-5 pt-[max(1.5rem,env(safe-area-inset-top))]">
                 <button id="cancel-text-btn" class="text-white font-bold text-[16px] active:scale-95">Cancel</button>
+                <button id="toggle-text-bg-btn" class="flex items-center justify-center w-9 h-9 rounded-lg border border-white/40 text-white font-bold transition-colors active:scale-95">A<span class="material-symbols-outlined text-[14px]">auto_awesome</span></button>
                 <button id="done-text-btn" class="bg-white text-black px-4 py-1.5 rounded-full font-bold text-[14px] active:scale-95">Done</button>
             </div>
+            
             <div class="flex-1 flex items-center justify-center p-4">
-<textarea id="hotpost-in-ui-textarea" style="font-size: 24px; line-height: 1.2; width: 250px; max-width: 85vw;" class="mx-auto bg-transparent text-white text-center font-extrabold outline-none border-none resize-none overflow-hidden placeholder-white/50" placeholder="Type something..." rows="4"></textarea>            </div>
+                <textarea id="hotpost-in-ui-textarea" style="font-size: 24px; line-height: 1.2; width: 250px; max-width: 85vw;" class="mx-auto bg-transparent text-white text-center font-extrabold outline-none border-none resize-none overflow-visible placeholder-white/50 transition-colors" placeholder="Type something..." rows="4"></textarea>
+            </div>
+
+            <!-- Fonts and Colors Picker -->
+            <div class="w-full pb-[max(1.5rem,env(safe-area-inset-bottom))] flex flex-col gap-4">
+                <div id="text-color-picker" class="flex gap-4 overflow-x-auto px-5 py-2 hide-scrollbar items-center">
+                    <!-- Populated by JS -->
+                </div>
+                <div id="text-font-picker" class="flex gap-2 overflow-x-auto px-5 pb-2 hide-scrollbar items-center">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
         </div>
 
         <div class="absolute bottom-[max(2.5rem,env(safe-area-inset-bottom))] z-50 w-full px-6 pointer-events-none">
@@ -1009,7 +1017,6 @@
                     <span class="material-symbols-outlined text-[24px]">photo_library</span>
                 </button>
                 <input type="file" id="hotpost-gallery-input" accept="image/*" class="hidden">
-                
                 <button id="capture-hotpost-btn" class="w-[84px] h-[84px] rounded-full bg-transparent border-[4px] border-white backdrop-blur-sm flex items-center justify-center active:scale-95 transition-all shadow-[0_0_20px_rgba(0,0,0,0.3)]">
                     <div class="w-[68px] h-[68px] bg-white rounded-full transition-transform"></div>
                 </button>
@@ -1017,19 +1024,17 @@
             </div>
             
             <!-- Preview State -->
-            <div id="preview-ui" class="hidden justify-between items-center w-full pointer-events-auto">
-                <!-- 🚀 Changed to a Back Arrow to discard current photo -->
-                <button id="retake-hotpost-btn" class="text-white font-bold p-3.5 bg-black/40 backdrop-blur-md rounded-full active:scale-95 transition-transform"><span class="material-symbols-outlined text-[24px]">arrow_back</span></button>
-                
+            <div id="preview-ui" class="hidden justify-end items-center w-full pointer-events-auto">
+                <!-- 🚀 REMOVED RETAKE BUTTON AS REQUESTED -->
                 <div class="flex items-center gap-2">
-                    <button id="hotpost-rewatch-toggle" data-val="false" onclick="toggleRewatchSetting()" class="flex items-center justify-center w-12 h-12 bg-black/50 backdrop-blur-md text-white border border-white/20 rounded-full shadow-lg active:scale-95 transition-colors">
-                        <span id="rewatch-icon" class="material-symbols-outlined text-[22px]">looks_one</span>
+                    <!-- 🚀 DEFAULT ALLOW REWATCH -->
+                    <button id="hotpost-rewatch-toggle" data-val="true" onclick="toggleRewatchSetting()" class="flex items-center justify-center w-12 h-12 bg-black/50 backdrop-blur-md text-white border border-white/20 rounded-full shadow-lg active:scale-95 transition-colors">
+                        <span id="rewatch-icon" class="material-symbols-outlined text-[22px]">all_inclusive</span>
                     </button>
                     
                     <button id="hotpost-send-visibility" data-val="everyone" onclick="toggleVisibilitySetting()" class="flex items-center gap-2 bg-black/50 backdrop-blur-md text-white text-[14px] font-bold border border-white/20 rounded-full px-4 py-3 shadow-lg active:scale-95 transition-colors">
                         <span id="visibility-icon" class="material-symbols-outlined text-[18px]">public</span>
                     </button>
-                    <!-- 🚀 Send button is now cleaner, handled by background process -->
                     <button id="submit-hotpost-btn" class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-black shadow-lg active:scale-95 transition-transform"><span class="material-symbols-outlined text-[24px] ml-1">send</span></button>
                 </div>
             </div>
