@@ -987,19 +987,26 @@
             <button class="doodle-color-btn w-6 h-6 rounded-full bg-[#007AFF] border-2 border-transparent active:scale-90 transition-transform" data-color="#007AFF"></button>
         </div>
 
-        <!-- 🚀 NEW INSTAGRAM STYLE TEXT EDITOR OVERLAY -->
+      <!-- 🚀 NEW INSTAGRAM STYLE TEXT EDITOR OVERLAY -->
         <div id="hotpost-text-editor-overlay" class="absolute inset-0 z-[100] bg-black/70 backdrop-blur-sm hidden flex-col">
             <div class="flex justify-between items-center p-5 pt-[max(1.5rem,env(safe-area-inset-top))]">
                 <button id="cancel-text-btn" class="text-white font-bold text-[16px] active:scale-95">Cancel</button>
-                <button id="toggle-text-bg-btn" class="flex items-center justify-center w-9 h-9 rounded-lg border border-white/40 text-white font-bold transition-colors active:scale-95">A<span class="material-symbols-outlined text-[14px]">auto_awesome</span></button>
+                <div class="flex items-center gap-4">
+                    <!-- 🚀 Alignment Button -->
+                    <button id="toggle-text-align-btn" class="flex items-center justify-center w-9 h-9 text-white transition-colors active:scale-95">
+                        <span class="material-symbols-outlined text-[24px]">format_align_center</span>
+                    </button>
+                    <!-- Background Toggle -->
+                    <button id="toggle-text-bg-btn" class="flex items-center justify-center w-9 h-9 rounded-lg border border-white/40 text-white font-bold transition-colors active:scale-95">A<span class="material-symbols-outlined text-[14px]">auto_awesome</span></button>
+                </div>
                 <button id="done-text-btn" class="bg-white text-black px-4 py-1.5 rounded-full font-bold text-[14px] active:scale-95">Done</button>
             </div>
             
             <div class="flex-1 flex items-center justify-center p-4">
-                <textarea id="hotpost-in-ui-textarea" style="font-size: 24px; line-height: 1.2; width: 250px; max-width: 85vw;" class="mx-auto bg-transparent text-white text-center font-extrabold outline-none border-none resize-none overflow-visible placeholder-white/50 transition-colors" placeholder="Type something..." rows="4"></textarea>
+                <!-- 🚀 Strip all borders, rings, and appearances -->
+                <textarea id="hotpost-in-ui-textarea" style="font-size: 24px; line-height: 1.2; width: 250px; max-width: 85vw;" class="mx-auto bg-transparent text-white text-center font-extrabold outline-none border-0 border-transparent shadow-none ring-0 focus:ring-0 focus:outline-none appearance-none resize-none overflow-visible placeholder-white/50 transition-colors" placeholder="Type something..." rows="4"></textarea>
             </div>
 
-            <!-- Fonts and Colors Picker -->
             <div class="w-full pb-[max(1.5rem,env(safe-area-inset-bottom))] flex flex-col gap-4">
                 <div id="text-color-picker" class="flex gap-4 overflow-x-auto px-5 py-2 hide-scrollbar items-center">
                     <!-- Populated by JS -->
