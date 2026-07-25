@@ -4,7 +4,7 @@ import { timeAgo } from './utils.js';
 import { CLOUDINARY_CLOUD_NAME, CLOUDINARY_HOTPOSTS_PRESET } from './config.js';
 
 // ==========================================
-// STATE MANAGEMENT
+// STATE MANAGEMENT & FONT ENGINE
 // ==========================================
 let hotpostsByUser = new Map();
 let currentUser = null;
@@ -27,6 +27,39 @@ const ACTIVITY_SKELETON = `
         </div>
     </div>
 `.repeat(5);
+
+// 🚀 NATIVE ZERO-LOAD FONT STACKS (Matches Instagram Styles)
+const TEXT_FONTS = [
+    { name: 'Classic', value: 'Georgia, serif' },
+    { name: 'Modern', value: 'system-ui, -apple-system, sans-serif' },
+    { name: 'Neon', value: '"Arial Rounded MT Bold", Arial, sans-serif' },
+    { name: 'Typewriter', value: '"Courier New", Courier, monospace' },
+    { name: 'Strong', value: 'Impact, Charcoal, sans-serif' },
+    { name: 'Elegant', value: '"Palatino Linotype", "Book Antiqua", Palatino, serif' },
+    { name: 'Headline', value: '"Arial Black", Gadget, sans-serif' },
+    { name: 'Simple', value: 'Arial, Helvetica, sans-serif' },
+    { name: 'Editor', value: '"Lucida Console", Monaco, monospace' },
+    { name: 'Fancy', value: '"Brush Script MT", "Lucida Handwriting", cursive' },
+    { name: 'Comic', value: '"Comic Sans MS", "Comic Sans", cursive' },
+    { name: 'Memo', value: '"Trebuchet MS", "Lucida Grande", sans-serif' }
+];
+
+const TEXT_COLORS = ['#FFFFFF', '#000000', '#FF3B30', '#34C759', '#007AFF', '#FFD60A', '#FF9F0A', '#BF5AF2', '#32ADE6'];
+
+let currentTextFont = TEXT_FONTS[0].value;
+let currentTextColor = '#FFFFFF';
+let currentTextBg = false;
+
+// 🚀 Calculates perfect contrast (Black or White) for Text Backgrounds
+function getContrastYIQ(hexcolor){
+    hexcolor = hexcolor.replace("#", "");
+    if (hexcolor.length === 3) hexcolor = hexcolor.split('').map(c => c+c).join('');
+    var r = parseInt(hexcolor.substr(0,2),16);
+    var g = parseInt(hexcolor.substr(2,2),16);
+    var b = parseInt(hexcolor.substr(4,2),16);
+    var yiq = ((r*299)+(g*587)+(b*114))/1000;
+    return (yiq >= 128) ? '#000000' : '#FFFFFF';
+}
 
 let currentCameraStream = null;
 let currentFacingMode = 'environment';
@@ -82,7 +115,6 @@ function setupEventListeners() {
     document.getElementById('close-hotpost-camera-btn')?.addEventListener('click', attemptCloseCamera);
     document.getElementById('switch-hotpost-camera-btn')?.addEventListener('click', switchCamera);
     document.getElementById('capture-hotpost-btn')?.addEventListener('click', capturePhoto);
-    document.getElementById('retake-hotpost-btn')?.addEventListener('click', attemptRetake);
     document.getElementById('submit-hotpost-btn')?.addEventListener('click', submitHotpost);
 
     document.getElementById('add-text-hotpost-btn')?.addEventListener('click', () => activateTextTool());
@@ -97,6 +129,38 @@ function setupEventListeners() {
         document.getElementById('hotpost-text-editor-overlay').classList.replace('flex', 'hidden');
     });
     document.getElementById('done-text-btn')?.addEventListener('click', saveTextFromUI);
+    
+    document.getElementById('toggle-text-bg-btn')?.addEventListener('click', () => {
+        currentTextBg = !currentTextBg;
+        updateTextUIPreview();
+    });
+
+    // 🚀 INJECT FONTS & COLORS
+    const colorPicker = document.getElementById('text-color-picker');
+    if (colorPicker) {
+        colorPicker.innerHTML = TEXT_COLORS.map(color => `
+            <button class="w-8 h-8 rounded-full shrink-0 border-2 ${color === '#FFFFFF' ? 'border-gray-300' : 'border-transparent'} shadow-sm transition-transform active:scale-90 text-color-btn" data-color="${color}" style="background-color: ${color};"></button>
+        `).join('');
+        colorPicker.querySelectorAll('.text-color-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                currentTextColor = e.target.dataset.color;
+                updateTextUIPreview();
+            });
+        });
+    }
+
+    const fontPicker = document.getElementById('text-font-picker');
+    if (fontPicker) {
+        fontPicker.innerHTML = TEXT_FONTS.map(font => `
+            <button class="px-4 py-1.5 rounded-full shrink-0 bg-white/20 text-white font-bold text-sm transition-transform active:scale-90 text-font-btn" data-font="${font.value}" style="font-family: ${font.value}">${font.name}</button>
+        `).join('');
+        fontPicker.querySelectorAll('.text-font-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                currentTextFont = e.target.dataset.font;
+                updateTextUIPreview();
+            });
+        });
+    }
 
     setupVideoZoomPhysics();
     setupEditorTouchPhysics();
@@ -185,9 +249,6 @@ function showCustomConfirm(title, message, onConfirm) {
     });
 }
 
-// ==========================================
-// DISCARD & CLOSE WARNINGS
-// ==========================================
 function attemptCloseCamera() {
     if (currentPhotoBlob) {
         showCustomConfirm("Discard Hotpost?", "If you go back now, you will lose your edits.", () => {
@@ -196,16 +257,6 @@ function attemptCloseCamera() {
         });
     } else {
         closeCameraModal(true);
-    }
-}
-
-function attemptRetake() {
-    if (textElements.length > 0 || doodlePaths.length > 0 || currentFilterIndex !== 0 || imgTransform.scale > 1) {
-        showCustomConfirm("Discard Edits?", "Are you sure you want to retake this photo?", () => {
-            resetCameraUI();
-        });
-    } else {
-        resetCameraUI();
     }
 }
 
@@ -294,10 +345,8 @@ function capturePhoto() {
         baseImageObj = new Image();
         baseImageObj.onload = () => {
             document.getElementById('hotpost-preview-img').src = URL.createObjectURL(blob);
-            
             imgTransform.scale = videoZoomScale;
             document.getElementById('hotpost-preview-img').style.transform = `translate(0px, 0px) scale(${imgTransform.scale})`;
-            
             showPreviewUI();
             initDoodleCanvas();
         };
@@ -314,7 +363,6 @@ function resetCameraUI() {
     document.getElementById('editor-tools-container').classList.add('hidden');
     
     currentPhotoBlob = null;
-    
     videoZoomScale = 1;
     const video = document.getElementById('hotpost-camera-feed');
     if(video) video.style.transform = currentFacingMode === 'user' ? `scaleX(-1) scale(1)` : `scale(1)`;
@@ -338,9 +386,7 @@ function resetCameraUI() {
         doodleBtn.classList.add('bg-black/40', 'text-white');
     }
     
-    // 🚀 CRITICAL CLEANUP FIX: Clear new .text-widget blocks
     document.querySelectorAll('.text-widget').forEach(el => el.remove());
-    document.querySelectorAll('.hotpost-draggable-text').forEach(el => el.remove());
     
     textElements = [];
     activeTextId = null;
@@ -359,7 +405,7 @@ function showPreviewUI() {
 }
 
 // ==========================================
-// EDITOR: TEXT & DOODLE TOOLS
+// EDITOR: FONT & TEXT ENGINE
 // ==========================================
 function activateTextTool(textId = null) {
     activeTextId = textId;
@@ -370,10 +416,58 @@ function activateTextTool(textId = null) {
     if (textId) {
         const textObj = textElements.find(t => t.id === textId);
         textarea.value = textObj ? textObj.content : '';
+        currentTextFont = textObj.font || TEXT_FONTS[0].value;
+        currentTextColor = textObj.color || '#FFFFFF';
+        currentTextBg = textObj.hasBg || false;
     } else {
         textarea.value = '';
+        currentTextFont = TEXT_FONTS[0].value;
+        currentTextColor = '#FFFFFF';
+        currentTextBg = false;
     }
+    updateTextUIPreview();
     setTimeout(() => textarea.focus(), 50);
+}
+
+// 🚀 LIVE FONT PREVIEW UPDATER
+function updateTextUIPreview() {
+    const textarea = document.getElementById('hotpost-in-ui-textarea');
+    textarea.style.fontFamily = currentTextFont;
+    
+    const isNeon = currentTextFont === TEXT_FONTS[2].value;
+
+    if (currentTextBg) {
+        textarea.style.backgroundColor = currentTextColor;
+        textarea.style.color = getContrastYIQ(currentTextColor);
+        textarea.style.textShadow = 'none';
+        textarea.style.padding = '10px';
+        textarea.style.borderRadius = '12px';
+    } else {
+        textarea.style.backgroundColor = 'transparent';
+        textarea.style.padding = '0';
+        textarea.style.color = currentTextColor;
+        if (isNeon) {
+            textarea.style.textShadow = `0 0 10px ${currentTextColor}, 0 0 20px ${currentTextColor}`;
+        } else {
+            textarea.style.textShadow = '0 4px 16px rgba(0,0,0,0.9)';
+        }
+    }
+    
+    document.querySelectorAll('.text-color-btn').forEach(btn => {
+        btn.style.transform = btn.dataset.color === currentTextColor ? 'scale(1.2)' : 'scale(1)';
+        btn.style.border = btn.dataset.color === currentTextColor ? '2px solid white' : (btn.dataset.color === '#FFFFFF' ? '2px solid #ccc' : '2px solid transparent');
+    });
+
+    document.querySelectorAll('.text-font-btn').forEach(btn => {
+        btn.style.backgroundColor = btn.dataset.font === currentTextFont ? 'white' : 'rgba(255,255,255,0.2)';
+        btn.style.color = btn.dataset.font === currentTextFont ? 'black' : 'white';
+    });
+
+    const bgBtn = document.getElementById('toggle-text-bg-btn');
+    if (bgBtn) {
+        bgBtn.style.backgroundColor = currentTextBg ? 'white' : 'transparent';
+        bgBtn.style.color = currentTextBg ? 'black' : 'white';
+    }
 }
 
 function saveTextFromUI() {
@@ -383,7 +477,12 @@ function saveTextFromUI() {
     if (content) {
         if (activeTextId) {
             const textObj = textElements.find(t => t.id === activeTextId);
-            if (textObj) textObj.content = content;
+            if (textObj) {
+                textObj.content = content;
+                textObj.font = currentTextFont;
+                textObj.color = currentTextColor;
+                textObj.hasBg = currentTextBg;
+            }
         } else {
             const newId = 'text-' + Date.now();
             textElements.push({ 
@@ -392,7 +491,10 @@ function saveTextFromUI() {
                 x: 0.5, 
                 y: 0.5, 
                 width: 250, 
-                scale: 1.0 
+                scale: 1.0,
+                font: currentTextFont,
+                color: currentTextColor,
+                hasBg: currentTextBg
             });
             activeTextId = newId; 
         }
@@ -417,6 +519,22 @@ function renderTextElements() {
         widget.style.top = `${tObj.y * 100}%`;
         widget.style.transform = `translate(-50%, -50%) scale(${tObj.scale})`;
 
+        const isNeon = tObj.font === TEXT_FONTS[2].value;
+        let bgCSS = '';
+        let shadowCSS = '';
+        
+        if (tObj.hasBg) {
+            bgCSS = `background-color: ${tObj.color}; color: ${getContrastYIQ(tObj.color)}; padding: 6px 12px; border-radius: 8px;`;
+            shadowCSS = `text-shadow: none;`;
+        } else {
+            bgCSS = `color: ${tObj.color};`;
+            if (isNeon) {
+                shadowCSS = `text-shadow: 0 0 10px ${tObj.color}, 0 0 20px ${tObj.color};`;
+            } else {
+                shadowCSS = `text-shadow: 0 4px 16px rgba(0,0,0,0.9);`;
+            }
+        }
+
         widget.innerHTML = `
             <div class="text-widget-box">
                 <div class="text-handle handle-tl" data-action="delete"><span class="material-symbols-outlined text-[18px]">close</span></div>
@@ -424,7 +542,9 @@ function renderTextElements() {
                 <div class="text-handle handle-bl" data-action="duplicate"><span class="material-symbols-outlined text-[16px]">content_copy</span></div>
                 <div class="text-handle handle-br" data-action="scale"><span class="material-symbols-outlined text-[18px]">open_in_full</span></div>
                 <div class="text-handle handle-rm" data-action="width"></div>
-                <div class="text-widget-content" style="width: ${tObj.width}px; font-size: 24px;">${tObj.content}</div>
+                <div class="text-widget-content" style="width: ${tObj.width}px; font-size: 24px; font-family: ${tObj.font}; line-height: 1.3;">
+                    <span style="${bgCSS} ${shadowCSS} box-decoration-break: clone; -webkit-box-decoration-break: clone;">${tObj.content}</span>
+                </div>
             </div>
         `;
         container.appendChild(widget);
@@ -497,9 +617,6 @@ function redrawDoodleCanvas() {
     });
 }
 
-// ==========================================
-// 🚀 UNIFIED TOUCH PHYSICS (FLAWLESS ENGINE)
-// ==========================================
 function setupEditorTouchPhysics() {
     const container = document.getElementById('hotpost-preview-container');
     
@@ -516,7 +633,6 @@ function setupEditorTouchPhysics() {
         const handle = e.target.closest('.text-handle');
         const widget = e.target.closest('.text-widget');
 
-        // 1. TOOL HANDLE TOUCHED
         if (handle) {
             e.stopPropagation(); 
             touchMode = handle.dataset.action; 
@@ -552,13 +668,11 @@ function setupEditorTouchPhysics() {
             return;
         }
 
-        // 2. TEXT WIDGET BODY TOUCHED (Drag it)
         if (widget && !isDrawMode) {
             touchMode = 'drag_text';
             activeTextIdForTouch = widget.id;
             activeTextId = widget.id; 
             
-            // Activate CSS styling without destroying DOM node!
             document.querySelectorAll('.text-widget').forEach(el => el.classList.remove('active'));
             widget.classList.add('active');
 
@@ -572,7 +686,6 @@ function setupEditorTouchPhysics() {
             return;
         }
 
-        // 3. BACKGROUND TOUCHED
         activeTextId = null;
         activeTextIdForTouch = null;
         document.querySelectorAll('.text-widget').forEach(el => el.classList.remove('active'));
@@ -608,7 +721,6 @@ function setupEditorTouchPhysics() {
         const currentY = e.touches[0].clientY;
         const rect = container.getBoundingClientRect();
 
-        // 🚀 LIVE DOM UPDATES ONLY (No Re-Rendering!)
         if (touchMode === 'width') {
             const deltaX = currentX - startX;
             const tObj = textElements.find(t => t.id === activeTextIdForTouch);
@@ -729,7 +841,7 @@ async function submitHotpost() {
     const visibilityBtn = document.getElementById('hotpost-send-visibility');
     const rewatchBtn = document.getElementById('hotpost-rewatch-toggle');
     const visibility = visibilityBtn ? visibilityBtn.dataset.val : 'everyone';
-    const allowRewatch = rewatchBtn ? rewatchBtn.dataset.val === 'true' : false;
+    const allowRewatch = rewatchBtn ? rewatchBtn.dataset.val === 'true' : true; // 🚀 Failsafe Defaults to True
 
     const previewContainer = document.getElementById('hotpost-preview-container');
     const screenW = previewContainer.clientWidth;
@@ -782,14 +894,12 @@ async function submitHotpost() {
                     ctx.drawImage(doodleCanvas, 0, 0, finalWidth, finalHeight);
                 }
 
-                // 🚀 FLAWLESS TEXT WRAPPING ENGINE
+                // 🚀 TEXT BACKGROUND & FONT COMPILER
                 textElements.forEach(tObj => {
                     ctx.save(); 
 
                     const baseFontSize = 24; 
-                    // Add strict font fallbacks so canvas identically matches browser CSS font rendering
-                    ctx.font = `800 ${baseFontSize}px "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-                    ctx.fillStyle = "white";
+                    ctx.font = `800 ${baseFontSize}px ${tObj.font}`;
                     ctx.textAlign = "center";
                     ctx.textBaseline = "middle";
                     
@@ -806,7 +916,6 @@ async function submitHotpost() {
                             const testLine = currentLine + words[i] + ' ';
                             const metrics = ctx.measureText(testLine);
                             
-                            // Prevent single massive words from crashing the loop
                             if (metrics.width > maxWidth && currentLine.length > 0) {
                                 wrappedLines.push(currentLine.trim());
                                 currentLine = words[i] + ' ';
@@ -823,15 +932,46 @@ async function submitHotpost() {
                     ctx.translate(finalX, finalY);
                     ctx.scale(scaleFactor * tObj.scale, scaleFactor * tObj.scale);
 
-                    ctx.shadowColor = "rgba(0,0,0,0.9)";
-                    ctx.shadowBlur = 10; 
-
-                    const lineHeight = baseFontSize * 1.2;
+                    const isNeon = tObj.font === TEXT_FONTS[2].value;
+                    const lineHeight = baseFontSize * 1.3; // Match CSS Line Height
                     const totalHeight = wrappedLines.length * lineHeight;
                     const startY = -(totalHeight / 2) + (lineHeight / 2);
 
+                    // 1. Render Backgrounds (If enabled)
+                    if (tObj.hasBg) {
+                        ctx.fillStyle = tObj.color;
+                        ctx.shadowColor = "transparent";
+                        ctx.shadowBlur = 0;
+                        
+                        wrappedLines.forEach((line, index) => {
+                            if(!line) return; 
+                            const metrics = ctx.measureText(line);
+                            const lineW = metrics.width;
+                            const lineY = startY + (index * lineHeight);
+                            const px = 12; 
+                            const py = 6;  
+                            
+                            ctx.beginPath();
+                            ctx.roundRect(-lineW/2 - px, lineY - (lineHeight/2) - py, lineW + (px*2), lineHeight + (py*2), 8);
+                            ctx.fill();
+                        });
+
+                        ctx.fillStyle = getContrastYIQ(tObj.color);
+                    } else {
+                        ctx.fillStyle = tObj.color;
+                        if (isNeon) {
+                            ctx.shadowColor = tObj.color;
+                            ctx.shadowBlur = 10;
+                        } else {
+                            ctx.shadowColor = "rgba(0,0,0,0.9)";
+                            ctx.shadowBlur = 10; 
+                        }
+                    }
+
+                    // 2. Render Text
                     wrappedLines.forEach((line, index) => {
                         const lineY = startY + (index * lineHeight);
+                        if (!tObj.hasBg && isNeon) ctx.fillText(line, 0, lineY); // Double draw for Neon Glow
                         ctx.fillText(line, 0, lineY); 
                     });
 
