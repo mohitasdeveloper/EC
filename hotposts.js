@@ -9,7 +9,7 @@ import { CLOUDINARY_CLOUD_NAME, CLOUDINARY_HOTPOSTS_PRESET } from './config.js';
 let hotpostsByUser = new Map();
 let currentUser = null;
 let sessionViewedPostIds = new Set();
-let isUploadingBackground = false; // 🚀 Tracks Instagram-style background uploading
+let isUploadingBackground = false; 
 
 const HOTPOST_SKELETON = `
     <div class="flex flex-col items-center gap-1.5 shrink-0">
@@ -28,13 +28,11 @@ const ACTIVITY_SKELETON = `
     </div>
 `.repeat(5);
 
-// Camera, Gallery, and Image Zoom State
 let currentCameraStream = null;
 let currentFacingMode = 'environment';
 let currentPhotoBlob = null;
 let baseImageObj = null; 
 
-// Video Pre-Capture Zoom
 let videoZoomScale = 1;
 let initialVideoPinchDist = 0;
 
@@ -43,7 +41,6 @@ let isDraggingBg = false;
 let bgDragStartX = 0, bgDragStartY = 0;
 let initialBgScale = 1;
 
-// Swipe Filters
 const FILTER_LIST = [
     { name: 'NORMAL', css: 'none' },
     { name: 'VIVID', css: 'saturate(1.6) contrast(1.1)' },
@@ -53,13 +50,13 @@ const FILTER_LIST = [
 ];
 let currentFilterIndex = 0;
 
-// Editor: Text & Doodle Tools
 let textElements = [];
 let activeTextId = null;
 let activeTextIdForTouch = null;
 let textTouchStartTime = 0;
 let initialPinchDist = 0;
 let initialTextScale = 1.0;
+let textInitialObjX = 0, textInitialObjY = 0;
 
 let isDrawMode = false;
 let isDrawing = false;
@@ -82,7 +79,6 @@ export function initHotposts(user) {
 }
 
 function setupEventListeners() {
-    // 🚀 Update to use Discard Warning logic
     document.getElementById('close-hotpost-camera-btn')?.addEventListener('click', attemptCloseCamera);
     document.getElementById('switch-hotpost-camera-btn')?.addEventListener('click', switchCamera);
     document.getElementById('capture-hotpost-btn')?.addEventListener('click', capturePhoto);
@@ -196,7 +192,7 @@ function attemptCloseCamera() {
     if (currentPhotoBlob) {
         showCustomConfirm("Discard Hotpost?", "If you go back now, you will lose your edits.", () => {
             resetCameraUI();
-            closeCameraModal(true); // force close
+            closeCameraModal(true); 
         });
     } else {
         closeCameraModal(true);
@@ -251,7 +247,6 @@ function switchCamera() {
     openCameraModal();
 }
 
-// 🚀 LIVE VIDEO ZOOM PHYSICS
 function setupVideoZoomPhysics() {
     const video = document.getElementById('hotpost-camera-feed');
     
@@ -271,9 +266,8 @@ function setupVideoZoomPhysics() {
             const currentDist = getPinchDistance(e.touches);
             const scaleChange = currentDist / initialVideoPinchDist;
             
-            // Limit zoom between 1x and 4x
             videoZoomScale = Math.max(1.0, Math.min(4.0, videoZoomScale * scaleChange));
-            initialVideoPinchDist = currentDist; // Reset for smooth continuous zooming
+            initialVideoPinchDist = currentDist; 
 
             video.style.transform = currentFacingMode === 'user' 
                 ? `scaleX(-1) scale(${videoZoomScale})` 
@@ -301,7 +295,6 @@ function capturePhoto() {
         baseImageObj.onload = () => {
             document.getElementById('hotpost-preview-img').src = URL.createObjectURL(blob);
             
-            // Transfer pre-capture video zoom to the post-capture image scale!
             imgTransform.scale = videoZoomScale;
             document.getElementById('hotpost-preview-img').style.transform = `translate(0px, 0px) scale(${imgTransform.scale})`;
             
@@ -322,22 +315,22 @@ function resetCameraUI() {
     
     currentPhotoBlob = null;
     
-    // Reset Video Zoom
     videoZoomScale = 1;
     const video = document.getElementById('hotpost-camera-feed');
-    video.style.transform = currentFacingMode === 'user' ? `scaleX(-1) scale(1)` : `scale(1)`;
+    if(video) video.style.transform = currentFacingMode === 'user' ? `scaleX(-1) scale(1)` : `scale(1)`;
 
-    // Reset Image Transforms
     imgTransform = { scale: 1, x: 0, y: 0 };
-    document.getElementById('hotpost-preview-img').style.transform = `translate(0px, 0px) scale(1)`;
+    const previewImg = document.getElementById('hotpost-preview-img');
+    if(previewImg) {
+        previewImg.style.transform = `translate(0px, 0px) scale(1)`;
+        previewImg.style.filter = FILTER_LIST[0].css;
+    }
     
-    // Reset Filters & Draw
     currentFilterIndex = 0;
-    document.getElementById('hotpost-preview-img').style.filter = FILTER_LIST[0].css;
     isDrawMode = false;
     doodlePaths = [];
-    document.getElementById('doodle-color-picker').classList.add('hidden');
-    document.getElementById('doodle-size-slider').classList.add('hidden');
+    document.getElementById('doodle-color-picker')?.classList.add('hidden');
+    document.getElementById('doodle-size-slider')?.classList.add('hidden');
     
     const doodleBtn = document.getElementById('doodle-hotpost-btn');
     if (doodleBtn) {
@@ -345,7 +338,10 @@ function resetCameraUI() {
         doodleBtn.classList.add('bg-black/40', 'text-white');
     }
     
+    // 🚀 CRITICAL CLEANUP FIX: Clear new .text-widget blocks
+    document.querySelectorAll('.text-widget').forEach(el => el.remove());
     document.querySelectorAll('.hotpost-draggable-text').forEach(el => el.remove());
+    
     textElements = [];
     activeTextId = null;
     activeTextIdForTouch = null;
@@ -389,17 +385,16 @@ function saveTextFromUI() {
             const textObj = textElements.find(t => t.id === activeTextId);
             if (textObj) textObj.content = content;
         } else {
-            // New Text Layer Defaults
             const newId = 'text-' + Date.now();
             textElements.push({ 
                 id: newId, 
                 content: content, 
                 x: 0.5, 
                 y: 0.5, 
-                width: 250, // Base pixel width
+                width: 250, 
                 scale: 1.0 
             });
-            activeTextId = newId; // Auto-select new text so handles appear
+            activeTextId = newId; 
         }
     } else if (activeTextId) {
         textElements = textElements.filter(t => t.id !== activeTextId);
@@ -422,7 +417,6 @@ function renderTextElements() {
         widget.style.top = `${tObj.y * 100}%`;
         widget.style.transform = `translate(-50%, -50%) scale(${tObj.scale})`;
 
-        // Build the Interactive Widget matching the provided image
         widget.innerHTML = `
             <div class="text-widget-box">
                 <div class="text-handle handle-tl" data-action="delete"><span class="material-symbols-outlined text-[18px]">close</span></div>
@@ -436,6 +430,7 @@ function renderTextElements() {
         container.appendChild(widget);
     });
 }
+
 function initDoodleCanvas() {
     setTimeout(() => {
         const canvas = document.getElementById('hotpost-doodle-canvas');
@@ -503,7 +498,7 @@ function redrawDoodleCanvas() {
 }
 
 // ==========================================
-// UNIFIED TOUCH PHYSICS (EDITOR)
+// 🚀 UNIFIED TOUCH PHYSICS (FLAWLESS ENGINE)
 // ==========================================
 function setupEditorTouchPhysics() {
     const container = document.getElementById('hotpost-preview-container');
@@ -525,17 +520,15 @@ function setupEditorTouchPhysics() {
         if (handle) {
             e.stopPropagation(); 
             touchMode = handle.dataset.action; 
-            activeTextIdForTouch = widget.id;
-            activeTextId = widget.id; 
-            renderTextElements(); 
-
+            
             startX = e.touches[0].clientX;
             startY = e.touches[0].clientY;
 
             if (touchMode === 'delete') {
                 textElements = textElements.filter(t => t.id !== activeTextIdForTouch);
                 activeTextId = null;
-                renderTextElements();
+                const widgetEl = document.getElementById(activeTextIdForTouch);
+                if (widgetEl) widgetEl.remove();
                 touchMode = 'idle';
             } else if (touchMode === 'edit') {
                 activateTextTool(activeTextIdForTouch);
@@ -545,10 +538,9 @@ function setupEditorTouchPhysics() {
                 const newId = 'text-' + Date.now();
                 textElements.push({...tObj, id: newId, y: tObj.y + 0.08});
                 activeTextId = newId;
-                renderTextElements();
+                renderTextElements(); 
                 touchMode = 'idle';
             } else {
-                // Prepare for Width or Scale drag
                 const tObj = textElements.find(t => t.id === activeTextIdForTouch);
                 initialObjWidth = tObj.width;
                 initialTextScale = tObj.scale;
@@ -560,24 +552,30 @@ function setupEditorTouchPhysics() {
             return;
         }
 
-        // 2. TEXT WIDGET TOUCHED (Drag it)
+        // 2. TEXT WIDGET BODY TOUCHED (Drag it)
         if (widget && !isDrawMode) {
             touchMode = 'drag_text';
             activeTextIdForTouch = widget.id;
-            activeTextId = widget.id; // Select it
-            renderTextElements();
+            activeTextId = widget.id; 
+            
+            // Activate CSS styling without destroying DOM node!
+            document.querySelectorAll('.text-widget').forEach(el => el.classList.remove('active'));
+            widget.classList.add('active');
 
             startX = e.touches[0].clientX;
             startY = e.touches[0].clientY;
             const tObj = textElements.find(t => t.id === activeTextIdForTouch);
-            textInitialObjX = tObj.x;
-            textInitialObjY = tObj.y;
+            if(tObj) {
+                textInitialObjX = tObj.x;
+                textInitialObjY = tObj.y;
+            }
             return;
         }
 
         // 3. BACKGROUND TOUCHED
-        activeTextId = null; // Deselect text
-        renderTextElements();
+        activeTextId = null;
+        activeTextIdForTouch = null;
+        document.querySelectorAll('.text-widget').forEach(el => el.classList.remove('active'));
 
         if (e.touches.length === 2 && !isDrawMode) {
             touchMode = 'zoom_bg';
@@ -610,26 +608,48 @@ function setupEditorTouchPhysics() {
         const currentY = e.touches[0].clientY;
         const rect = container.getBoundingClientRect();
 
-        // HANDLE: Adjust Width
+        // 🚀 LIVE DOM UPDATES ONLY (No Re-Rendering!)
         if (touchMode === 'width') {
             const deltaX = currentX - startX;
             const tObj = textElements.find(t => t.id === activeTextIdForTouch);
-            // Multiply by 2 because it grows from the center
             const adjustedDelta = (deltaX * 2) / tObj.scale; 
             tObj.width = Math.max(80, initialObjWidth + adjustedDelta);
-            renderTextElements();
+            
+            const widgetEl = document.getElementById(activeTextIdForTouch);
+            if(widgetEl) {
+                const contentEl = widgetEl.querySelector('.text-widget-content');
+                if(contentEl) contentEl.style.width = `${tObj.width}px`;
+            }
             return;
         }
 
-        // HANDLE: Adjust Scale
         if (touchMode === 'scale') {
             const tObj = textElements.find(t => t.id === activeTextIdForTouch);
             const currentDist = Math.hypot(currentX - widgetCenterX, currentY - widgetCenterY);
             const scaleChange = currentDist / initialPinchDist;
             tObj.scale = Math.max(0.3, Math.min(6.0, initialTextScale * scaleChange));
-            renderTextElements();
+            
+            const widgetEl = document.getElementById(activeTextIdForTouch);
+            if(widgetEl) widgetEl.style.transform = `translate(-50%, -50%) scale(${tObj.scale})`;
             return;
         }
+
+        if (touchMode === 'drag_text' && activeTextIdForTouch) {
+            const tObj = textElements.find(t => t.id === activeTextIdForTouch);
+            if (tObj) {
+                const deltaX = (currentX - startX) / rect.width;
+                const deltaY = (currentY - startY) / rect.height;
+                tObj.x = Math.max(-0.2, Math.min(1.2, textInitialObjX + deltaX)); 
+                tObj.y = Math.max(-0.2, Math.min(1.2, textInitialObjY + deltaY));
+                
+                const widgetEl = document.getElementById(activeTextIdForTouch);
+                if(widgetEl) {
+                    widgetEl.style.left = `${tObj.x * 100}%`;
+                    widgetEl.style.top = `${tObj.y * 100}%`;
+                }
+            }
+            return;
+        } 
 
         if (touchMode === 'zoom_bg' && e.touches.length === 2) {
             const currentDist = getPinchDistance(e.touches);
@@ -649,22 +669,7 @@ function setupEditorTouchPhysics() {
             return;
         }
 
-        if (touchMode === 'drag_text' && activeTextIdForTouch) {
-            const tObj = textElements.find(t => t.id === activeTextIdForTouch);
-            if (tObj) {
-                const deltaX = (currentX - startX) / rect.width;
-                const deltaY = (currentY - startY) / rect.height;
-                tObj.x = Math.max(-0.2, Math.min(1.2, textInitialObjX + deltaX)); 
-                tObj.y = Math.max(-0.2, Math.min(1.2, textInitialObjY + deltaY));
-                
-                const widgetEl = document.getElementById(activeTextIdForTouch);
-                if(widgetEl) {
-                    widgetEl.style.left = `${tObj.x * 100}%`;
-                    widgetEl.style.top = `${tObj.y * 100}%`;
-                }
-            }
-        } 
-        else if (touchMode === 'draw' && isDrawing) {
+        if (touchMode === 'draw' && isDrawing) {
             currentPath.push({ x: currentX - rect.left, y: currentY - rect.top });
             const ctx = document.getElementById('hotpost-doodle-canvas').getContext('2d');
             ctx.lineJoin = "round"; ctx.lineCap = "round"; 
@@ -702,7 +707,6 @@ function setupEditorTouchPhysics() {
         
         if (e.touches.length === 0) {
             touchMode = 'idle';
-            activeTextIdForTouch = null;
         }
     }, { passive: true });
 }
@@ -717,7 +721,7 @@ function showFilterToast(name) {
 }
 
 // ==========================================
-// BACKGROUND UPLOADING ENGINE (Instagram Style)
+// BACKGROUND UPLOADING ENGINE 
 // ==========================================
 async function submitHotpost() {
     if (!currentPhotoBlob) return;
@@ -778,24 +782,22 @@ async function submitHotpost() {
                     ctx.drawImage(doodleCanvas, 0, 0, finalWidth, finalHeight);
                 }
 
-              // 🚀 THE PERFECT TEXT COMPILER
+                // 🚀 FLAWLESS TEXT WRAPPING ENGINE
                 textElements.forEach(tObj => {
                     ctx.save(); 
 
-                    // 1. Lock base font to exactly 24px (Same as UI native size)
                     const baseFontSize = 24; 
-                    ctx.font = `800 ${baseFontSize}px Inter, sans-serif`;
+                    // Add strict font fallbacks so canvas identically matches browser CSS font rendering
+                    ctx.font = `800 ${baseFontSize}px "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
                     ctx.fillStyle = "white";
                     ctx.textAlign = "center";
                     ctx.textBaseline = "middle";
                     
-                    // 2. Lock maximum wrap width to the exact pixels the user set via the tool
-                    const maxWidth = tObj.width; 
+                    const maxWidth = tObj.width || 250; 
                     
                     const paragraphs = tObj.content.split('\n');
                     let wrappedLines = [];
                     
-                    // 3. Process line breaks natively
                     paragraphs.forEach(paragraph => {
                         if (!paragraph) { wrappedLines.push(''); return; }
                         const words = paragraph.split(' ');
@@ -804,7 +806,8 @@ async function submitHotpost() {
                             const testLine = currentLine + words[i] + ' ';
                             const metrics = ctx.measureText(testLine);
                             
-                            if (metrics.width > maxWidth && i > 0) {
+                            // Prevent single massive words from crashing the loop
+                            if (metrics.width > maxWidth && currentLine.length > 0) {
                                 wrappedLines.push(currentLine.trim());
                                 currentLine = words[i] + ' ';
                             } else {
@@ -814,7 +817,6 @@ async function submitHotpost() {
                         wrappedLines.push(currentLine.trim());
                     });
 
-                    // 4. Matrix Translation: Center origin, scale up to Canvas size, then apply user scale
                     const finalX = finalWidth * tObj.x;
                     const finalY = finalHeight * tObj.y;
 
@@ -824,7 +826,6 @@ async function submitHotpost() {
                     ctx.shadowColor = "rgba(0,0,0,0.9)";
                     ctx.shadowBlur = 10; 
 
-                    // 5. Draw lines perfectly aligned
                     const lineHeight = baseFontSize * 1.2;
                     const totalHeight = wrappedLines.length * lineHeight;
                     const startY = -(totalHeight / 2) + (lineHeight / 2);
@@ -943,7 +944,6 @@ async function fetchHotposts() {
     const { data, error } = await query;
     if (error) return;
 
-    // 🚀 FILTER: Keep unviewed posts, OR viewed posts that allow rewatch
     const unviewedData = data.filter(post => {
         if (post.user_id === currentUser.id) return true; 
         const hasViewed = post.hotpost_views.some(v => v.viewer_id === currentUser.id);
@@ -957,13 +957,12 @@ async function fetchHotposts() {
     for (const post of unviewedData) {
         const userId = post.users.id;
         if (!hotpostsByUser.has(userId)) {
-            // Default to viewed=true. We will turn it colorful (false) if we find an unviewed post
             hotpostsByUser.set(userId, { user: post.users, posts: [], viewed: true });
         }
         
         const hasViewed = post.hotpost_views.some(v => v.viewer_id === currentUser.id);
         if (!hasViewed && post.user_id !== currentUser.id) {
-            hotpostsByUser.get(userId).viewed = false; // Makes the ring colorful
+            hotpostsByUser.get(userId).viewed = false; 
         }
         
         hotpostsByUser.get(userId).posts.unshift({ ...post, users: undefined }); 
@@ -971,23 +970,19 @@ async function fetchHotposts() {
 
     renderHotpostCircles();
 }
+
 function renderHotpostCircles() {
     const container = document.querySelector('#view-dashboard .flex.gap-4.overflow-x-auto');
     if (!container) return;
     container.innerHTML = ''; 
 
-    // 1. "Add Story" Button / Uploading Indicator
     const addCircle = document.createElement('div');
     addCircle.className = 'hotpost-circle flex flex-col items-center gap-1.5 shrink-0 cursor-pointer active:scale-95 transition-transform relative z-20';
     
     if (isUploadingBackground) {
-        // 🚀 Show Spinning Upload Ring (Isolated from the image)
         addCircle.innerHTML = `
             <div class="w-[80px] h-[80px] relative flex items-center justify-center pointer-events-none shadow-sm">
-                <!-- The Spinning Dashed Border Overlay -->
                 <div class="absolute inset-0 rounded-full hotpost-uploading-ring"></div>
-                
-                <!-- The Static Profile Image (Stays perfectly still) -->
                 <div class="w-[74px] h-[74px] rounded-full border-2 border-white dark:border-[#121212] overflow-hidden bg-gray-100 dark:bg-neutral-800 z-10">
                     <img src="${currentUser.profile_img_url}" class="w-full h-full object-cover opacity-60">
                 </div>
@@ -997,7 +992,7 @@ function renderHotpostCircles() {
     } else {
         addCircle.innerHTML = `
             <div class="w-[80px] h-[80px] rounded-full p-[2.5px] bg-transparent shadow-sm relative">
-                <div class="w-full h-full rounded-full border-2 border-white dark:border-neutral-900 overflow-hidden bg-gray-100 dark:bg-neutral-800">
+                <div class="w-full h-full rounded-full border-2 border-surface-variant dark:border-neutral-700 overflow-hidden bg-gray-100 dark:bg-neutral-800">
                     <img src="${currentUser.profile_img_url}" class="w-full h-full object-cover opacity-60">
                 </div>
                 <div class="absolute bottom-0 right-0 w-7 h-7 bg-primary text-white rounded-full border-[2.5px] border-white dark:border-[#121212] flex items-center justify-center z-30 shadow-sm">
@@ -1010,7 +1005,6 @@ function renderHotpostCircles() {
     }
     container.appendChild(addCircle);
 
-    // 2. "Your Story" Ring
     const myData = hotpostsByUser.get(currentUser.id);
     if (myData && myData.posts.length > 0) {
         const myCircle = document.createElement('div');
@@ -1075,7 +1069,7 @@ function preloadHotpostImages() {
 }
 
 // ==========================================
-// VIEWER ENGINES & PHYSICS (Ultimate Failsafe)
+// VIEWER ENGINES & PHYSICS
 // ==========================================
 function setupViewerTouchPhysics() {
     const viewer = document.getElementById('modal-view-hotpost');
@@ -1230,24 +1224,19 @@ function closeHotpostViewer() {
     toggleCameraStatusBar(false);
 }
 
-// 🚀 OPTION C HYBRID ENGINE: Evaluates local ring state immediately after you finish watching
 function processStoryDisappear() {
     const lastViewedUser = currentViewerState.userId;
     if (lastViewedUser && lastViewedUser !== currentUser.id) {
         const userData = hotpostsByUser.get(lastViewedUser);
         if (userData) {
-            
-            // Re-filter their posts. Keep only ones that allow rewatch OR haven't been seen yet.
             userData.posts = userData.posts.filter(p => {
                 const viewed = p.hotpost_views?.some(v => v.viewer_id === currentUser.id) || sessionViewedPostIds.has(p.id);
                 return !viewed || p.allow_rewatch;
             });
             
             if (userData.posts.length === 0) {
-                // All posts watched, and NONE allow rewatch -> Destroy the circle forever
                 hotpostsByUser.delete(lastViewedUser);
             } else {
-                // Posts remain, meaning they allow rewatch -> Turn the circle Grey locally
                 userData.viewed = true; 
             }
             renderHotpostCircles();
@@ -1550,7 +1539,6 @@ async function executeDeleteHotpost() {
 window.openHotpostCamera = openCameraModal;
 window.openStoryDetailsModal = openActivityPanel;
 
-// Expose the correct viewer functions globally so notifications can trigger them
 window.openHotpostViewer = openHotpostViewer;
 window.showMyHotposts = () => openHotpostViewer(currentUser.id);
 window.refreshHotposts = fetchHotposts;
