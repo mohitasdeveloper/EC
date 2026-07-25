@@ -49,6 +49,7 @@ const TEXT_COLORS = ['#FFFFFF', '#000000', '#FF3B30', '#34C759', '#007AFF', '#FF
 let currentTextFont = TEXT_FONTS[0].value;
 let currentTextColor = '#FFFFFF';
 let currentTextBg = false;
+let currentTextAlign = 'center'; // 🚀 Added Alignment State
 
 // 🚀 Calculates perfect contrast (Black or White) for Text Backgrounds
 function getContrastYIQ(hexcolor){
@@ -135,7 +136,23 @@ function setupEventListeners() {
         updateTextUIPreview();
     });
 
-    // 🚀 INJECT FONTS & COLORS
+   // 🚀 NEW ALIGNMENT TOGGLE
+    document.getElementById('toggle-text-align-btn')?.addEventListener('click', (e) => {
+        const btn = e.currentTarget.querySelector('span');
+        if (currentTextAlign === 'center') {
+            currentTextAlign = 'left';
+            btn.textContent = 'format_align_left';
+        } else if (currentTextAlign === 'left') {
+            currentTextAlign = 'right';
+            btn.textContent = 'format_align_right';
+        } else {
+            currentTextAlign = 'center';
+            btn.textContent = 'format_align_center';
+        }
+        updateTextUIPreview();
+    });
+
+    // 🚀 INJECT FONTS & COLORS (Fixed Quote Escaping Bug!)
     const colorPicker = document.getElementById('text-color-picker');
     if (colorPicker) {
         colorPicker.innerHTML = TEXT_COLORS.map(color => `
@@ -151,17 +168,18 @@ function setupEventListeners() {
 
     const fontPicker = document.getElementById('text-font-picker');
     if (fontPicker) {
-        fontPicker.innerHTML = TEXT_FONTS.map(font => `
-            <button class="px-4 py-1.5 rounded-full shrink-0 bg-white/20 text-white font-bold text-sm transition-transform active:scale-90 text-font-btn" data-font="${font.value}" style="font-family: ${font.value}">${font.name}</button>
+        fontPicker.innerHTML = TEXT_FONTS.map((font, index) => `
+            <button class="px-4 py-1.5 rounded-full shrink-0 bg-white/20 text-white font-bold text-sm transition-transform active:scale-90 text-font-btn" data-fontindex="${index}" style="font-family: ${font.value.replace(/"/g, "'")}">${font.name}</button>
         `).join('');
         fontPicker.querySelectorAll('.text-font-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                currentTextFont = e.target.dataset.font;
+                // Fetch safely by index to avoid HTML attribute quote crashes
+                const idx = e.target.dataset.fontindex;
+                currentTextFont = TEXT_FONTS[idx].value;
                 updateTextUIPreview();
             });
         });
     }
-
     setupVideoZoomPhysics();
     setupEditorTouchPhysics();
     setupViewerTouchPhysics();
@@ -419,20 +437,26 @@ function activateTextTool(textId = null) {
         currentTextFont = textObj.font || TEXT_FONTS[0].value;
         currentTextColor = textObj.color || '#FFFFFF';
         currentTextBg = textObj.hasBg || false;
+        currentTextAlign = textObj.align || 'center';
     } else {
         textarea.value = '';
         currentTextFont = TEXT_FONTS[0].value;
         currentTextColor = '#FFFFFF';
         currentTextBg = false;
+        currentTextAlign = 'center';
     }
+
+    const alignBtnSpan = document.querySelector('#toggle-text-align-btn span');
+    if (alignBtnSpan) alignBtnSpan.textContent = `format_align_${currentTextAlign}`;
+
     updateTextUIPreview();
     setTimeout(() => textarea.focus(), 50);
 }
 
-// 🚀 LIVE FONT PREVIEW UPDATER
 function updateTextUIPreview() {
     const textarea = document.getElementById('hotpost-in-ui-textarea');
     textarea.style.fontFamily = currentTextFont;
+    textarea.style.textAlign = currentTextAlign; // Apply live alignment
     
     const isNeon = currentTextFont === TEXT_FONTS[2].value;
 
@@ -459,8 +483,10 @@ function updateTextUIPreview() {
     });
 
     document.querySelectorAll('.text-font-btn').forEach(btn => {
-        btn.style.backgroundColor = btn.dataset.font === currentTextFont ? 'white' : 'rgba(255,255,255,0.2)';
-        btn.style.color = btn.dataset.font === currentTextFont ? 'black' : 'white';
+        const idx = btn.dataset.fontindex;
+        const isSelected = TEXT_FONTS[idx].value === currentTextFont;
+        btn.style.backgroundColor = isSelected ? 'white' : 'rgba(255,255,255,0.2)';
+        btn.style.color = isSelected ? 'black' : 'white';
     });
 
     const bgBtn = document.getElementById('toggle-text-bg-btn');
@@ -482,6 +508,7 @@ function saveTextFromUI() {
                 textObj.font = currentTextFont;
                 textObj.color = currentTextColor;
                 textObj.hasBg = currentTextBg;
+                textObj.align = currentTextAlign;
             }
         } else {
             const newId = 'text-' + Date.now();
@@ -494,7 +521,8 @@ function saveTextFromUI() {
                 scale: 1.0,
                 font: currentTextFont,
                 color: currentTextColor,
-                hasBg: currentTextBg
+                hasBg: currentTextBg,
+                align: currentTextAlign
             });
             activeTextId = newId; 
         }
@@ -542,7 +570,7 @@ function renderTextElements() {
                 <div class="text-handle handle-bl" data-action="duplicate"><span class="material-symbols-outlined text-[16px]">content_copy</span></div>
                 <div class="text-handle handle-br" data-action="scale"><span class="material-symbols-outlined text-[18px]">open_in_full</span></div>
                 <div class="text-handle handle-rm" data-action="width"></div>
-                <div class="text-widget-content" style="width: ${tObj.width}px; font-size: 24px; font-family: ${tObj.font}; line-height: 1.3;">
+                <div class="text-widget-content" style="width: ${tObj.width}px; font-size: 24px; font-family: ${tObj.font.replace(/"/g, "'")}; text-align: ${tObj.align || 'center'}; line-height: 1.3;">
                     <span style="${bgCSS} ${shadowCSS} box-decoration-break: clone; -webkit-box-decoration-break: clone;">${tObj.content}</span>
                 </div>
             </div>
@@ -893,14 +921,13 @@ async function submitHotpost() {
                 if (doodlePaths.length > 0) {
                     ctx.drawImage(doodleCanvas, 0, 0, finalWidth, finalHeight);
                 }
-
-                // 🚀 TEXT BACKGROUND & FONT COMPILER
+// 🚀 TEXT BACKGROUND, FONT, AND ALIGNMENT COMPILER
                 textElements.forEach(tObj => {
                     ctx.save(); 
 
                     const baseFontSize = 24; 
                     ctx.font = `800 ${baseFontSize}px ${tObj.font}`;
-                    ctx.textAlign = "center";
+                    ctx.textAlign = tObj.align || 'center'; // Apply requested alignment
                     ctx.textBaseline = "middle";
                     
                     const maxWidth = tObj.width || 250; 
@@ -933,9 +960,14 @@ async function submitHotpost() {
                     ctx.scale(scaleFactor * tObj.scale, scaleFactor * tObj.scale);
 
                     const isNeon = tObj.font === TEXT_FONTS[2].value;
-                    const lineHeight = baseFontSize * 1.3; // Match CSS Line Height
+                    const lineHeight = baseFontSize * 1.3; 
                     const totalHeight = wrappedLines.length * lineHeight;
                     const startY = -(totalHeight / 2) + (lineHeight / 2);
+
+                    // Calculate X rendering offset based on alignment
+                    let textDrawX = 0;
+                    if (tObj.align === 'left') textDrawX = -(maxWidth / 2);
+                    if (tObj.align === 'right') textDrawX = (maxWidth / 2);
 
                     // 1. Render Backgrounds (If enabled)
                     if (tObj.hasBg) {
@@ -951,8 +983,14 @@ async function submitHotpost() {
                             const px = 12; 
                             const py = 6;  
                             
+                            // Align background box dynamically
+                            let bgStartX = 0;
+                            if (tObj.align === 'center') bgStartX = -lineW/2 - px;
+                            if (tObj.align === 'left') bgStartX = textDrawX - px;
+                            if (tObj.align === 'right') bgStartX = textDrawX - lineW - px;
+                            
                             ctx.beginPath();
-                            ctx.roundRect(-lineW/2 - px, lineY - (lineHeight/2) - py, lineW + (px*2), lineHeight + (py*2), 8);
+                            ctx.roundRect(bgStartX, lineY - (lineHeight/2) - py, lineW + (px*2), lineHeight + (py*2), 8);
                             ctx.fill();
                         });
 
@@ -971,8 +1009,8 @@ async function submitHotpost() {
                     // 2. Render Text
                     wrappedLines.forEach((line, index) => {
                         const lineY = startY + (index * lineHeight);
-                        if (!tObj.hasBg && isNeon) ctx.fillText(line, 0, lineY); // Double draw for Neon Glow
-                        ctx.fillText(line, 0, lineY); 
+                        if (!tObj.hasBg && isNeon) ctx.fillText(line, textDrawX, lineY); 
+                        ctx.fillText(line, textDrawX, lineY); 
                     });
 
                     ctx.restore(); 
