@@ -438,62 +438,36 @@ function activateTextTool(textId = null) {
         currentTextColor = textObj.color || '#FFFFFF';
         currentTextBg = textObj.hasBg || false;
         currentTextAlign = textObj.align || 'center';
+        
+        // 🚀 Match the typing box to the exact adjusted width of the widget
+        textarea.style.width = textObj ? `${textObj.width}px` : '85vw'; 
     } else {
         textarea.value = '';
         currentTextFont = TEXT_FONTS[0].value;
         currentTextColor = '#FFFFFF';
         currentTextBg = false;
         currentTextAlign = 'center';
+        
+        // 🚀 Give new textboxes Full Screen Width by default
+        textarea.style.width = '85vw'; 
     }
 
     const alignBtnSpan = document.querySelector('#toggle-text-align-btn span');
     if (alignBtnSpan) alignBtnSpan.textContent = `format_align_${currentTextAlign}`;
 
+    // 🚀 Auto-expanding height logic for a perfect typing experience
+    const adjustHeight = () => {
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+    };
+    textarea.removeEventListener('input', adjustHeight);
+    textarea.addEventListener('input', adjustHeight);
+
     updateTextUIPreview();
-    setTimeout(() => textarea.focus(), 50);
-}
-
-function updateTextUIPreview() {
-    const textarea = document.getElementById('hotpost-in-ui-textarea');
-    textarea.style.fontFamily = currentTextFont;
-    textarea.style.textAlign = currentTextAlign; // Apply live alignment
-    
-    const isNeon = currentTextFont === TEXT_FONTS[2].value;
-
-    if (currentTextBg) {
-        textarea.style.backgroundColor = currentTextColor;
-        textarea.style.color = getContrastYIQ(currentTextColor);
-        textarea.style.textShadow = 'none';
-        textarea.style.padding = '10px';
-        textarea.style.borderRadius = '12px';
-    } else {
-        textarea.style.backgroundColor = 'transparent';
-        textarea.style.padding = '0';
-        textarea.style.color = currentTextColor;
-        if (isNeon) {
-            textarea.style.textShadow = `0 0 10px ${currentTextColor}, 0 0 20px ${currentTextColor}`;
-        } else {
-            textarea.style.textShadow = '0 4px 16px rgba(0,0,0,0.9)';
-        }
-    }
-    
-    document.querySelectorAll('.text-color-btn').forEach(btn => {
-        btn.style.transform = btn.dataset.color === currentTextColor ? 'scale(1.2)' : 'scale(1)';
-        btn.style.border = btn.dataset.color === currentTextColor ? '2px solid white' : (btn.dataset.color === '#FFFFFF' ? '2px solid #ccc' : '2px solid transparent');
-    });
-
-    document.querySelectorAll('.text-font-btn').forEach(btn => {
-        const idx = btn.dataset.fontindex;
-        const isSelected = TEXT_FONTS[idx].value === currentTextFont;
-        btn.style.backgroundColor = isSelected ? 'white' : 'rgba(255,255,255,0.2)';
-        btn.style.color = isSelected ? 'black' : 'white';
-    });
-
-    const bgBtn = document.getElementById('toggle-text-bg-btn');
-    if (bgBtn) {
-        bgBtn.style.backgroundColor = currentTextBg ? 'white' : 'transparent';
-        bgBtn.style.color = currentTextBg ? 'black' : 'white';
-    }
+    setTimeout(() => {
+        textarea.focus();
+        adjustHeight(); // Initial height calculation
+    }, 50);
 }
 
 function saveTextFromUI() {
@@ -512,12 +486,16 @@ function saveTextFromUI() {
             }
         } else {
             const newId = 'text-' + Date.now();
+            
+            // 🚀 Capture the actual full-screen pixel width to save to the Canvas properly
+            const computedWidth = textarea.getBoundingClientRect().width || (window.innerWidth * 0.85);
+
             textElements.push({ 
                 id: newId, 
                 content: content, 
                 x: 0.5, 
                 y: 0.5, 
-                width: 250, 
+                width: computedWidth, 
                 scale: 1.0,
                 font: currentTextFont,
                 color: currentTextColor,
