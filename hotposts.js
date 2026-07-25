@@ -389,7 +389,17 @@ function saveTextFromUI() {
             const textObj = textElements.find(t => t.id === activeTextId);
             if (textObj) textObj.content = content;
         } else {
-            textElements.push({ id: 'text-' + Date.now(), content: content, x: 0.5, y: 0.5, scale: 1.0 });
+            // New Text Layer Defaults
+            const newId = 'text-' + Date.now();
+            textElements.push({ 
+                id: newId, 
+                content: content, 
+                x: 0.5, 
+                y: 0.5, 
+                width: 250, // Base pixel width
+                scale: 1.0 
+            });
+            activeTextId = newId; // Auto-select new text so handles appear
         }
     } else if (activeTextId) {
         textElements = textElements.filter(t => t.id !== activeTextId);
@@ -397,25 +407,35 @@ function saveTextFromUI() {
     
     renderTextElements();
     document.getElementById('hotpost-text-editor-overlay').classList.replace('flex', 'hidden');
-    activeTextId = null;
 }
 
 function renderTextElements() {
     const container = document.getElementById('hotpost-preview-container');
-    container.querySelectorAll('.hotpost-draggable-text').forEach(el => el.remove());
+    container.querySelectorAll('.text-widget').forEach(el => el.remove());
 
     textElements.forEach(tObj => {
-        const div = document.createElement('div');
-        div.className = 'hotpost-draggable-text';
-        div.id = tObj.id;
-        div.textContent = tObj.content; 
-        div.style.left = `${tObj.x * 100}%`;
-        div.style.top = `${tObj.y * 100}%`;
-        div.style.transform = `translate(-50%, -50%) scale(${tObj.scale})`;
-        container.appendChild(div);
+        const isActive = activeTextId === tObj.id;
+        const widget = document.createElement('div');
+        widget.className = `text-widget ${isActive ? 'active' : ''}`;
+        widget.id = tObj.id;
+        widget.style.left = `${tObj.x * 100}%`;
+        widget.style.top = `${tObj.y * 100}%`;
+        widget.style.transform = `translate(-50%, -50%) scale(${tObj.scale})`;
+
+        // Build the Interactive Widget matching the provided image
+        widget.innerHTML = `
+            <div class="text-widget-box">
+                <div class="text-handle handle-tl" data-action="delete"><span class="material-symbols-outlined text-[18px]">close</span></div>
+                <div class="text-handle handle-tr" data-action="edit"><span class="material-symbols-outlined text-[16px]">edit</span></div>
+                <div class="text-handle handle-bl" data-action="duplicate"><span class="material-symbols-outlined text-[16px]">content_copy</span></div>
+                <div class="text-handle handle-br" data-action="scale"><span class="material-symbols-outlined text-[18px]">open_in_full</span></div>
+                <div class="text-handle handle-rm" data-action="width"></div>
+                <div class="text-widget-content" style="width: ${tObj.width}px; font-size: 24px;">${tObj.content}</div>
+            </div>
+        `;
+        container.appendChild(widget);
     });
 }
-
 function initDoodleCanvas() {
     setTimeout(() => {
         const canvas = document.getElementById('hotpost-doodle-canvas');
@@ -490,83 +510,124 @@ function setupEditorTouchPhysics() {
     
     let touchMode = 'idle'; 
     let startX = 0, startY = 0;
-
-    let textDragStartX = 0, textDragStartY = 0;
-    let textInitialObjX = 0, textInitialObjY = 0;
+    let initialObjWidth = 0;
+    let widgetCenterX = 0, widgetCenterY = 0;
 
     const getPinchDistance = (touches) => {
         return Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
     };
 
     container.addEventListener('touchstart', (e) => {
-        // 🚀 FIXED: Strictly isolate Text zooming from Background zooming
-        if (e.touches.length === 2) {
-            const targetText = e.target.closest('.hotpost-draggable-text');
-            if (targetText && !isDrawMode) {
-                touchMode = 'zoom_text';
-                activeTextIdForTouch = targetText.id;
-                initialPinchDist = getPinchDistance(e.touches);
+        const handle = e.target.closest('.text-handle');
+        const widget = e.target.closest('.text-widget');
+
+        // 1. TOOL HANDLE TOUCHED
+        if (handle) {
+            e.stopPropagation(); 
+            touchMode = handle.dataset.action; 
+            activeTextIdForTouch = widget.id;
+            activeTextId = widget.id; 
+            renderTextElements(); 
+
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+
+            if (touchMode === 'delete') {
+                textElements = textElements.filter(t => t.id !== activeTextIdForTouch);
+                activeTextId = null;
+                renderTextElements();
+                touchMode = 'idle';
+            } else if (touchMode === 'edit') {
+                activateTextTool(activeTextIdForTouch);
+                touchMode = 'idle';
+            } else if (touchMode === 'duplicate') {
                 const tObj = textElements.find(t => t.id === activeTextIdForTouch);
-                initialTextScale = tObj ? tObj.scale : 1.0;
-            } else if (!isDrawMode && !targetText) {
-                touchMode = 'zoom_bg';
-                initialPinchDist = getPinchDistance(e.touches);
-                initialBgScale = imgTransform.scale;
+                const newId = 'text-' + Date.now();
+                textElements.push({...tObj, id: newId, y: tObj.y + 0.08});
+                activeTextId = newId;
+                renderTextElements();
+                touchMode = 'idle';
+            } else {
+                // Prepare for Width or Scale drag
+                const tObj = textElements.find(t => t.id === activeTextIdForTouch);
+                initialObjWidth = tObj.width;
+                initialTextScale = tObj.scale;
+                const rect = container.getBoundingClientRect();
+                widgetCenterX = rect.left + (rect.width * tObj.x);
+                widgetCenterY = rect.top + (rect.height * tObj.y);
+                initialPinchDist = Math.hypot(startX - widgetCenterX, startY - widgetCenterY);
             }
             return;
         }
 
-        if (e.touches.length > 1) return;
+        // 2. TEXT WIDGET TOUCHED (Drag it)
+        if (widget && !isDrawMode) {
+            touchMode = 'drag_text';
+            activeTextIdForTouch = widget.id;
+            activeTextId = widget.id; // Select it
+            renderTextElements();
 
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            const tObj = textElements.find(t => t.id === activeTextIdForTouch);
+            textInitialObjX = tObj.x;
+            textInitialObjY = tObj.y;
+            return;
+        }
+
+        // 3. BACKGROUND TOUCHED
+        activeTextId = null; // Deselect text
+        renderTextElements();
+
+        if (e.touches.length === 2 && !isDrawMode) {
+            touchMode = 'zoom_bg';
+            initialPinchDist = getPinchDistance(e.touches);
+            initialBgScale = imgTransform.scale;
+            return;
+        }
+
+        if (e.touches.length > 1) return;
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
 
-        const targetText = e.target.closest('.hotpost-draggable-text');
-        
-        if (targetText && !isDrawMode) {
-            touchMode = 'drag_text';
-            activeTextIdForTouch = targetText.id;
-            textTouchStartTime = Date.now();
-            
-            const tObj = textElements.find(t => t.id === activeTextIdForTouch);
-            if (tObj) {
-                textDragStartX = startX;
-                textDragStartY = startY;
-                textInitialObjX = tObj.x;
-                textInitialObjY = tObj.y;
-            }
-            document.getElementById('text-trash-zone')?.classList.remove('opacity-0');
-            document.getElementById('text-trash-zone')?.classList.add('opacity-100');
-        } 
-        else if (isDrawMode) {
+        if (isDrawMode) {
             touchMode = 'draw';
             isDrawing = true;
             const rect = container.getBoundingClientRect();
             currentPath = [{ x: startX - rect.left, y: startY - rect.top }];
-        } 
-        else {
-            if (imgTransform.scale > 1.0) {
-                touchMode = 'pan_bg';
-                bgDragStartX = startX;
-                bgDragStartY = startY;
-            } else {
-                touchMode = 'swipe';
-            }
+        } else {
+            touchMode = imgTransform.scale > 1.0 ? 'pan_bg' : 'swipe';
+            bgDragStartX = startX;
+            bgDragStartY = startY;
         }
     }, { passive: false });
 
     container.addEventListener('touchmove', (e) => {
         if (e.cancelable) e.preventDefault(); 
-        
-        if (touchMode === 'zoom_text' && e.touches.length === 2 && activeTextIdForTouch) {
-            const currentDist = getPinchDistance(e.touches);
-            const scaleChange = currentDist / initialPinchDist;
+        if (e.touches.length > 1 && touchMode !== 'zoom_bg') return;
+
+        const currentX = e.touches[0].clientX;
+        const currentY = e.touches[0].clientY;
+        const rect = container.getBoundingClientRect();
+
+        // HANDLE: Adjust Width
+        if (touchMode === 'width') {
+            const deltaX = currentX - startX;
             const tObj = textElements.find(t => t.id === activeTextIdForTouch);
-            const targetTextElement = document.getElementById(activeTextIdForTouch);
-            if (tObj && targetTextElement) {
-                tObj.scale = Math.max(0.3, Math.min(6.0, initialTextScale * scaleChange));
-                targetTextElement.style.transform = `translate(-50%, -50%) scale(${tObj.scale})`;
-            }
+            // Multiply by 2 because it grows from the center
+            const adjustedDelta = (deltaX * 2) / tObj.scale; 
+            tObj.width = Math.max(80, initialObjWidth + adjustedDelta);
+            renderTextElements();
+            return;
+        }
+
+        // HANDLE: Adjust Scale
+        if (touchMode === 'scale') {
+            const tObj = textElements.find(t => t.id === activeTextIdForTouch);
+            const currentDist = Math.hypot(currentX - widgetCenterX, currentY - widgetCenterY);
+            const scaleChange = currentDist / initialPinchDist;
+            tObj.scale = Math.max(0.3, Math.min(6.0, initialTextScale * scaleChange));
+            renderTextElements();
             return;
         }
 
@@ -574,22 +635,14 @@ function setupEditorTouchPhysics() {
             const currentDist = getPinchDistance(e.touches);
             const scaleChange = currentDist / initialPinchDist;
             imgTransform.scale = Math.max(1.0, Math.min(4.0, initialBgScale * scaleChange));
-            
             if (imgTransform.scale === 1.0) { imgTransform.x = 0; imgTransform.y = 0; }
             document.getElementById('hotpost-preview-img').style.transform = `translate(${imgTransform.x}px, ${imgTransform.y}px) scale(${imgTransform.scale})`;
             return;
         }
 
-        if (e.touches.length > 1) return;
-        const currentX = e.touches[0].clientX;
-        const currentY = e.touches[0].clientY;
-        const rect = container.getBoundingClientRect();
-
         if (touchMode === 'pan_bg') {
-            const deltaX = currentX - bgDragStartX;
-            const deltaY = currentY - bgDragStartY;
-            imgTransform.x += deltaX;
-            imgTransform.y += deltaY;
+            imgTransform.x += currentX - bgDragStartX;
+            imgTransform.y += currentY - bgDragStartY;
             bgDragStartX = currentX;
             bgDragStartY = currentY;
             document.getElementById('hotpost-preview-img').style.transform = `translate(${imgTransform.x}px, ${imgTransform.y}px) scale(${imgTransform.scale})`;
@@ -598,37 +651,22 @@ function setupEditorTouchPhysics() {
 
         if (touchMode === 'drag_text' && activeTextIdForTouch) {
             const tObj = textElements.find(t => t.id === activeTextIdForTouch);
-            const targetTextElement = document.getElementById(activeTextIdForTouch);
-            
-            if (tObj && targetTextElement) {
-                const deltaX = (currentX - textDragStartX) / rect.width;
-                const deltaY = (currentY - textDragStartY) / rect.height;
-
+            if (tObj) {
+                const deltaX = (currentX - startX) / rect.width;
+                const deltaY = (currentY - startY) / rect.height;
                 tObj.x = Math.max(-0.2, Math.min(1.2, textInitialObjX + deltaX)); 
                 tObj.y = Math.max(-0.2, Math.min(1.2, textInitialObjY + deltaY));
                 
-                const trashZone = document.getElementById('text-trash-zone');
-                if (trashZone) {
-                    const trashRect = trashZone.getBoundingClientRect();
-                    if (currentX > trashRect.left - 20 && currentX < trashRect.right + 20 && currentY > trashRect.top - 20 && currentY < trashRect.bottom + 20) {
-                        trashZone.classList.add('scale-[1.3]', 'bg-error', 'border-error');
-                        targetTextElement.style.opacity = '0.4';
-                        tObj.isOverTrash = true;
-                    } else {
-                        trashZone.classList.remove('scale-[1.3]', 'bg-error', 'border-error');
-                        targetTextElement.style.opacity = '1';
-                        tObj.isOverTrash = false;
-                    }
+                const widgetEl = document.getElementById(activeTextIdForTouch);
+                if(widgetEl) {
+                    widgetEl.style.left = `${tObj.x * 100}%`;
+                    widgetEl.style.top = `${tObj.y * 100}%`;
                 }
-                targetTextElement.style.left = `${tObj.x * 100}%`;
-                targetTextElement.style.top = `${tObj.y * 100}%`;
             }
         } 
         else if (touchMode === 'draw' && isDrawing) {
             currentPath.push({ x: currentX - rect.left, y: currentY - rect.top });
-            
-            const canvas = document.getElementById('hotpost-doodle-canvas');
-            const ctx = canvas.getContext('2d');
+            const ctx = document.getElementById('hotpost-doodle-canvas').getContext('2d');
             ctx.lineJoin = "round"; ctx.lineCap = "round"; 
             ctx.lineWidth = currentDoodleWidth; 
             ctx.strokeStyle = currentDoodleColor; ctx.shadowColor = currentDoodleColor; ctx.shadowBlur = 4;
@@ -643,27 +681,7 @@ function setupEditorTouchPhysics() {
     }, { passive: false });
     
     container.addEventListener('touchend', (e) => {
-        if (touchMode === 'drag_text' && activeTextIdForTouch) {
-            const trashZone = document.getElementById('text-trash-zone');
-            if (trashZone) {
-                trashZone.classList.remove('opacity-100', 'scale-[1.3]', 'bg-error', 'border-error');
-                trashZone.classList.add('opacity-0');
-            }
-
-            const tObj = textElements.find(t => t.id === activeTextIdForTouch);
-            const targetTextElement = document.getElementById(activeTextIdForTouch);
-            
-            if (tObj && tObj.isOverTrash) {
-                textElements = textElements.filter(t => t.id !== activeTextIdForTouch);
-                if (targetTextElement) targetTextElement.remove(); 
-            } else if (Date.now() - textTouchStartTime < 200) {
-                activateTextTool(activeTextIdForTouch);
-            } else if (targetTextElement && tObj) {
-                targetTextElement.style.opacity = '1';
-                targetTextElement.style.transform = `translate(-50%, -50%) scale(${tObj.scale})`;
-            }
-        }
-        else if (touchMode === 'draw' && isDrawing) {
+        if (touchMode === 'draw' && isDrawing) {
             isDrawing = false;
             if (currentPath.length > 1) doodlePaths.push({ color: currentDoodleColor, width: currentDoodleWidth, points: [...currentPath] });
             currentPath = [];
@@ -760,33 +778,26 @@ async function submitHotpost() {
                     ctx.drawImage(doodleCanvas, 0, 0, finalWidth, finalHeight);
                 }
 
-                // 🚀 FLAWLESS TEXT WRAPPING ENGINE
+              // 🚀 THE PERFECT TEXT COMPILER
                 textElements.forEach(tObj => {
-                    ctx.save(); // Save context before transforming
+                    ctx.save(); 
 
-                    // 1. Calculate at 1x Base Scale ONLY (Matches CSS 6.5vw)
-                    const baseFontSize = finalWidth * 0.065; 
-                    
+                    // 1. Lock base font to exactly 24px (Same as UI native size)
+                    const baseFontSize = 24; 
                     ctx.font = `800 ${baseFontSize}px Inter, sans-serif`;
                     ctx.fillStyle = "white";
                     ctx.textAlign = "center";
                     ctx.textBaseline = "middle";
                     
-                    const finalX = finalWidth * tObj.x;
-                    const finalY = finalHeight * tObj.y;
-                    
-                    // 2. Set max width at 1x scale (Matches CSS 85% exactly)
-                    const maxWidth = finalWidth * 0.85; 
+                    // 2. Lock maximum wrap width to the exact pixels the user set via the tool
+                    const maxWidth = tObj.width; 
                     
                     const paragraphs = tObj.content.split('\n');
                     let wrappedLines = [];
                     
-                    // 3. Wrap the text at 1x scale
+                    // 3. Process line breaks natively
                     paragraphs.forEach(paragraph => {
-                        if (!paragraph) {
-                            wrappedLines.push('');
-                            return;
-                        }
+                        if (!paragraph) { wrappedLines.push(''); return; }
                         const words = paragraph.split(' ');
                         let currentLine = '';
                         for (let i = 0; i < words.length; i++) {
@@ -803,25 +814,27 @@ async function submitHotpost() {
                         wrappedLines.push(currentLine.trim());
                     });
 
-                    // 4. Move origin to text center, THEN scale the canvas!
-                    // This perfectly mimics how CSS "transform: scale()" works visually.
+                    // 4. Matrix Translation: Center origin, scale up to Canvas size, then apply user scale
+                    const finalX = finalWidth * tObj.x;
+                    const finalY = finalHeight * tObj.y;
+
                     ctx.translate(finalX, finalY);
-                    ctx.scale(tObj.scale, tObj.scale);
+                    ctx.scale(scaleFactor * tObj.scale, scaleFactor * tObj.scale);
 
                     ctx.shadowColor = "rgba(0,0,0,0.9)";
-                    ctx.shadowBlur = 20;
+                    ctx.shadowBlur = 10; 
 
-                    // 5. Draw the wrapped text at the scaled origin
+                    // 5. Draw lines perfectly aligned
                     const lineHeight = baseFontSize * 1.2;
                     const totalHeight = wrappedLines.length * lineHeight;
                     const startY = -(totalHeight / 2) + (lineHeight / 2);
 
                     wrappedLines.forEach((line, index) => {
                         const lineY = startY + (index * lineHeight);
-                        ctx.fillText(line, 0, lineY); // X is 0 because of ctx.translate
+                        ctx.fillText(line, 0, lineY); 
                     });
 
-                    ctx.restore(); // Reset context for the next text block
+                    ctx.restore(); 
                 });
 
                 bakeCanvas.toBlob(resolve, 'image/webp', 0.65); 
