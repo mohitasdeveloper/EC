@@ -438,7 +438,7 @@ function activateTextTool(textId = null) {
         currentTextBg = textObj.hasBg || false;
         currentTextAlign = textObj.align || 'center';
         
-        // 🚀 Match the typing box to the exact adjusted width of the widget
+        // Match the typing box to the exact adjusted width of the widget
         textarea.style.width = textObj ? `${textObj.width}px` : '85vw'; 
     } else {
         textarea.value = '';
@@ -447,14 +447,14 @@ function activateTextTool(textId = null) {
         currentTextBg = false;
         currentTextAlign = 'center';
         
-        // 🚀 Give new textboxes Full Screen Width by default
+        // Give new textboxes Full Screen Width by default
         textarea.style.width = '85vw'; 
     }
 
     const alignBtnSpan = document.querySelector('#toggle-text-align-btn span');
     if (alignBtnSpan) alignBtnSpan.textContent = `format_align_${currentTextAlign}`;
 
-    // 🚀 Auto-expanding height logic for a perfect typing experience
+    // Auto-expanding height logic for a perfect typing experience
     const adjustHeight = () => {
         textarea.style.height = 'auto';
         textarea.style.height = textarea.scrollHeight + 'px';
@@ -467,6 +467,54 @@ function activateTextTool(textId = null) {
         textarea.focus();
         adjustHeight(); // Initial height calculation
     }, 50);
+}
+
+// 🚀 RESTORED MISSING FUNCTION: Handles Live UI Updates for Fonts, Alignment & Colors
+function updateTextUIPreview() {
+    const textarea = document.getElementById('hotpost-in-ui-textarea');
+    
+    // Force Font & Alignment updates overriding stubborn CSS
+    textarea.style.setProperty('font-family', currentTextFont.replace(/"/g, "'"), 'important');
+    textarea.style.setProperty('text-align', currentTextAlign, 'important');
+    
+    const isNeon = currentTextFont === TEXT_FONTS[2].value;
+
+    if (currentTextBg) {
+        textarea.style.setProperty('background-color', currentTextColor, 'important');
+        textarea.style.setProperty('color', getContrastYIQ(currentTextColor), 'important');
+        textarea.style.setProperty('text-shadow', 'none', 'important');
+        textarea.style.setProperty('padding', '10px', 'important');
+        textarea.style.setProperty('border-radius', '12px', 'important');
+    } else {
+        textarea.style.setProperty('background-color', 'transparent', 'important');
+        textarea.style.setProperty('padding', '0', 'important');
+        textarea.style.setProperty('color', currentTextColor, 'important');
+        
+        if (isNeon) {
+            textarea.style.setProperty('text-shadow', `0 0 10px ${currentTextColor}, 0 0 20px ${currentTextColor}`, 'important');
+        } else {
+            textarea.style.setProperty('text-shadow', '0 4px 16px rgba(0,0,0,0.9)', 'important');
+        }
+    }
+    
+    // Update Button Selection States
+    document.querySelectorAll('.text-color-btn').forEach(btn => {
+        btn.style.transform = btn.dataset.color === currentTextColor ? 'scale(1.2)' : 'scale(1)';
+        btn.style.border = btn.dataset.color === currentTextColor ? '2px solid white' : (btn.dataset.color === '#FFFFFF' ? '2px solid #ccc' : '2px solid transparent');
+    });
+
+    document.querySelectorAll('.text-font-btn').forEach(btn => {
+        const idx = btn.dataset.fontindex;
+        const isSelected = TEXT_FONTS[idx].value === currentTextFont;
+        btn.style.backgroundColor = isSelected ? 'white' : 'rgba(255,255,255,0.2)';
+        btn.style.color = isSelected ? 'black' : 'white';
+    });
+
+    const bgBtn = document.getElementById('toggle-text-bg-btn');
+    if (bgBtn) {
+        bgBtn.style.backgroundColor = currentTextBg ? 'white' : 'transparent';
+        bgBtn.style.color = currentTextBg ? 'black' : 'white';
+    }
 }
 
 function saveTextFromUI() {
