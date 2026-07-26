@@ -152,7 +152,7 @@ function setupEventListeners() {
         updateTextUIPreview();
     });
 
-    // 🚀 INJECT FONTS & COLORS (Fixed Quote Escaping Bug!)
+   // 🚀 INJECT FONTS & COLORS (Fixed Target Bubbling)
     const colorPicker = document.getElementById('text-color-picker');
     if (colorPicker) {
         colorPicker.innerHTML = TEXT_COLORS.map(color => `
@@ -160,7 +160,7 @@ function setupEventListeners() {
         `).join('');
         colorPicker.querySelectorAll('.text-color-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                currentTextColor = e.target.dataset.color;
+                currentTextColor = e.currentTarget.dataset.color; // Forces target to the button
                 updateTextUIPreview();
             });
         });
@@ -173,8 +173,7 @@ function setupEventListeners() {
         `).join('');
         fontPicker.querySelectorAll('.text-font-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                // Fetch safely by index to avoid HTML attribute quote crashes
-                const idx = e.target.dataset.fontindex;
+                const idx = e.currentTarget.dataset.fontindex; // Forces target to the button
                 currentTextFont = TEXT_FONTS[idx].value;
                 updateTextUIPreview();
             });
