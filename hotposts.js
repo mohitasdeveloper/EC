@@ -1772,11 +1772,28 @@ async function fetchStoryViewers(hotpostId) {
     const list = document.getElementById('hotpost-viewers-list');
     list.innerHTML = ACTIVITY_SKELETON; 
     try {
-        const { data, error } = await supabase.from('hotpost_views').select('viewed_at, users!hotpost_views_viewer_id_fkey(full_name, profile_img_url)').eq('hotpost_id', hotpostId).eq('is_deleted', false).order('viewed_at', { ascending: false });
+        // 🚀 FIX: Added 'id' and 'tick_type' to the select query to enable navigation & verification
+        const { data, error } = await supabase.from('hotpost_views')
+            .select('viewed_at, users!hotpost_views_viewer_id_fkey(id, full_name, profile_img_url, tick_type)')
+            .eq('hotpost_id', hotpostId).eq('is_deleted', false).order('viewed_at', { ascending: false });
+        
         if (error) throw error;
         document.getElementById('details-tab-viewers').innerHTML = `<span class="material-symbols-outlined text-[16px] mr-1 align-middle">visibility</span> ${data.length}`;
-        if (data.length === 0) { list.innerHTML = `<p class="text-sm italic text-center py-8">No views yet.</p>`; return; }
-        list.innerHTML = data.map(v => `<div class="flex items-center gap-3 p-3 bg-surface-variant/20 dark:bg-neutral-800/50 rounded-2xl"><img src="${v.users.profile_img_url}" class="w-10 h-10 rounded-full object-cover"><div class="flex-1"><p class="text-sm font-bold text-on-surface dark:text-gray-100">${v.users.full_name}</p></div><p class="text-xs text-on-surface-variant">${timeAgo(v.viewed_at)}</p></div>`).join('');
+        
+        if (data.length === 0) { list.innerHTML = `<p class="text-sm italic text-center py-8 text-on-surface-variant dark:text-gray-400">No views yet.</p>`; return; }
+        
+        const getTick = (type) => (type && type.toLowerCase().trim() !== 'none') ? `<span class="material-symbols-outlined text-[14px]" style="color: ${type.trim()}; font-variation-settings: 'FILL' 1;">verified</span>` : '';
+
+        // 🚀 FIX: Removed ugly card borders, added click routing & smooth scale physics
+        list.innerHTML = data.map(v => `
+            <div onclick="closeActivityPanel(); closeHotpostViewer(); setTimeout(() => window.viewUserProfile('${v.users.id}'), 150);" class="flex items-center justify-between py-3 px-2 hover:bg-surface-variant/10 dark:hover:bg-neutral-800/30 rounded-xl cursor-pointer active:scale-[0.98] transition-all">
+                <div class="flex items-center gap-3.5">
+                    <img src="${v.users.profile_img_url}" class="w-12 h-12 rounded-full object-cover border border-surface-variant/30">
+                    <p class="text-[14.5px] font-extrabold text-on-surface dark:text-gray-100 flex items-center gap-1">${v.users.full_name} ${getTick(v.users.tick_type)}</p>
+                </div>
+                <p class="text-[12px] font-medium text-on-surface-variant dark:text-gray-500">${timeAgo(v.viewed_at)}</p>
+            </div>
+        `).join('');
     } catch (e) { list.innerHTML = `<p class="text-sm text-center py-8 text-error">Failed.</p>`; }
 }
 
@@ -1784,11 +1801,29 @@ async function fetchStoryLikes(hotpostId) {
     const list = document.getElementById('hotpost-likes-list');
     list.innerHTML = ACTIVITY_SKELETON; 
     try {
-        const { data, error } = await supabase.from('hotpost_likes').select('created_at, users!hotpost_likes_user_id_fkey(full_name, profile_img_url)').eq('hotpost_id', hotpostId).eq('is_deleted', false).order('created_at', { ascending: false });
+        const { data, error } = await supabase.from('hotpost_likes')
+            .select('created_at, users!hotpost_likes_user_id_fkey(id, full_name, profile_img_url, tick_type)')
+            .eq('hotpost_id', hotpostId).eq('is_deleted', false).order('created_at', { ascending: false });
+        
         if (error) throw error;
         document.getElementById('details-tab-likes').innerHTML = `<span class="material-symbols-outlined text-[16px] mr-1 align-middle">favorite</span> ${data.length}`;
-        if (data.length === 0) { list.innerHTML = `<p class="text-sm italic text-center py-8">No likes yet.</p>`; return; }
-        list.innerHTML = data.map(l => `<div class="flex items-center gap-3 p-3 bg-red-500/5 dark:bg-red-500/10 rounded-2xl border border-red-500/10"><img src="${l.users.profile_img_url}" class="w-10 h-10 rounded-full object-cover"><div class="flex-1"><p class="text-sm font-bold text-on-surface dark:text-gray-100">${l.users.full_name}</p></div><span class="material-symbols-outlined text-red-500" style="font-variation-settings: 'FILL' 1;">favorite</span></div>`).join('');
+        
+        if (data.length === 0) { list.innerHTML = `<p class="text-sm italic text-center py-8 text-on-surface-variant dark:text-gray-400">No likes yet.</p>`; return; }
+        
+        const getTick = (type) => (type && type.toLowerCase().trim() !== 'none') ? `<span class="material-symbols-outlined text-[14px]" style="color: ${type.trim()}; font-variation-settings: 'FILL' 1;">verified</span>` : '';
+
+        list.innerHTML = data.map(l => `
+            <div onclick="closeActivityPanel(); closeHotpostViewer(); setTimeout(() => window.viewUserProfile('${l.users.id}'), 150);" class="flex items-center justify-between py-3 px-2 hover:bg-surface-variant/10 dark:hover:bg-neutral-800/30 rounded-xl cursor-pointer active:scale-[0.98] transition-all">
+                <div class="flex items-center gap-3.5">
+                    <img src="${l.users.profile_img_url}" class="w-12 h-12 rounded-full object-cover border border-surface-variant/30">
+                    <p class="text-[14.5px] font-extrabold text-on-surface dark:text-gray-100 flex items-center gap-1">${l.users.full_name} ${getTick(l.users.tick_type)}</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <p class="text-[12px] font-medium text-on-surface-variant dark:text-gray-500">${timeAgo(l.created_at)}</p>
+                    <span class="material-symbols-outlined text-red-500 text-[16px]" style="font-variation-settings: 'FILL' 1;">favorite</span>
+                </div>
+            </div>
+        `).join('');
     } catch (e) { list.innerHTML = `<p class="text-sm text-center py-8 text-error">Failed.</p>`; }
 }
 
@@ -1796,14 +1831,31 @@ async function fetchStoryReplies(hotpostId) {
     const list = document.getElementById('hotpost-replies-list');
     list.innerHTML = ACTIVITY_SKELETON; 
     try {
-        const { data, error } = await supabase.from('hotpost_replies').select('created_at, content, users!hotpost_replies_replier_id_fkey(full_name, profile_img_url)').eq('hotpost_id', hotpostId).eq('is_deleted', false).order('created_at', { ascending: false });
+        const { data, error } = await supabase.from('hotpost_replies')
+            .select('created_at, content, users!hotpost_replies_replier_id_fkey(id, full_name, profile_img_url, tick_type)')
+            .eq('hotpost_id', hotpostId).eq('is_deleted', false).order('created_at', { ascending: false });
+        
         if (error) throw error;
         document.getElementById('details-tab-replies').innerHTML = `<span class="material-symbols-outlined text-[16px] mr-1 align-middle">reply</span> ${data.length}`;
-        if (data.length === 0) { list.innerHTML = `<p class="text-sm italic text-center py-8">No replies yet.</p>`; return; }
-        list.innerHTML = data.map(r => `<div class="flex items-start gap-3 p-3 bg-surface-variant/20 dark:bg-neutral-800/50 rounded-2xl"><img src="${r.users.profile_img_url}" class="w-9 h-9 rounded-full object-cover"><div class="flex-1"><div class="flex justify-between items-center mb-1"><p class="text-[13px] font-bold text-on-surface dark:text-gray-100">${r.users.full_name}</p><p class="text-[10px] text-on-surface-variant">${timeAgo(r.created_at)}</p></div><p class="text-[14px] text-on-surface dark:text-gray-300 whitespace-pre-wrap">${r.content}</p></div></div>`).join('');
+        
+        if (data.length === 0) { list.innerHTML = `<p class="text-sm italic text-center py-8 text-on-surface-variant dark:text-gray-400">No replies yet.</p>`; return; }
+        
+        const getTick = (type) => (type && type.toLowerCase().trim() !== 'none') ? `<span class="material-symbols-outlined text-[14px]" style="color: ${type.trim()}; font-variation-settings: 'FILL' 1;">verified</span>` : '';
+
+        list.innerHTML = data.map(r => `
+            <div onclick="closeActivityPanel(); closeHotpostViewer(); setTimeout(() => window.viewUserProfile('${r.users.id}'), 150);" class="flex items-start gap-3.5 py-3 px-2 hover:bg-surface-variant/10 dark:hover:bg-neutral-800/30 rounded-xl cursor-pointer active:scale-[0.98] transition-all">
+                <img src="${r.users.profile_img_url}" class="w-11 h-11 rounded-full object-cover border border-surface-variant/30 shrink-0 mt-1">
+                <div class="flex-1 min-w-0">
+                    <div class="flex justify-between items-center mb-0.5">
+                        <p class="text-[14px] font-extrabold text-on-surface dark:text-gray-100 flex items-center gap-1">${r.users.full_name} ${getTick(r.users.tick_type)}</p>
+                        <p class="text-[11px] font-medium text-on-surface-variant dark:text-gray-500 shrink-0 ml-2">${timeAgo(r.created_at)}</p>
+                    </div>
+                    <p class="text-[13.5px] text-on-surface-variant dark:text-gray-300 leading-snug whitespace-pre-wrap">${r.content}</p>
+                </div>
+            </div>
+        `).join('');
     } catch (e) { list.innerHTML = `<p class="text-sm text-center py-8 text-error">Failed.</p>`; }
 }
-
 async function executeDeleteHotpost() {
     const post = hotpostsByUser.get(currentUser.id).posts[currentViewerState.postIndex];
     closeActivityPanel(); 
