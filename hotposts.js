@@ -1413,9 +1413,19 @@ function openHotpostViewer(userId) {
         ...allUserIds.slice(0, clickedUserIndex)
     ];
 
+    // 🚀 SMART INDEXING: Find the first unviewed post to start from
+    let startPostIndex = 0;
+    if (userId !== currentUser.id) {
+        const firstUnviewedIndex = userData.posts.findIndex(p => {
+            const hasViewed = p.hotpost_views?.some(v => v.viewer_id === currentUser.id) || sessionViewedPostIds.has(p.id);
+            return !hasViewed; // Return true if NOT viewed
+        });
+        if (firstUnviewedIndex !== -1) startPostIndex = firstUnviewedIndex;
+    }
+
     document.getElementById('modal-view-hotpost').classList.replace('hidden', 'flex');
     toggleCameraStatusBar(true); 
-    playUserStories(0); 
+    playUserStories(0, startPostIndex); 
 }
 
 function closeHotpostViewer() {
@@ -1504,30 +1514,70 @@ function playUserStories(userIndex, postIndex = 0) {
         return `<span class="material-symbols-outlined text-[14px] ${colors[tickType.toLowerCase()] || colors.blue}" style="font-variation-settings: 'FILL' 1;">verified</span>`;
     };
 
-    document.getElementById('hotpost-viewer-avatar').src = userData.user.profile_img_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.user.full_name)}&background=e1e3e4`;
+    // 🚀 ULTRA-FAST PROFILE ROUTING
+    const avatarEl = document.getElementById('hotpost-viewer-avatar');
+    const nameEl = document.getElementById('hotpost-viewer-name');
     
-    const nameContainer = document.getElementById('hotpost-viewer-name');
-    if (isMyStory) {
-        nameContainer.innerHTML = `Your Hotpost`;
-    } else {
-        nameContainer.innerHTML = `${userData.user.full_name} ${getTickHtmlLocal(userData.user.tick_type)}`;
+    const openProfileHandler = (e) => {
+        e.stopPropagation(); // Prevent skipping the story
+        closeHotpostViewer();
+        
+        // Check for a global routing function first (Fastest SPA Method)
+        if (typeof window.routeToProfile === 'function') {
+            window.routeToProfile(userData.user.id);
+        } else {
+            // Dispatch standard Custom Event for your main app router to catch
+            window.dispatchEvent(new CustomEvent('openProfile', { detail: { userId: userData.user.id } }));
+            // Fallback URL routing
+            window.location.hash = `#profile/${userData.user.id}`;
+        }
+    };
+
+    if (avatarEl) {
+        avatarEl.src = userData.user.profile_img_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.user.full_name)}&background=e1e3e4`;
+        avatarEl.onclick = openProfileHandler;
+        avatarEl.classList.add('cursor-pointer', 'active:scale-90', 'transition-transform', 'relative', 'z-50');
+    }
+    
+    if (nameEl) {
+        if (isMyStory) {
+            nameEl.innerHTML = `Your Hotpost`;
+        } else {
+            nameEl.innerHTML = `${userData.user.full_name} ${getTickHtmlLocal(userData.user.tick_type)}`;
+        }
+        nameEl.onclick = openProfileHandler;
+        nameEl.classList.add('cursor-pointer', 'active:scale-95', 'transition-opacity', 'relative', 'z-50');
     }
     
     document.getElementById('hotpost-viewer-time').textContent = timeAgo(post.created_at);
-    document.getElementById('hotpost-viewer-image').src = typeof window.optimizeImageUrl === 'function' ? window.optimizeImageUrl(post.media_url, 'hotpost') : post.media_url;
 
-    recordView(post.id);
-
-    const activeBar = progressContainer.querySelector(`.progress-bar-inner[data-index="${postIndex}"]`);
-    if (activeBar) {
-        activeBar.style.animation = `fill-progress ${currentViewerState.storyDuration}ms linear forwards`;
-        activeBar.classList.add('active');
-    }
-
+    // 🚀 LOAD-SYNCED ENGINE (Waits for the image to paint before starting the timer)
     clearTimeout(currentViewerState.storyTimer);
-    currentViewerState.remainingDuration = currentViewerState.storyDuration; 
-    currentViewerState.animationStartTime = performance.now();
-    currentViewerState.storyTimer = setTimeout(nextStory, currentViewerState.storyDuration);
+    const activeBar = progressContainer.querySelector(`.progress-bar-inner[data-index="${postIndex}"]`);
+    if (activeBar) activeBar.style.animation = 'none'; // Lock the progress bar
+
+    const imgEl = document.getElementById('hotpost-viewer-image');
+    const optimizedUrl = typeof window.optimizeImageUrl === 'function' ? window.optimizeImageUrl(post.media_url, 'hotpost') : post.media_url;
+    
+    // Hide image while fetching so it doesn't flash the previous user's photo
+    imgEl.style.opacity = '0';
+    imgEl.style.transition = 'opacity 0.2s ease';
+
+    imgEl.onload = () => {
+        imgEl.style.opacity = '1'; // Fade in smoothly
+        recordView(post.id);
+
+        if (activeBar) {
+            activeBar.style.animation = `fill-progress ${currentViewerState.storyDuration}ms linear forwards`;
+            activeBar.classList.add('active');
+        }
+
+        currentViewerState.remainingDuration = currentViewerState.storyDuration; 
+        currentViewerState.animationStartTime = performance.now();
+        currentViewerState.storyTimer = setTimeout(nextStory, currentViewerState.storyDuration);
+    };
+    
+    imgEl.src = optimizedUrl;
 }
 
 function nextStory() {
