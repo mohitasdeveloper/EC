@@ -114,39 +114,37 @@
             </span>
         </div>
     </div>
+   <!-- 🚀 GLOBAL TOAST CONTAINER (Moved outside to fix z-index stacking over modals) -->
+    <div id="toast-container" class="fixed top-[max(4.5rem,env(safe-area-inset-top))] left-1/2 -translate-x-1/2 w-full max-w-md p-4 space-y-2 z-[9999] pointer-events-none flex flex-col items-center"></div>
+
     <!-- HEADER -->
-<header class="bg-transparent safe-pt z-[50] relative">
-    <div id="toast-container"
-            class="absolute top-full left-1/2 -translate-x-1/2 w-full max-w-md p-4 space-y-2 z-[200]"></div>
-
-<div class="flex items-center px-4 h-[54px] w-full max-w-screen-md mx-auto relative">
-    <div class="flex-none z-10">
-    <button
-    id="create-post-header-btn"
-    onclick="openCreatePostView()"
-    class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-variant/50 dark:hover:bg-neutral-800 active:scale-95 transition-all">
-
-    <span class="material-symbols-outlined text-[28px]">
-        add
-    </span>
-
-</button>
-</div>
-         <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-    <span
-        style="font-family:'Courgette',cursive;"
-        class="text-[32px]
-               leading-none
-               bg-gradient-to-r
-               from-[#00C853]
-               via-[#00A2FF]
-               to-[#2962FF]
-               bg-clip-text
-               text-transparent
-               select-none">
-        ECampus
-    </span>
-</div>
+    <header class="bg-transparent safe-pt z-[50] relative">
+        <div class="flex items-center px-4 h-[54px] w-full max-w-screen-md mx-auto relative">
+            <div class="flex-none z-10">
+                <button
+                    id="create-post-header-btn"
+                    onclick="openCreatePostView()"
+                    class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-variant/50 dark:hover:bg-neutral-800 active:scale-95 transition-all">
+                    <span class="material-symbols-outlined text-[28px]">
+                        add
+                    </span>
+                </button>
+            </div>
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <span
+                    style="font-family:'Courgette',cursive;"
+                    class="text-[32px]
+                           leading-none
+                           bg-gradient-to-r
+                           from-[#00C853]
+                           via-[#00A2FF]
+                           to-[#2962FF]
+                           bg-clip-text
+                           text-transparent
+                           select-none">
+                    ECampus
+                </span>
+            </div>
             <div class="flex-none ml-auto z-10 relative">
                 <button id="notif-btn"
                     class="p-2 rounded-full hover:bg-surface-variant/50 transition-all active:scale-95 duration-200 relative text-on-surface-variant dark:text-gray-400">
@@ -157,7 +155,6 @@
             </div>
         </div>
     </header>
-
  
     <!-- MAIN CONTENT -->
 <main id="main-content" class="px-5 max-w-screen-md mx-auto relative z-10 pb-6">
