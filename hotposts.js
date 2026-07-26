@@ -118,8 +118,8 @@ function setupEventListeners() {
     document.getElementById('capture-hotpost-btn')?.addEventListener('click', capturePhoto);
     document.getElementById('submit-hotpost-btn')?.addEventListener('click', submitHotpost);
 
-    document.getElementById('add-text-hotpost-btn')?.addEventListener('click', () => activateTextTool());
-    document.getElementById('doodle-hotpost-btn')?.addEventListener('click', toggleDrawMode);
+// 🚀 FIX: Pass the active text ID so clicking "Aa" edits the selected text instead of opening an empty box
+    document.getElementById('add-text-hotpost-btn')?.addEventListener('click', () => activateTextTool(activeTextId));    document.getElementById('doodle-hotpost-btn')?.addEventListener('click', toggleDrawMode);
     document.getElementById('undo-doodle-btn')?.addEventListener('click', undoLastDoodle);
     
     document.querySelectorAll('.doodle-color-btn').forEach(btn => {
@@ -425,20 +425,21 @@ function showPreviewUI() {
 // EDITOR: FONT & TEXT ENGINE
 // ==========================================
 function activateTextTool(textId = null) {
-    activeTextId = textId;
+    // 🚀 Failsafe: Ensure ID is strictly a string (prevents ghost empty boxes from accidental touch events)
+    activeTextId = typeof textId === 'string' ? textId : null;
+    
     const overlay = document.getElementById('hotpost-text-editor-overlay');
     const textarea = document.getElementById('hotpost-in-ui-textarea');
     
     overlay.classList.replace('hidden', 'flex');
-    if (textId) {
-        const textObj = textElements.find(t => t.id === textId);
+    if (activeTextId) {
+        const textObj = textElements.find(t => t.id === activeTextId);
         textarea.value = textObj ? textObj.content : '';
         currentTextFont = textObj.font || TEXT_FONTS[0].value;
         currentTextColor = textObj.color || '#FFFFFF';
         currentTextBg = textObj.hasBg || false;
         currentTextAlign = textObj.align || 'center';
         
-        // Match the typing box to the exact adjusted width of the widget
         textarea.style.width = textObj ? `${textObj.width}px` : '85vw'; 
     } else {
         textarea.value = '';
@@ -447,7 +448,6 @@ function activateTextTool(textId = null) {
         currentTextBg = false;
         currentTextAlign = 'center';
         
-        // Give new textboxes Full Screen Width by default
         textarea.style.width = '85vw'; 
     }
 
@@ -592,16 +592,16 @@ function renderTextElements() {
             }
         }
 
-        widget.innerHTML = `
+      widget.innerHTML = `
             <div class="text-widget-box">
                 <div class="text-handle handle-tl" data-action="delete"><span class="material-symbols-outlined text-[18px]">close</span></div>
                 <div class="text-handle handle-tr" data-action="edit"><span class="material-symbols-outlined text-[16px]">edit</span></div>
                 <div class="text-handle handle-bl" data-action="duplicate"><span class="material-symbols-outlined text-[16px]">content_copy</span></div>
                 <div class="text-handle handle-br" data-action="scale"><span class="material-symbols-outlined text-[18px]">open_in_full</span></div>
                 <div class="text-handle handle-rm" data-action="width"></div>
-                <!-- 🚀 Enforced flex column alignment so background boxes align cleanly -->
-                <div class="text-widget-content" style="width: ${tObj.width}px; font-size: 24px; font-family: ${tObj.font.replace(/"/g, "'")}; display: flex; flex-direction: column; align-items: ${flexAlign}; line-height: 1.3;">
-                    <span style="${bgCSS} ${shadowCSS} text-align: ${tObj.align || 'center'}; box-decoration-break: clone; -webkit-box-decoration-break: clone;">${tObj.content}</span>
+                <!-- 🚀 Removed Flexbox to fix Webkit jagged background alignment bug -->
+                <div class="text-widget-content" style="width: ${tObj.width}px; font-size: 24px; font-family: ${tObj.font.replace(/"/g, "'")}; text-align: ${tObj.align || 'center'}; line-height: 1.3;">
+                    <span style="${bgCSS} ${shadowCSS} box-decoration-break: clone; -webkit-box-decoration-break: clone;">${tObj.content}</span>
                 </div>
             </div>
         `;
@@ -730,7 +730,14 @@ function setupEditorTouchPhysics() {
             return;
         }
         
-        if (widget && !isDrawMode) {
+      if (widget && !isDrawMode) {
+            // 🚀 If the text is already selected, tapping it again instantly opens the editor
+            if (widget.classList.contains('active') && !handle) {
+                activateTextTool(widget.id);
+                touchMode = 'idle';
+                return;
+            }
+            
             touchMode = 'drag_text';
             activeTextIdForTouch = widget.id;
             activeTextId = widget.id; 
@@ -747,7 +754,7 @@ function setupEditorTouchPhysics() {
             }
             return;
         }
-
+        
         activeTextId = null;
         activeTextIdForTouch = null;
         document.querySelectorAll('.text-widget').forEach(el => el.classList.remove('active'));
