@@ -1528,22 +1528,23 @@ function playUserStories(userIndex, postIndex = 0) {
         return `<span class="material-symbols-outlined text-[14px] ${colors[tickType.toLowerCase()] || colors.blue}" style="font-variation-settings: 'FILL' 1;">verified</span>`;
     };
 
- // 🚀 ULTRA-FAST PROFILE ROUTING
+// 🚀 ULTRA-FAST PROFILE ROUTING
     const avatarEl = document.getElementById('hotpost-viewer-avatar');
     const nameEl = document.getElementById('hotpost-viewer-name');
     
     const openProfileHandler = (e) => {
         e.preventDefault();  // Stop any ghost clicks
         e.stopPropagation(); // Prevent the story from skipping to the next one
-        closeHotpostViewer();
         
-        // Route to profile instantly
-        if (typeof window.routeToProfile === 'function') {
-            window.routeToProfile(userData.user.id);
-        } else {
-            window.dispatchEvent(new CustomEvent('openProfile', { detail: { userId: userData.user.id } }));
-            window.location.hash = `#profile/${userData.user.id}`;
-        }
+        closeHotpostViewer(); // Close the story viewer smoothly
+        
+        // 🚀 THE FIX: Trigger your app's native profile function!
+        // We use a tiny delay (150ms) to let the story modal close cleanly before opening the profile
+        setTimeout(() => {
+            if (typeof window.viewUserProfile === 'function') {
+                window.viewUserProfile(userData.user.id);
+            }
+        }, 150); 
     };
 
     // Apply strict Z-index and Pointer Events so the Next/Prev zones don't block them
