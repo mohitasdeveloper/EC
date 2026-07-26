@@ -1317,7 +1317,7 @@ async function viewUserProfile(userId) {
     avatarEl.src = user.profile_img_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&background=e1e3e4`;
     document.getElementById('public-profile-name').innerHTML = `<span class="flex items-center justify-center gap-1">${user.full_name} ${getTickHtmlLocal(user.tick_type)}</span>`;
 
-  // --- Handle PRIVATE Profile directly in the same UI container ---
+    // --- Handle PRIVATE Profile directly in the same UI container ---
     if (user.is_private && !isConnected && user.role !== 'page') {
         document.getElementById('public-profile-course').textContent = user.course || 'Student';
         
@@ -1383,7 +1383,7 @@ async function viewUserProfile(userId) {
             document.getElementById('public-profile-feed').innerHTML = `<p class="text-sm text-center py-4 text-error">Failed to load posts feed.</p>`;
         }
     }
-
+} // 🚀 CRITICAL: This is the closing brace that was missing!
 function renderProfileActions(user, connection, followRecord) {
     const actionsContainer = document.getElementById('public-profile-actions');
     const moreMenuBtn = document.getElementById('public-profile-more-btn');
