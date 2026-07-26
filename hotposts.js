@@ -1772,7 +1772,6 @@ async function fetchStoryViewers(hotpostId) {
     const list = document.getElementById('hotpost-viewers-list');
     list.innerHTML = ACTIVITY_SKELETON; 
     try {
-        // 🚀 FIX: Added 'id' and 'tick_type' to the select query to enable navigation & verification
         const { data, error } = await supabase.from('hotpost_views')
             .select('viewed_at, users!hotpost_views_viewer_id_fkey(id, full_name, profile_img_url, tick_type)')
             .eq('hotpost_id', hotpostId).eq('is_deleted', false).order('viewed_at', { ascending: false });
@@ -1784,9 +1783,9 @@ async function fetchStoryViewers(hotpostId) {
         
         const getTick = (type) => (type && type.toLowerCase().trim() !== 'none') ? `<span class="material-symbols-outlined text-[14px]" style="color: ${type.trim()}; font-variation-settings: 'FILL' 1;">verified</span>` : '';
 
-        // 🚀 FIX: Removed ugly card borders, added click routing & smooth scale physics
+        // 🚀 FIX: Added "window." to the function calls
         list.innerHTML = data.map(v => `
-            <div onclick="closeActivityPanel(); closeHotpostViewer(); setTimeout(() => window.viewUserProfile('${v.users.id}'), 150);" class="flex items-center justify-between py-3 px-2 hover:bg-surface-variant/10 dark:hover:bg-neutral-800/30 rounded-xl cursor-pointer active:scale-[0.98] transition-all">
+            <div onclick="window.closeActivityPanel(); window.closeHotpostViewer(); setTimeout(() => window.viewUserProfile('${v.users.id}'), 150);" class="flex items-center justify-between py-3 px-2 hover:bg-surface-variant/10 dark:hover:bg-neutral-800/30 rounded-xl cursor-pointer active:scale-[0.98] transition-all">
                 <div class="flex items-center gap-3.5">
                     <img src="${v.users.profile_img_url}" class="w-12 h-12 rounded-full object-cover border border-surface-variant/30">
                     <p class="text-[14.5px] font-extrabold text-on-surface dark:text-gray-100 flex items-center gap-1">${v.users.full_name} ${getTick(v.users.tick_type)}</p>
@@ -1812,8 +1811,9 @@ async function fetchStoryLikes(hotpostId) {
         
         const getTick = (type) => (type && type.toLowerCase().trim() !== 'none') ? `<span class="material-symbols-outlined text-[14px]" style="color: ${type.trim()}; font-variation-settings: 'FILL' 1;">verified</span>` : '';
 
+        // 🚀 FIX: Added "window." to the function calls
         list.innerHTML = data.map(l => `
-            <div onclick="closeActivityPanel(); closeHotpostViewer(); setTimeout(() => window.viewUserProfile('${l.users.id}'), 150);" class="flex items-center justify-between py-3 px-2 hover:bg-surface-variant/10 dark:hover:bg-neutral-800/30 rounded-xl cursor-pointer active:scale-[0.98] transition-all">
+            <div onclick="window.closeActivityPanel(); window.closeHotpostViewer(); setTimeout(() => window.viewUserProfile('${l.users.id}'), 150);" class="flex items-center justify-between py-3 px-2 hover:bg-surface-variant/10 dark:hover:bg-neutral-800/30 rounded-xl cursor-pointer active:scale-[0.98] transition-all">
                 <div class="flex items-center gap-3.5">
                     <img src="${l.users.profile_img_url}" class="w-12 h-12 rounded-full object-cover border border-surface-variant/30">
                     <p class="text-[14.5px] font-extrabold text-on-surface dark:text-gray-100 flex items-center gap-1">${l.users.full_name} ${getTick(l.users.tick_type)}</p>
@@ -1842,8 +1842,9 @@ async function fetchStoryReplies(hotpostId) {
         
         const getTick = (type) => (type && type.toLowerCase().trim() !== 'none') ? `<span class="material-symbols-outlined text-[14px]" style="color: ${type.trim()}; font-variation-settings: 'FILL' 1;">verified</span>` : '';
 
+        // 🚀 FIX: Added "window." to the function calls
         list.innerHTML = data.map(r => `
-            <div onclick="closeActivityPanel(); closeHotpostViewer(); setTimeout(() => window.viewUserProfile('${r.users.id}'), 150);" class="flex items-start gap-3.5 py-3 px-2 hover:bg-surface-variant/10 dark:hover:bg-neutral-800/30 rounded-xl cursor-pointer active:scale-[0.98] transition-all">
+            <div onclick="window.closeActivityPanel(); window.closeHotpostViewer(); setTimeout(() => window.viewUserProfile('${r.users.id}'), 150);" class="flex items-start gap-3.5 py-3 px-2 hover:bg-surface-variant/10 dark:hover:bg-neutral-800/30 rounded-xl cursor-pointer active:scale-[0.98] transition-all">
                 <img src="${r.users.profile_img_url}" class="w-11 h-11 rounded-full object-cover border border-surface-variant/30 shrink-0 mt-1">
                 <div class="flex-1 min-w-0">
                     <div class="flex justify-between items-center mb-0.5">
@@ -1856,6 +1857,7 @@ async function fetchStoryReplies(hotpostId) {
         `).join('');
     } catch (e) { list.innerHTML = `<p class="text-sm text-center py-8 text-error">Failed.</p>`; }
 }
+
 async function executeDeleteHotpost() {
     const post = hotpostsByUser.get(currentUser.id).posts[currentViewerState.postIndex];
     closeActivityPanel(); 
@@ -1871,3 +1873,7 @@ window.openStoryDetailsModal = openActivityPanel;
 window.openHotpostViewer = openHotpostViewer;
 window.showMyHotposts = () => openHotpostViewer(currentUser.id);
 window.refreshHotposts = fetchHotposts;
+
+// 🚀 FIX: Expose these functions to the global window object
+window.closeActivityPanel = closeActivityPanel;
+window.closeHotpostViewer = closeHotpostViewer;
