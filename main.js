@@ -210,8 +210,9 @@ window.executeContextualRefresh = async function() {
             if (typeof window.refreshUpdates === 'function') await window.refreshUpdates();
         }
         else if (activeTab.id === 'view-profile') {
-            if (typeof window.fetchMyProfileFeed === 'function' && typeof currentUserProfile !== 'undefined') {
-                await window.fetchMyProfileFeed(currentUserProfile.id);
+            // 🚀 FIX: Now re-fetches your entire profile (stats, bio, and posts)
+            if (typeof window.refreshMyProfile === 'function') {
+                await window.refreshMyProfile();
             }
         }
         await new Promise(res => setTimeout(res, 800)); // Minimum time for visual effect
@@ -220,6 +221,23 @@ window.executeContextualRefresh = async function() {
     }
 };
 
+// 🚀 NEW: Dedicated function to sync your profile data with the database natively
+window.refreshMyProfile = async function() {
+    if (!currentUserProfile) return;
+    try {
+        const { data: profile, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', currentUserProfile.id)
+            .single();
+        
+        if (error) throw error;
+        currentUserProfile = profile;
+        populateProfileUI(currentUserProfile); // This automatically calls fetchMyProfileFeed internally!
+    } catch (err) {
+        console.error("Error refreshing profile:", err);
+    }
+};
 // ========================================================
 // IMAGE OPTIMIZATION ENGINE
 // ========================================================
@@ -1507,6 +1525,13 @@ async function handleConnectionAction(targetUserId, action, btn) {
             viewUserProfile(targetUserId);
         }
 
+        // 🚀 FIX: Auto-refresh my own profile if I accept or remove a connection so my count updates!
+        if (action === 'accept' || action === 'unfriend') {
+            if (typeof window.refreshMyProfile === 'function') {
+                window.refreshMyProfile();
+            }
+        }
+
     } catch (error) {
         console.error(`Error performing action '${action}':`, error);
         showToast(error.message || 'An error occurred.', 'error');
@@ -1517,6 +1542,7 @@ async function handleConnectionAction(targetUserId, action, btn) {
     }
 }
 window.handleConnectionAction = handleConnectionAction;
+
 function getSuccessMessage(result) {
     const messages = { request_sent: 'Connection request sent!', accepted: 'Connection accepted!', cancelled: 'Request cancelled.', declined: 'Request declined.', unfriended: 'Connection removed.', blocked: 'User blocked.', unblocked: 'User unblocked.' };
     return messages[result] || 'Action successful!';
