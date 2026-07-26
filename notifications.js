@@ -297,38 +297,55 @@ function renderNotificationItem(notif) {
 }
 
 async function handleNotificationClick(notif, element) {
+    // Remove unread highlight instantly for a snappy UI feel
     element.classList.remove('bg-primary/5', 'dark:bg-primary/10');
     element.classList.add('bg-surface', 'dark:bg-[#121212]');
 
-    if (notif.type.startsWith('post_')) {
-        closeNotifications(); 
-        setTimeout(() => window.openSinglePostView(notif.target_id), 150);
+    // 1. POST NOTIFICATIONS (Likes, Comments, New Page Posts)
+    if (notif.type === 'post_like' || notif.type === 'post_comment' || notif.type === 'page_new_post') {
+        // Query to check if post still exists and isn't deleted
+        const { data } = await supabase.from('posts')
+            .select('id')
+            .eq('id', notif.target_id)
+            .eq('is_deleted', false)
+            .maybeSingle();
+            
+        if (data) {
+            closeNotifications(); 
+            setTimeout(() => window.openSinglePostView(notif.target_id), 150);
+        } else {
+            showToast('Post not available.', 'info');
+        }
     } 
-    else if (notif.type.startsWith('hotpost_')) {
+    // 2. HOTPOST NOTIFICATIONS (Likes, Replies, New Page Hotposts)
+    else if (notif.type === 'hotpost_like' || notif.type === 'hotpost_reply' || notif.type === 'page_new_hotpost') {
         const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
         
-        const { data } = await supabase.from('hotposts').select('id')
-            .eq('user_id', currentUser.id)
+        // Query to check if the specific Hotpost exists AND is within 24 hours
+        const { data } = await supabase.from('hotposts')
+            .select('id, user_id')
+            .eq('id', notif.target_id)
             .eq('is_deleted', false)
             .gt('created_at', twentyFourHoursAgo)
-            .limit(1);
+            .maybeSingle();
         
-        if (data && data.length > 0) {
+        if (data) {
             closeNotifications();
             setTimeout(() => {
-                if (typeof window.showMyHotposts === 'function') window.showMyHotposts(); 
-                else if (typeof window.openHotpostViewer === 'function') window.openHotpostViewer(currentUser.id); 
+                // Route directly to the owner of the hotpost
+                if (typeof window.openHotpostViewer === 'function') window.openHotpostViewer(data.user_id); 
             }, 150);
         } else {
-            showToast('This Hotpost has expired or been deleted.', 'info');
+            showToast('Hotpost expired.', 'info');
         }
     }
-    else if (notif.type === 'connection_accepted') {
+    // 3. PROFILE & CONNECTION NOTIFICATIONS
+    else if (notif.type === 'connection_accepted' || notif.type === 'connection_request' || notif.type === 'new_follower') {
         closeNotifications();
+        // Clicking the notification card (not the accept/decline buttons) opens their profile
         setTimeout(() => window.viewUserProfile(notif.sender.id), 150);
     }
 }
-
 async function handleAcceptRequest(userId, btn) {
     await window.handleConnectionAction(userId, 'accept', btn); // Added window.
     fetchNotifications(); 
