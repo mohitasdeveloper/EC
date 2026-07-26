@@ -1298,14 +1298,21 @@ function setupViewerTouchPhysics() {
 
     viewer?.addEventListener('touchstart', (e) => {
         if (!activityModal.classList.contains('hidden')) return;
-        const isOtherButtonOrInput = e.target.closest('button:not(#hotpost-activity-btn)') || e.target.closest('input');
-        if (isOtherButtonOrInput) return;
+        
+        // 🚀 CRITICAL FIX: Tell the drag engine to ignore touches on the Avatar & Name!
+        const isIgnoredTarget = 
+            e.target.closest('button:not(#hotpost-activity-btn)') || 
+            e.target.closest('input') || 
+            e.target.closest('#hotpost-viewer-avatar') || 
+            e.target.closest('#hotpost-viewer-name');
+            
+        if (isIgnoredTarget) return;
         
         viewerStartY = e.touches[0].clientY;
         isDraggingViewer = true;
         if (viewerContent) viewerContent.style.transition = 'none'; 
     }, { passive: true });
-
+    
     viewer?.addEventListener('touchmove', (e) => {
         if (!isDraggingViewer) return;
         const deltaY = e.touches[0].clientY - viewerStartY;
@@ -1514,29 +1521,29 @@ function playUserStories(userIndex, postIndex = 0) {
         return `<span class="material-symbols-outlined text-[14px] ${colors[tickType.toLowerCase()] || colors.blue}" style="font-variation-settings: 'FILL' 1;">verified</span>`;
     };
 
-    // 🚀 ULTRA-FAST PROFILE ROUTING
+ // 🚀 ULTRA-FAST PROFILE ROUTING
     const avatarEl = document.getElementById('hotpost-viewer-avatar');
     const nameEl = document.getElementById('hotpost-viewer-name');
     
     const openProfileHandler = (e) => {
-        e.stopPropagation(); // Prevent skipping the story
+        e.preventDefault();  // Stop any ghost clicks
+        e.stopPropagation(); // Prevent the story from skipping to the next one
         closeHotpostViewer();
         
-        // Check for a global routing function first (Fastest SPA Method)
+        // Route to profile instantly
         if (typeof window.routeToProfile === 'function') {
             window.routeToProfile(userData.user.id);
         } else {
-            // Dispatch standard Custom Event for your main app router to catch
             window.dispatchEvent(new CustomEvent('openProfile', { detail: { userId: userData.user.id } }));
-            // Fallback URL routing
             window.location.hash = `#profile/${userData.user.id}`;
         }
     };
 
+    // Apply strict Z-index and Pointer Events so the Next/Prev zones don't block them
     if (avatarEl) {
         avatarEl.src = userData.user.profile_img_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.user.full_name)}&background=e1e3e4`;
         avatarEl.onclick = openProfileHandler;
-        avatarEl.classList.add('cursor-pointer', 'active:scale-90', 'transition-transform', 'relative', 'z-50');
+        avatarEl.classList.add('cursor-pointer', 'active:scale-90', 'transition-transform', 'relative', 'z-[100]', 'pointer-events-auto');
     }
     
     if (nameEl) {
@@ -1546,7 +1553,7 @@ function playUserStories(userIndex, postIndex = 0) {
             nameEl.innerHTML = `${userData.user.full_name} ${getTickHtmlLocal(userData.user.tick_type)}`;
         }
         nameEl.onclick = openProfileHandler;
-        nameEl.classList.add('cursor-pointer', 'active:scale-95', 'transition-opacity', 'relative', 'z-50');
+        nameEl.classList.add('cursor-pointer', 'active:scale-95', 'transition-opacity', 'relative', 'z-[100]', 'pointer-events-auto');
     }
     
     document.getElementById('hotpost-viewer-time').textContent = timeAgo(post.created_at);
