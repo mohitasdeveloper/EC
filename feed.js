@@ -1087,16 +1087,97 @@ async function submitPostReport() {
 // ==========================================
 // COMMENTS 
 // ==========================================
+// ==========================================
+// NATIVE COMMENTS, REPLIES & MENTIONS
+// ==========================================
+let activeReplyCommentId = null;
+let currentMentionIds = [];
+
+window.cancelReply = function() {
+    activeReplyCommentId = null;
+    document.getElementById('replying-to-indicator').classList.add('hidden');
+    document.getElementById('post-comment-input').focus();
+};
+
+window.prepareReply = function(commentId, userName) {
+    activeReplyCommentId = commentId;
+    document.getElementById('replying-to-name').textContent = userName;
+    document.getElementById('replying-to-indicator').classList.remove('hidden');
+    
+    const input = document.getElementById('post-comment-input');
+    input.value = `@${userName} `; // Auto-tag the person
+    input.focus();
+    document.getElementById('send-comment-btn').disabled = false;
+};
+
+// Auto-resize textarea & enable Post button
+document.getElementById('post-comment-input')?.addEventListener('input', function(e) {
+    this.style.height = 'auto';
+    this.style.height = (this.scrollHeight) + 'px';
+    
+    document.getElementById('send-comment-btn').disabled = this.value.trim() === '';
+    handleNativeMentions(this.value, this);
+});
+
+// NATIVE MENTIONS ENGINE
+async function handleNativeMentions(text, inputElement) {
+    const list = document.getElementById('comment-mention-list');
+    const match = text.match(/@([a-zA-Z0-9_]+)$/); // Detect typing @something at the end
+    
+    if (match) {
+        const query = match[1];
+        list.classList.remove('hidden');
+        list.innerHTML = `<p class="text-xs text-center py-2 text-gray-500">Searching...</p>`;
+        
+        try {
+            const { data, error } = await supabase.rpc('search_mentionable_users', {
+                p_search_term: query,
+                p_current_user_id: currentUser.id
+            });
+            if (error) throw error;
+            
+            if (data.length === 0) {
+                list.innerHTML = `<p class="text-xs text-center py-2 text-gray-500">No users found</p>`;
+                return;
+            }
+            
+            list.innerHTML = data.map(u => `
+                <div onclick="window.insertMention('${u.id}', '${u.full_name}')" class="flex items-center gap-3 p-3 hover:bg-surface-variant/30 cursor-pointer transition-colors active:scale-[0.98]">
+                    <img src="${u.profile_img_url}" class="w-8 h-8 rounded-full object-cover">
+                    <span class="text-[13px] font-bold text-on-surface dark:text-gray-100">${u.full_name}</span>
+                </div>
+            `).join('');
+        } catch (e) {
+            list.classList.add('hidden');
+        }
+    } else {
+        list.classList.add('hidden');
+    }
+}
+
+window.insertMention = function(userId, fullName) {
+    const input = document.getElementById('post-comment-input');
+    // Replace the incomplete @text with the full name
+    input.value = input.value.replace(/@[a-zA-Z0-9_]+$/, `@${fullName} `);
+    currentMentionIds.push(userId); // Store ID for backend
+    
+    document.getElementById('comment-mention-list').classList.add('hidden');
+    input.focus();
+};
+
 async function openCommentsModal(postId) {
     const modal = document.getElementById('modal-post-comments');
     const list = document.getElementById('post-comments-list');
+    const input = document.getElementById('post-comment-input');
+    
     document.getElementById('send-comment-btn').dataset.postId = postId;
+    window.cancelReply(); // Reset UI
+    input.value = '';
+    input.style.height = 'auto';
+    currentMentionIds = [];
 
     modal.classList.replace('hidden', 'flex');
     list.innerHTML = `<p class="text-sm italic text-center py-8 text-on-surface-variant dark:text-gray-400">Loading comments...</p>`;
-
-    // 🚀 Initialize the comment text editor
-    initCommentQuill();
 
     try {
         const { data, error } = await supabase
@@ -1109,83 +1190,178 @@ async function openCommentsModal(postId) {
         if (error) throw error;
 
         if (data.length === 0) {
-            list.innerHTML = `<p class="text-sm italic text-center py-8 text-on-surface-variant dark:text-gray-400">No comments yet. Be the first!</p>`;
+            list.innerHTML = `<div class="py-10 flex flex-col items-center opacity-40"><span class="material-symbols-outlined text-[42px] mb-2">chat_bubble</span><p class="text-[14px] font-bold">No comments yet.</p><p class="text-[12px]">Start the conversation.</p></div>`;
             return;
         }
 
-        list.innerHTML = data.map(comment => `
-            <div class="flex items-start gap-3 group">
-                <img onclick="window.viewUserProfile('${comment.users.id}')" src="${comment.users.profile_img_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.users.full_name)}&background=e1e3e4`}" class="w-8 h-8 rounded-full object-cover mt-1 cursor-pointer hover:opacity-80 transition-opacity">
-                <div class="flex-1 bg-surface-variant/30 dark:bg-surface-variant/10 rounded-2xl p-3 border border-surface-variant/50 dark:border-neutral-700 relative">
-                    <div class="flex justify-between items-center mb-1">
-                        <p onclick="window.viewUserProfile('${comment.users.id}')" class="text-xs font-bold text-on-surface dark:text-gray-100 cursor-pointer hover:text-primary transition-colors flex items-center gap-1">${comment.users.full_name} ${getTickHtml(comment.users.tick_type)}</p>
-                        <p class="text-[10px] text-on-surface-variant dark:text-gray-400">${timeAgo(comment.created_at)}</p>
-                    </div>
-                    
-                    <!-- 🚀 Replaced <p> with rich-text-content wrapper -->
-                    <div class="rich-text-content text-sm text-on-surface dark:text-gray-200 leading-relaxed pr-6">${comment.content}</div>
-                    
-                    <button data-comment-id="${comment.id}" data-user-id="${comment.user_id}" class="comment-options-btn absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1 text-on-surface-variant hover:text-on-surface dark:hover:text-white transition-all">
-                        <span class="material-symbols-outlined text-[18px]">more_vert</span>
-                    </button>
-                </div>
-            </div>
-        `).join('');
+        // Separate parents and replies for 1-level Instagram hierarchy
+        const parents = data.filter(c => !c.parent_comment_id);
+        const replies = data.filter(c => c.parent_comment_id);
+
+        list.innerHTML = parents.map(comment => {
+            const commentReplies = replies.filter(r => r.parent_comment_id === comment.id);
+            return renderSingleComment(comment, false) + commentReplies.map(r => renderSingleComment(r, true)).join('');
+        }).join('');
+
+        setupCommentSwipePhysics(); // Boot touch physics
 
     } catch (error) {
-        console.error('Error fetching comments:', error);
         list.innerHTML = `<p class="text-sm italic text-center py-8 text-error">Failed to load comments.</p>`;
     }
 }
 
-function closeCommentsModal() {
-    const modal = document.getElementById('modal-post-comments');
-    if (modal) modal.classList.replace('flex', 'hidden');
-    // Clear the quill editor
-    if (commentQuillEditor) commentQuillEditor.setContents([]);
+function renderSingleComment(comment, isReply) {
+    const isOwner = currentUser.id === comment.user_id;
+    const paddingLeft = isReply ? 'ml-12' : ''; // Indent replies
+    
+    // Highlight @mentions in text
+    let formattedContent = comment.content.replace(/@([\w\s]+)(?=\s|$)/g, '<span class="text-primary font-bold">@$1</span>');
+
+    return `
+        <div class="comment-swipe-container ${paddingLeft} mb-4 relative" data-comment-id="${comment.id}">
+            <!-- Swipe Delete Background -->
+            ${isOwner ? `<div class="comment-delete-bg rounded-2xl"><span class="material-symbols-outlined text-white text-[24px]">delete</span></div>` : ''}
+            
+            <!-- Draggable Foreground -->
+            <div class="comment-swipe-track flex items-start gap-3 bg-surface dark:bg-[#1e1e1e] p-1">
+                <img onclick="window.viewUserProfile('${comment.users.id}')" src="${comment.users.profile_img_url}" class="w-8 h-8 rounded-full object-cover shrink-0 cursor-pointer mt-1 border border-surface-variant/50">
+                <div class="flex-1 min-w-0">
+                    <p class="text-[13px] text-on-surface dark:text-gray-100 leading-snug">
+                        <span onclick="window.viewUserProfile('${comment.users.id}')" class="font-extrabold mr-1 cursor-pointer hover:underline">${comment.users.full_name}</span>
+                        ${formattedContent}
+                    </p>
+                    <div class="flex items-center gap-4 mt-1">
+                        <span class="text-[11px] font-bold text-on-surface-variant dark:text-gray-500">${timeAgo(comment.created_at)}</span>
+                        <span onclick="window.prepareReply('${isReply ? comment.parent_comment_id : comment.id}', '${comment.users.full_name}')" class="text-[11px] font-bold text-on-surface-variant dark:text-gray-500 cursor-pointer hover:text-primary transition-colors">Reply</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
 }
 
-async function submitComment(postId) {
-    if (!commentQuillEditor) return;
+// SWIPE TO DELETE PHYSICS
+function setupCommentSwipePhysics() {
+    const containers = document.querySelectorAll('.comment-swipe-container');
+    
+    containers.forEach(container => {
+        const track = container.querySelector('.comment-swipe-track');
+        const commentId = container.dataset.commentId;
+        const bg = container.querySelector('.comment-delete-bg'); // Only exists if isOwner
+        
+        if (!bg) return; // Not their comment, disable drag
 
-    const contentHTML = commentQuillEditor.root.innerHTML;
-    const plainText = commentQuillEditor.getText().trim();
-    if (!plainText) return;
+        let startX = 0;
+        let currentTranslate = 0;
+        let isDragging = false;
+        const threshold = -80; // How far to swipe left to trigger delete
+
+        track.addEventListener('touchstart', e => {
+            startX = e.touches[0].clientX;
+            isDragging = true;
+            track.style.transition = 'none';
+        }, { passive: true });
+
+        track.addEventListener('touchmove', e => {
+            if (!isDragging) return;
+            const deltaX = e.touches[0].clientX - startX;
+            if (deltaX < 0) { // Only allow swiping LEFT
+                currentTranslate = Math.max(deltaX, -100); // Cap at 100px
+                track.style.transform = `translateX(${currentTranslate}px)`;
+            }
+        }, { passive: false });
+
+        track.addEventListener('touchend', e => {
+            isDragging = false;
+            track.style.transition = 'transform 0.2s ease-out';
+            
+            if (currentTranslate < threshold) {
+                // Trigger Delete!
+                track.style.transform = `translateX(-100vw)`; // slide all the way out
+                setTimeout(() => executeCommentDelete(commentId, container), 200);
+            } else {
+                // Snap back
+                track.style.transform = `translateX(0px)`;
+                currentTranslate = 0;
+            }
+        });
+    });
+}
+
+async function executeCommentDelete(commentId, domElement) {
+    // Optimistic UI hide
+    domElement.style.display = 'none';
+    
+    const { error } = await supabase.from('post_comments').update({ is_deleted: true }).eq('id', commentId);
+    if (error) {
+        domElement.style.display = 'block'; // Revert if fails
+        showToast('Failed to delete comment', 'error');
+    } else {
+        domElement.remove();
+        showToast('Comment deleted', 'success');
+    }
+}
+
+// SUBMIT NATIVE COMMENT
+async function submitComment(postId) {
+    const input = document.getElementById('post-comment-input');
+    const content = input.value.trim();
+    if (!content) return;
 
     const btn = document.getElementById('send-comment-btn');
     btn.disabled = true;
+    btn.innerHTML = `<span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>`;
 
-    // Extract Mentions
-    const mentionedIds = [];
-    commentQuillEditor.getContents().ops.forEach(op => {
-        if (op.insert && op.insert.mention) {
-            mentionedIds.push(op.insert.mention.id);
-        }
-    });
-
-    const { error } = await supabase.from('post_comments').insert({
+    // Send to database
+    const payload = {
         post_id: postId,
         user_id: currentUser.id,
-        content: contentHTML,
-        mentioned_user_ids: mentionedIds
-    });
+        content: content,
+        mentioned_user_ids: currentMentionIds
+    };
+    
+    if (activeReplyCommentId) {
+        payload.parent_comment_id = activeReplyCommentId;
+    }
+
+    const { error } = await supabase.from('post_comments').insert(payload);
 
     if (error) {
         showToast('Failed to post comment.', 'error');
     } else {
-        commentQuillEditor.setContents([]); // Clear input
+        input.value = '';
+        input.style.height = 'auto';
+        window.cancelReply();
+        currentMentionIds = [];
+        
         openCommentsModal(postId); // Refresh comment list
-
+        
+        // Optimistically increment comment counter on feed
         const commentBtns = document.querySelectorAll(`.comment-btn[data-post-id="${postId}"]`);
         commentBtns.forEach(commentBtn => {
-            const countSpan = commentBtn.querySelector('span:last-child');
-            const currentCount = parseInt(countSpan.textContent);
-            countSpan.textContent = currentCount + 1;
+            const html = commentBtn.innerHTML;
+            if (html.includes('View')) {
+                // If it's text "View X comments"
+                const countMatch = html.match(/\d+/);
+                if (countMatch) {
+                    commentBtn.innerHTML = `View all ${parseInt(countMatch[0]) + 1} comments`;
+                }
+            } else {
+                // If it's an icon badge inside a card
+                const countSpan = commentBtn.nextElementSibling;
+                if(countSpan) countSpan.textContent = parseInt(countSpan.textContent || 0) + 1;
+            }
         });
     }
+    
     btn.disabled = false;
+    btn.innerHTML = 'Post';
 }
 
+// Make sure your Event Listeners map up to the ID
+document.getElementById('send-comment-btn')?.addEventListener('click', () => {
+    submitComment(document.getElementById('send-comment-btn').dataset.postId);
+});
 // ==========================================
 // LIKES MODAL TOUCH PHYSICS (Swipe to Close)
 // ==========================================
