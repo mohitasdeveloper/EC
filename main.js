@@ -730,8 +730,8 @@ function generatePostHTML(posts, currentUserId) {
         if (post.post_type === 'text') {
             if (cleanCaptionContent !== '') {
                 contentHtml = `
-                    <div class="px-4 py-2 mt-1 mb-2">
-                        <div class="text-[15px] font-medium text-on-surface dark:text-gray-100 leading-relaxed whitespace-pre-wrap rich-text-content">${post.content}</div>
+                    <div class="px-4 py-8 mt-2 mb-2 bg-surface-variant/10 dark:bg-neutral-900/40 rounded-2xl mx-3 flex items-center justify-center border border-surface-variant/30 dark:border-neutral-800">
+                        <div class="text-[16px] sm:text-[18px] font-medium text-on-surface dark:text-gray-100 leading-relaxed whitespace-pre-wrap rich-text-content text-center w-full">${post.content}</div>
                     </div>
                 `;
             }
@@ -769,7 +769,7 @@ function generatePostHTML(posts, currentUserId) {
         else if (post.post_type === 'poll') {
             const votes = post.post_poll_votes || [];
             const totalVotes = votes.length;
-            const myVotes = votes.filter(v => v.user_id === currentUserId).map(v => v.option_index); // Profile fetch uses index
+            const myVotes = votes.filter(v => v.user_id === currentUserId).map(v => v.option_index); 
             const userHasVoted = myVotes.length > 0;
             
             const isExpired = post.poll_expires_at && new Date(post.poll_expires_at) < new Date();
@@ -779,7 +779,6 @@ function generatePostHTML(posts, currentUserId) {
                 const optVotes = votes.filter(v => v.option_index === index).length;
                 const percentage = totalVotes === 0 ? 0 : Math.round((optVotes / totalVotes) * 100);
                 const iVotedForThis = myVotes.includes(index);
-                const isClickable = !isExpired && !userHasVoted;
                 
                 return `
                 <div class="poll-option-btn cursor-default relative w-full bg-surface-variant/30 dark:bg-surface-variant/10 border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 overflow-hidden transition-all mb-2">
