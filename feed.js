@@ -31,13 +31,13 @@ function initQuillEditor() {
                         return;
                     }
                     try {
-                        // Securely search for users to mention
-                        const { data } = await supabase
-                            .from('users')
-                            .select('id, full_name, profile_img_url')
-                            .ilike('full_name', `%${searchTerm}%`)
-                            .eq('is_deleted', false)
-                            .limit(10);
+                        // 🚀 SECURE RPC SEARCH: Only shows users who allow mentions!
+                        const { data, error } = await supabase.rpc('search_mentionable_users', {
+                            p_search_term: searchTerm,
+                            p_current_user_id: currentUser.id
+                        });
+                        
+                        if (error) throw error;
                         
                         const matches = data.map(u => ({
                             id: u.id,
@@ -51,17 +51,16 @@ function initQuillEditor() {
                     }
                 },
                 renderItem: function(item) {
-                    // Custom HTML for the dropdown list of users
-                    return `<div class="flex items-center gap-2">
-                                <img src="${item.avatar}" class="w-6 h-6 rounded-full object-cover">
-                                <span class="text-sm font-bold text-on-surface dark:text-gray-100">${item.value}</span>
+                    // Enhanced HTML for the beautiful dropdown list
+                    return `<div class="flex items-center gap-3">
+                                <img src="${item.avatar}" class="w-8 h-8 rounded-full object-cover border border-surface-variant/50">
+                                <span class="text-[14px] font-bold text-on-surface dark:text-gray-100">${item.value}</span>
                             </div>`;
                 }
             }
         }
     });
 }
-
 // ========================================================
 // PROFESSIONAL SKELETON LOADER
 // ========================================================
@@ -234,29 +233,30 @@ async function submitPost() {
     btn.textContent = 'Publishing...';
 
     try {
-        // 1. Setup Base Post Payload
-        const expiryDays = parseInt(document.getElementById('post-expiry-select').value) || 7;
+       // 1. Setup Base Post Payload
+        // 🚀 Read from the new hidden inputs instead of selects!
+        const expiryDays = parseInt(document.getElementById('post-expiry-value').value) || 7;
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + expiryDays);
 
-        const viewersAccess = document.getElementById('post-viewers-access')?.value || 'all';
+        const viewersAccess = document.getElementById('post-viewers-value')?.value || 'all';
 
         // Extract mentioned user IDs from Quill's internal Delta state
-const mentionedIds = [];
-quillEditor.getContents().ops.forEach(op => {
-    if (op.insert && op.insert.mention) {
-        mentionedIds.push(op.insert.mention.id);
-    }
-});
+        const mentionedIds = [];
+        quillEditor.getContents().ops.forEach(op => {
+            if (op.insert && op.insert.mention) {
+                mentionedIds.push(op.insert.mention.id);
+            }
+        });
 
-let basePayload = { 
-    user_id: currentUser.id, 
-    post_type: postType, 
-    content: contentHTML,
-    expires_at: expiresAt.toISOString(),
-    viewers_access: viewersAccess,
-    mentioned_user_ids: mentionedIds // <-- ADD THIS LINE
-};
+        let basePayload = { 
+            user_id: currentUser.id, 
+            post_type: postType, 
+            content: contentHTML,
+            expires_at: expiresAt.toISOString(),
+            viewers_access: viewersAccess,
+            mentioned_user_ids: mentionedIds
+        };
 
         // Handle Standard Image Upload
         if (postType === 'image') {
