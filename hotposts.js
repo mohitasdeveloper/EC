@@ -400,7 +400,13 @@ function resetCameraUI() {
     currentFilterIndex = 0;
     isDrawMode = false;
     doodlePaths = [];
-    document.getElementById('doodle-color-picker')?.classList.add('hidden');
+    
+    // 🚀 FIX: Safely strip 'flex' before hiding so the tools aren't permanently stuck invisible
+    const colorPicker = document.getElementById('doodle-color-picker');
+    if (colorPicker) {
+        colorPicker.classList.add('hidden');
+        colorPicker.classList.remove('flex');
+    }
     document.getElementById('doodle-size-slider')?.classList.add('hidden');
     
     const doodleBtn = document.getElementById('doodle-hotpost-btn');
@@ -415,7 +421,6 @@ function resetCameraUI() {
     activeTextId = null;
     activeTextIdForTouch = null;
 }
-
 function showPreviewUI() {
     document.getElementById('hotpost-camera-feed').classList.add('hidden');
     document.getElementById('hotpost-preview-container').classList.remove('hidden');
@@ -431,13 +436,16 @@ function showPreviewUI() {
 // EDITOR: FONT & TEXT ENGINE
 // ==========================================
 function activateTextTool(textId = null) {
-    // 🚀 Failsafe: Ensure ID is strictly a string (prevents ghost empty boxes from accidental touch events)
     activeTextId = typeof textId === 'string' ? textId : null;
     
     const overlay = document.getElementById('hotpost-text-editor-overlay');
     const textarea = document.getElementById('hotpost-in-ui-textarea');
     
     overlay.classList.replace('hidden', 'flex');
+    
+    // 🚀 ALWAYS let the user type with full width, we shrink it when they hit "Done"
+    textarea.style.width = '85vw'; 
+
     if (activeTextId) {
         const textObj = textElements.find(t => t.id === activeTextId);
         textarea.value = textObj ? textObj.content : '';
@@ -445,22 +453,17 @@ function activateTextTool(textId = null) {
         currentTextColor = textObj.color || '#FFFFFF';
         currentTextBg = textObj.hasBg || false;
         currentTextAlign = textObj.align || 'center';
-        
-        textarea.style.width = textObj ? `${textObj.width}px` : '85vw'; 
     } else {
         textarea.value = '';
         currentTextFont = TEXT_FONTS[0].value;
         currentTextColor = '#FFFFFF';
         currentTextBg = false;
         currentTextAlign = 'center';
-        
-        textarea.style.width = '85vw'; 
     }
 
     const alignBtnSpan = document.querySelector('#toggle-text-align-btn span');
     if (alignBtnSpan) alignBtnSpan.textContent = `format_align_${currentTextAlign}`;
 
-    // Auto-expanding height logic for a perfect typing experience
     const adjustHeight = () => {
         textarea.style.height = 'auto';
         textarea.style.height = textarea.scrollHeight + 'px';
@@ -471,7 +474,7 @@ function activateTextTool(textId = null) {
     updateTextUIPreview();
     setTimeout(() => {
         textarea.focus();
-        adjustHeight(); // Initial height calculation
+        adjustHeight(); 
     }, 50);
 }
 
@@ -528,6 +531,23 @@ function saveTextFromUI() {
     const content = textarea.value.trim();
     
     if (content) {
+        // 🚀 MEASUREMENT ENGINE: Calculate the exact pixel width of the text!
+        const measureDiv = document.createElement('div');
+        measureDiv.style.position = 'absolute';
+        measureDiv.style.visibility = 'hidden';
+        measureDiv.style.whiteSpace = 'pre-wrap';
+        measureDiv.style.fontSize = '24px';
+        measureDiv.style.fontFamily = currentTextFont.replace(/"/g, "'");
+        measureDiv.style.lineHeight = '1.3';
+        measureDiv.style.width = 'max-content';
+        measureDiv.style.maxWidth = '85vw';
+        measureDiv.textContent = content;
+        document.body.appendChild(measureDiv);
+        let exactWidth = measureDiv.getBoundingClientRect().width;
+        document.body.removeChild(measureDiv);
+        
+        exactWidth = Math.ceil(exactWidth) + 8; // Small buffer padding
+
         if (activeTextId) {
             const textObj = textElements.find(t => t.id === activeTextId);
             if (textObj) {
@@ -536,24 +556,26 @@ function saveTextFromUI() {
                 textObj.color = currentTextColor;
                 textObj.hasBg = currentTextBg;
                 textObj.align = currentTextAlign;
+                
+                // Shrink-wrap it UNLESS the user manually dragged the width handles
+                if (!textObj.manuallyResized) {
+                    textObj.width = exactWidth;
+                }
             }
         } else {
             const newId = 'text-' + Date.now();
-            
-            // 🚀 Capture the actual full-screen pixel width to save to the Canvas properly
-            const computedWidth = textarea.getBoundingClientRect().width || (window.innerWidth * 0.85);
-
             textElements.push({ 
                 id: newId, 
                 content: content, 
                 x: 0.5, 
                 y: 0.5, 
-                width: computedWidth, 
+                width: exactWidth, 
                 scale: 1.0,
                 font: currentTextFont,
                 color: currentTextColor,
                 hasBg: currentTextBg,
-                align: currentTextAlign
+                align: currentTextAlign,
+                manuallyResized: false
             });
             activeTextId = newId; 
         }
@@ -632,13 +654,16 @@ function toggleDrawMode() {
     const slider = document.getElementById('doodle-size-slider');
     const penBtn = document.getElementById('doodle-hotpost-btn');
     
+    // 🚀 FIX: Safely toggle flex and hidden to guarantee visibility
     if (isDrawMode) {
-        colorPicker.classList.replace('hidden', 'flex');
+        colorPicker.classList.remove('hidden');
+        colorPicker.classList.add('flex');
         slider.classList.remove('hidden');
         penBtn.classList.replace('bg-black/40', 'bg-white');
         penBtn.classList.replace('text-white', 'text-black');
     } else {
-        colorPicker.classList.replace('flex', 'hidden');
+        colorPicker.classList.add('hidden');
+        colorPicker.classList.remove('flex');
         slider.classList.add('hidden');
         penBtn.classList.replace('bg-white', 'bg-black/40');
         penBtn.classList.replace('text-black', 'text-white');
@@ -794,11 +819,13 @@ function setupEditorTouchPhysics() {
         const currentY = e.touches[0].clientY;
         const rect = container.getBoundingClientRect();
 
-        if (touchMode === 'width') {
+      if (touchMode === 'width') {
             const deltaX = currentX - startX;
             const tObj = textElements.find(t => t.id === activeTextIdForTouch);
             const adjustedDelta = (deltaX * 2) / tObj.scale; 
             tObj.width = Math.max(80, initialObjWidth + adjustedDelta);
+            
+            tObj.manuallyResized = true; // 🚀 ADD THIS LINE: Tells the engine not to shrink-wrap this text anymore!
             
             const widgetEl = document.getElementById(activeTextIdForTouch);
             if(widgetEl) {
