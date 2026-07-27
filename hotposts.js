@@ -530,10 +530,12 @@ function updateTextUIPreview() {
 
 function saveTextFromUI() {
     const textarea = document.getElementById('hotpost-in-ui-textarea');
-    const content = textarea.value.trim();
+    
+    // 🚀 FIX: Strip invisible trailing spaces from EVERY line that ruin alignment!
+    const content = textarea.value.split('\n').map(line => line.trimEnd()).join('\n').trim();
     
     if (content) {
-        // 🚀 PERFECT MEASUREMENT ENGINE: Forces the box to hug the exact width of the words
+        // 🚀 FLAWLESS MEASUREMENT ENGINE
         const measureDiv = document.createElement('div');
         measureDiv.style.position = 'absolute';
         measureDiv.style.visibility = 'hidden';
@@ -543,9 +545,11 @@ function saveTextFromUI() {
         measureDiv.style.lineHeight = '1.3';
         measureDiv.style.width = 'max-content';
         measureDiv.style.maxWidth = '85vw';
-        measureDiv.innerHTML = content.replace(/\n/g, '<br>');
+        measureDiv.style.textAlign = currentTextAlign;
+        measureDiv.textContent = content; // Retains native \n breaks exactly
+        
         document.body.appendChild(measureDiv);
-        let exactWidth = Math.ceil(measureDiv.getBoundingClientRect().width) + 8; 
+        let exactWidth = Math.ceil(measureDiv.getBoundingClientRect().width) + 8; // Small visual buffer
         document.body.removeChild(measureDiv);
 
         if (activeTextId) {
@@ -556,7 +560,7 @@ function saveTextFromUI() {
                 textObj.color = currentTextColor;
                 textObj.hasBg = currentTextBg;
                 textObj.align = currentTextAlign;
-                textObj.width = exactWidth; // 🚀 ALWAYS Shrink-Wrap!
+                textObj.width = exactWidth; 
             }
         } else {
             const newId = 'text-' + Date.now();
@@ -611,7 +615,7 @@ function renderTextElements() {
             }
         }
 
-        // 🚀 Deleted the Width Handle so it scales purely by corners like Instagram
+     // 🚀 Native Text Alignment Rendering inside the strict bounding box
         widget.innerHTML = `
             <div class="text-widget-box">
                 <div class="text-handle handle-tl" data-action="delete"><span class="material-symbols-outlined text-[18px]">close</span></div>
@@ -631,11 +635,14 @@ function initDoodleCanvas() {
     setTimeout(() => {
         const canvas = document.getElementById('hotpost-doodle-canvas');
         const container = document.getElementById('hotpost-preview-container');
-        canvas.width = container.clientWidth;
-        canvas.height = container.clientHeight;
+        
+        // 🚀 FIX: Fallback to innerWidth/innerHeight prevents the 0x0 bug!
+        canvas.width = container.clientWidth || window.innerWidth;
+        canvas.height = container.clientHeight || window.innerHeight;
+        
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }, 100);
+    }, 100); // Wait for DOM to paint
 }
 
 function toggleDrawMode() {
@@ -644,17 +651,18 @@ function toggleDrawMode() {
     const slider = document.getElementById('doodle-size-slider');
     const penBtn = document.getElementById('doodle-hotpost-btn');
     
-    // 🚀 FIX: Safely toggle flex and hidden to guarantee visibility
     if (isDrawMode) {
         colorPicker.classList.remove('hidden');
-        colorPicker.classList.add('flex');
+        colorPicker.classList.add('flex', 'z-[200]'); // 🚀 FIX: Forced overlay priority
         slider.classList.remove('hidden');
+        slider.classList.add('z-[200]');
         penBtn.classList.replace('bg-black/40', 'bg-white');
         penBtn.classList.replace('text-white', 'text-black');
     } else {
         colorPicker.classList.add('hidden');
-        colorPicker.classList.remove('flex');
+        colorPicker.classList.remove('flex', 'z-[200]');
         slider.classList.add('hidden');
+        slider.classList.remove('z-[200]');
         penBtn.classList.replace('bg-white', 'bg-black/40');
         penBtn.classList.replace('text-black', 'text-white');
     }
