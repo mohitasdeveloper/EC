@@ -522,9 +522,25 @@ function renderPosts(posts, isRefresh = false) {
         const headerIcon = `<img loading="lazy" src="${optimizedAvatar}" data-user-id="${user.id}" class="profile-link w-8 h-8 rounded-full border border-surface-variant shadow-sm object-cover cursor-pointer hover:opacity-80 transition-opacity shrink-0">`;
 
         // --- 4. MEDIA / CONTENT HTML LOGIC ---
+        // Clean caption HTML logic first
+        let cleanCaptionContent = '';
+        if (post.content && post.content.trim() !== '' && post.content !== '<p><br></p>') {
+            cleanCaptionContent = post.content.replace(/<p>/g, '').replace(/<\/p>/g, '<br>').replace(/^(<br>)+|(<br>)+$/g, '').trim();
+        }
+
         let contentHtml = '';
         
-        if (post.post_type === 'image') {
+        if (post.post_type === 'text') {
+            if (cleanCaptionContent !== '') {
+                contentHtml = `
+                    <div class="px-4 py-2 mt-1 mb-2">
+                        <p class="text-[15px] sm:text-[16px] font-medium text-on-surface dark:text-gray-100 leading-relaxed whitespace-pre-wrap">${cleanCaptionContent}</p>
+                    </div>
+                `;
+            }
+            cleanCaptionContent = ''; // Clear it so it doesn't duplicate in the caption area below
+        }
+        else if (post.post_type === 'image') {
             const optimizedMedia = typeof optimizeImageUrl === 'function' ? optimizeImageUrl(post.media_url, 'feed') : post.media_url;
             contentHtml = `
                 <div class="w-full bg-surface-variant/20 dark:bg-neutral-900 flex items-center justify-center border-y border-surface-variant/40 dark:border-neutral-800">
@@ -611,17 +627,13 @@ function renderPosts(posts, isRefresh = false) {
             }
         }
 
-        // Clean caption HTML logic (Removes Quill <p> wrappers so it displays inline)
         let captionHtml = '';
-        if (post.content && post.content.trim() !== '' && post.content !== '<p><br></p>') {
-            const cleanContent = post.content.replace(/<p>/g, '').replace(/<\/p>/g, '<br>').replace(/^(<br>)+|(<br>)+$/g, '').trim();
-            if (cleanContent !== '') {
-                captionHtml = `
-                <div class="px-3 text-[14px] text-on-surface dark:text-gray-100 leading-snug mt-1">
-                    <span data-user-id="${user.id}" class="profile-link font-bold mr-1 cursor-pointer hover:underline">${user.full_name}</span>
-                    <span class="rich-text-content inline">${cleanContent}</span>
-                </div>`;
-            }
+        if (cleanCaptionContent !== '') {
+            captionHtml = `
+            <div class="px-3 text-[14px] text-on-surface dark:text-gray-100 leading-snug mt-1">
+                <span data-user-id="${user.id}" class="profile-link font-bold mr-1 cursor-pointer hover:underline">${user.full_name}</span>
+                <span class="rich-text-content inline">${cleanCaptionContent}</span>
+            </div>`;
         }
 
         // --- 5. MAIN CARD HTML ---
@@ -691,7 +703,6 @@ function renderPosts(posts, isRefresh = false) {
     if (isRefresh) container.innerHTML = htmlString;
     else container.insertAdjacentHTML('beforeend', htmlString);
 }
-
 // ==========================================
 // OPTIMISTIC LIKE ENGINE (Global & Failsafe)
 // ==========================================
@@ -1036,28 +1047,22 @@ async function submitPostReport() {
 // COMMENTS 
 // ==========================================
 
-function closeCommentsModal() {
+window.closeCommentsModal = function() {
     const modal = document.getElementById('modal-post-comments');
-    if (modal) {
-        modal.classList.replace('flex', 'hidden');
-    }
+    const bottomNav = document.querySelector('nav'); // GET NAV
     
-    // Reset the input and reply UI
+    if (modal) modal.classList.replace('flex', 'hidden');
+    if (bottomNav) bottomNav.classList.remove('hidden'); // SHOW NAV
+    
     if (typeof window.cancelReply === 'function') window.cancelReply();
-    
     const input = document.getElementById('post-comment-input');
     if (input) {
         input.value = '';
         input.style.height = 'auto';
     }
-    
-    // Clear any pending mentions
-    if (typeof currentMentionIds !== 'undefined') {
-        currentMentionIds = [];
-    }
-}
-// Expose globally so inline HTML handlers can use it if needed
-window.closeCommentsModal = closeCommentsModal;
+    if (typeof currentMentionIds !== 'undefined') currentMentionIds = [];
+};
+
 // ==========================================
 // NATIVE COMMENTS, REPLIES & MENTIONS
 // ==========================================
@@ -1140,24 +1145,20 @@ async function openCommentsModal(postId) {
     const modal = document.getElementById('modal-post-comments');
     const list = document.getElementById('post-comments-list');
     const input = document.getElementById('post-comment-input');
+    const bottomNav = document.querySelector('nav'); // GET NAV
     
     document.getElementById('send-comment-btn').dataset.postId = postId;
-    window.cancelReply(); // Reset UI
+    window.cancelReply(); 
     input.value = '';
     input.style.height = 'auto';
     currentMentionIds = [];
 
+    if (bottomNav) bottomNav.classList.add('hidden'); // HIDE NAV
     modal.classList.replace('hidden', 'flex');
     list.innerHTML = `<p class="text-sm italic text-center py-8 text-on-surface-variant dark:text-gray-400">Loading comments...</p>`;
 
     try {
-        const { data, error } = await supabase
-            .from('post_comments')
-            .select('*, users(id, full_name, profile_img_url, tick_type)')
-            .eq('post_id', postId)
-            .eq('is_deleted', false)
-            .order('created_at', { ascending: true });
-
+        const { data, error } = await supabase.from('post_comments').select('*, users(id, full_name, profile_img_url, tick_type)').eq('post_id', postId).eq('is_deleted', false).order('created_at', { ascending: true });
         if (error) throw error;
 
         if (data.length === 0) {
@@ -1165,7 +1166,6 @@ async function openCommentsModal(postId) {
             return;
         }
 
-        // Separate parents and replies for 1-level Instagram hierarchy
         const parents = data.filter(c => !c.parent_comment_id);
         const replies = data.filter(c => c.parent_comment_id);
 
@@ -1173,8 +1173,8 @@ async function openCommentsModal(postId) {
             const commentReplies = replies.filter(r => r.parent_comment_id === comment.id);
             return renderSingleComment(comment, false) + commentReplies.map(r => renderSingleComment(r, true)).join('');
         }).join('');
-
-        setupCommentSwipePhysics(); // Boot touch physics
+        
+        // NOTE: We entirely removed setupCommentSwipePhysics() from here
 
     } catch (error) {
         list.innerHTML = `<p class="text-sm italic text-center py-8 text-error">Failed to load comments.</p>`;
@@ -1182,35 +1182,100 @@ async function openCommentsModal(postId) {
 }
 
 function renderSingleComment(comment, isReply) {
-    const isOwner = currentUser.id === comment.user_id;
-    const paddingLeft = isReply ? 'ml-12' : ''; // Indent replies
-    
-    // Highlight @mentions in text
+    const paddingLeft = isReply ? 'ml-12' : ''; 
     let formattedContent = comment.content.replace(/@([\w\s]+)(?=\s|$)/g, '<span class="text-primary font-bold">@$1</span>');
 
     return `
-        <div class="comment-swipe-container ${paddingLeft} mb-4 relative" data-comment-id="${comment.id}">
-            <!-- Swipe Delete Background -->
-            ${isOwner ? `<div class="comment-delete-bg rounded-2xl"><span class="material-symbols-outlined text-white text-[24px]">delete</span></div>` : ''}
+        <div class="flex items-start gap-3 mb-4 ${paddingLeft}" data-comment-id="${comment.id}">
+            <img onclick="window.viewUserProfile('${comment.users.id}')" src="${comment.users.profile_img_url}" class="w-8 h-8 rounded-full object-cover shrink-0 cursor-pointer mt-1 border border-surface-variant/50">
             
-            <!-- Draggable Foreground -->
-            <div class="comment-swipe-track flex items-start gap-3 bg-surface dark:bg-[#1e1e1e] p-1">
-                <img onclick="window.viewUserProfile('${comment.users.id}')" src="${comment.users.profile_img_url}" class="w-8 h-8 rounded-full object-cover shrink-0 cursor-pointer mt-1 border border-surface-variant/50">
-                <div class="flex-1 min-w-0">
-                    <p class="text-[13px] text-on-surface dark:text-gray-100 leading-snug">
-                        <span onclick="window.viewUserProfile('${comment.users.id}')" class="font-extrabold mr-1 cursor-pointer hover:underline">${comment.users.full_name}</span>
-                        ${formattedContent}
-                    </p>
-                    <div class="flex items-center gap-4 mt-1">
-                        <span class="text-[11px] font-bold text-on-surface-variant dark:text-gray-500">${timeAgo(comment.created_at)}</span>
-                        <span onclick="window.prepareReply('${isReply ? comment.parent_comment_id : comment.id}', '${comment.users.full_name}')" class="text-[11px] font-bold text-on-surface-variant dark:text-gray-500 cursor-pointer hover:text-primary transition-colors">Reply</span>
-                    </div>
+            <!-- Tapping the comment body opens the Action Sheet -->
+            <div class="flex-1 min-w-0 flex flex-col cursor-pointer active:opacity-60 transition-opacity" onclick="window.openCommentActionSheet('${comment.id}', '${comment.user_id}')">
+                <p class="text-[13px] text-on-surface dark:text-gray-100 leading-snug">
+                    <span onclick="event.stopPropagation(); window.viewUserProfile('${comment.users.id}')" class="font-extrabold mr-1 hover:underline">${comment.users.full_name}</span>
+                    ${formattedContent}
+                </p>
+                <div class="flex items-center gap-4 mt-1">
+                    <span class="text-[11px] font-bold text-on-surface-variant dark:text-gray-500">${timeAgo(comment.created_at)}</span>
+                    <span onclick="event.stopPropagation(); window.prepareReply('${isReply ? comment.parent_comment_id : comment.id}', '${comment.users.full_name}')" class="text-[11px] font-bold text-on-surface-variant dark:text-gray-500 hover:text-primary transition-colors">Reply</span>
                 </div>
+            </div>
+
+            <!-- Comment Like Button -->
+            <div class="flex flex-col items-center justify-start ml-2 mt-1">
+                <button onclick="window.handleCommentLike('${comment.id}', this)" class="text-on-surface-variant dark:text-gray-500 hover:text-red-500 transition-colors active:scale-90 flex flex-col items-center p-1">
+                    <span class="material-symbols-outlined text-[14px]">favorite</span>
+                </button>
             </div>
         </div>
     `;
 }
 
+window.openCommentActionSheet = function(commentId, commentOwnerId) {
+    const isOwner = currentUser.id === commentOwnerId;
+    let buttonsHtml = '';
+
+    if (isOwner) {
+        buttonsHtml = `
+            <div class="px-4 py-3 border-b border-surface-variant/40 dark:border-neutral-800 text-center">
+                <p class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Comment Options</p>
+            </div>
+            <button onclick="window.deleteComment('${commentId}')" class="w-full flex items-center gap-3 p-4 bg-error/10 text-error rounded-2xl font-bold active:scale-95 transition-transform mt-2">
+                <span class="material-symbols-outlined">delete</span> Delete Comment
+            </button>
+        `;
+    } else {
+        buttonsHtml = `
+            <div class="px-4 py-3 border-b border-surface-variant/40 dark:border-neutral-800 text-center">
+                <p class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Comment Options</p>
+            </div>
+            <button class="w-full flex items-center gap-3 p-4 bg-orange-500/10 text-orange-500 rounded-2xl font-bold active:scale-95 transition-transform mt-2">
+                <span class="material-symbols-outlined">flag</span> Report Comment
+            </button>
+        `;
+    }
+
+    window.openActionSheet(buttonsHtml);
+};
+
+window.deleteComment = async (commentId) => {
+    window.closeActionSheet();
+    // Find the element and optimistically hide it instantly
+    const commentEl = document.querySelector(`div[data-comment-id="${commentId}"]`);
+    if (commentEl) commentEl.style.display = 'none';
+
+    const { error } = await supabase.from('post_comments').update({ is_deleted: true }).eq('id', commentId);
+    
+    if (error) {
+        if (commentEl) commentEl.style.display = 'flex'; // Revert if fails
+        showToast('Failed to delete comment.', 'error');
+    } else {
+        if (commentEl) commentEl.remove();
+        showToast('Comment deleted.', 'success');
+    }
+};
+
+window.handleCommentLike = async function(commentId, btnElement) {
+    const iconSpan = btnElement.querySelector('.material-symbols-outlined');
+    const isLiked = btnElement.classList.contains('text-red-500');
+    
+    if (isLiked) {
+        btnElement.classList.remove('text-red-500');
+        btnElement.classList.add('text-on-surface-variant', 'dark:text-gray-500');
+        iconSpan.style.fontVariationSettings = "'FILL' 0";
+    } else {
+        btnElement.classList.remove('text-on-surface-variant', 'dark:text-gray-500');
+        btnElement.classList.add('text-red-500');
+        iconSpan.style.fontVariationSettings = "'FILL' 1";
+        iconSpan.classList.add('animate-[pulse_0.3s_ease-out]');
+    }
+
+    // NOTE: This inserts the like into the DB. You will need to create the table below in Supabase for it to save permanently.
+    try {
+        if (!isLiked) await supabase.from('comment_likes').insert({ comment_id: commentId, user_id: currentUser.id });
+        else await supabase.from('comment_likes').delete().match({ comment_id: commentId, user_id: currentUser.id });
+    } catch(e) { console.error(e); }
+};
 // SWIPE TO DELETE PHYSICS
 function setupCommentSwipePhysics() {
     const containers = document.querySelectorAll('.comment-swipe-container');
