@@ -488,9 +488,7 @@ function renderPosts(posts, isRefresh = false) {
         
         let likedByHtml = '';
         if (likeCount > 0) {
-            // Find a liker to feature (preferring someone other than the current user if possible)
             const featuredLiker = likes.find(l => l.user_id !== currentUser.id)?.users?.full_name || likes[0]?.users?.full_name || 'Someone';
-            
             if (likeCount === 1) {
                 likedByHtml = `Liked by <span class="font-bold text-on-surface dark:text-gray-100">${featuredLiker}</span>`;
             } else {
@@ -506,10 +504,8 @@ function renderPosts(posts, isRefresh = false) {
             const previewCount = commentCount > 1 ? `View all ${commentCount} comments` : 'View 1 comment';
             commentsHtml = `<p data-post-id="${post.id}" class="comment-btn text-[14px] text-on-surface-variant dark:text-gray-400 mt-1 cursor-pointer active:opacity-70">${previewCount}</p>`;
             
-            // Show the 1 most recent comment inline
             const latestComment = comments[comments.length - 1];
             if (latestComment) {
-                // Strip HTML tags in case there's old Quill formatting in the DB
                 const cleanComment = latestComment.content.replace(/<[^>]*>?/gm, '');
                 commentsHtml += `<p class="text-[14px] text-on-surface dark:text-gray-100 mt-1 leading-snug"><span class="font-bold mr-1 cursor-pointer">${latestComment.users?.full_name || 'User'}</span><span class="text-on-surface-variant dark:text-gray-300">${cleanComment}</span></p>`;
             }
@@ -521,11 +517,11 @@ function renderPosts(posts, isRefresh = false) {
         const optimizedAvatar = typeof optimizeImageUrl === 'function' ? optimizeImageUrl(rawAvatarUrl, 'avatar') : rawAvatarUrl;
         const headerIcon = `<img loading="lazy" src="${optimizedAvatar}" data-user-id="${user.id}" class="profile-link w-8 h-8 rounded-full border border-surface-variant shadow-sm object-cover cursor-pointer hover:opacity-80 transition-opacity shrink-0">`;
 
-        // --- 4. MEDIA / CONTENT HTML LOGIC ---
-        // Clean caption HTML logic first
+        // --- 4. MEDIA & CAPTION LOGIC ---
         let cleanCaptionContent = '';
         if (post.content && post.content.trim() !== '' && post.content !== '<p><br></p>') {
-            cleanCaptionContent = post.content.replace(/<p>/g, '').replace(/<\/p>/g, '<br>').replace(/^(<br>)+|(<br>)+$/g, '').trim();
+            // Remove wrapping <p> tags so it displays inline nicely
+            cleanCaptionContent = post.content.replace(/^<p>/, '').replace(/<\/p>$/, '').trim();
         }
 
         let contentHtml = '';
@@ -534,16 +530,16 @@ function renderPosts(posts, isRefresh = false) {
             if (cleanCaptionContent !== '') {
                 contentHtml = `
                     <div class="px-4 py-2 mt-1 mb-2">
-                        <p class="text-[15px] sm:text-[16px] font-medium text-on-surface dark:text-gray-100 leading-relaxed whitespace-pre-wrap">${cleanCaptionContent}</p>
+                        <div class="text-[15px] font-medium text-on-surface dark:text-gray-100 leading-relaxed whitespace-pre-wrap rich-text-content">${post.content}</div>
                     </div>
                 `;
             }
-            cleanCaptionContent = ''; // Clear it so it doesn't duplicate in the caption area below
+            cleanCaptionContent = ''; // Wipe caption so it doesn't duplicate at the bottom
         }
         else if (post.post_type === 'image') {
             const optimizedMedia = typeof optimizeImageUrl === 'function' ? optimizeImageUrl(post.media_url, 'feed') : post.media_url;
             contentHtml = `
-                <div class="w-full bg-surface-variant/20 dark:bg-neutral-900 flex items-center justify-center border-y border-surface-variant/40 dark:border-neutral-800">
+                <div class="w-full bg-surface-variant/20 dark:bg-neutral-900 flex items-center justify-center border-y border-surface-variant/40 dark:border-neutral-800 mt-2">
                     <img loading="lazy" src="${optimizedMedia}" class="w-full h-auto max-h-[80vh] object-cover">
                 </div>
             `;
@@ -552,7 +548,7 @@ function renderPosts(posts, isRefresh = false) {
             const event = post.post_events && post.post_events.length > 0 ? post.post_events[0] : null;
             if (event) {
                 const optimizedEventMedia = typeof optimizeImageUrl === 'function' && event.event_image_url ? optimizeImageUrl(event.event_image_url, 'feed') : event.event_image_url;
-                const eventImgHtml = event.event_image_url ? `<img loading="lazy" src="${optimizedEventMedia}" class="w-full h-auto max-h-[80vh] object-cover border-y border-surface-variant/40 dark:border-neutral-800">` : '';
+                const eventImgHtml = event.event_image_url ? `<img loading="lazy" src="${optimizedEventMedia}" class="w-full h-auto max-h-[80vh] object-cover border-y border-surface-variant/40 dark:border-neutral-800 mt-2">` : '';
                 const dateStr = event.event_date ? new Date(event.event_date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'TBA';
                 
                 let actionHtml = '';
@@ -616,7 +612,7 @@ function renderPosts(posts, isRefresh = false) {
                 }).join('');
 
                 contentHtml = `
-                    <div class="px-3 py-3 border-y border-surface-variant/40 dark:border-neutral-800 bg-surface-variant/5 dark:bg-neutral-900/30">
+                    <div class="px-3 py-3 border-y border-surface-variant/40 dark:border-neutral-800 bg-surface-variant/5 dark:bg-neutral-900/30 mt-2">
                         <div class="poll-options-wrapper space-y-2 mb-2">${optionsHtml}</div>
                         <div class="flex justify-between text-[11px] font-medium text-on-surface-variant dark:text-gray-400">
                             <span><span class="poll-total-votes">${totalVotes}</span> votes</span>
@@ -643,7 +639,7 @@ function renderPosts(posts, isRefresh = false) {
             ${post.is_verified ? '<div class="absolute top-3 right-3 bg-[#e8b339] text-white px-2 py-0.5 rounded text-[9px] font-extrabold uppercase shadow-sm z-10"><span class="material-symbols-outlined text-[12px] align-middle">stars</span> Verified</div>' : ''}
 
             <!-- HEADER -->
-            <div class="flex items-center gap-3 px-3 py-3">
+            <div class="flex items-center gap-3 px-3 py-2">
                 ${headerIcon}
                 <div class="flex-1 min-w-0">
                     <h4 data-user-id="${user.id}" class="profile-link font-bold text-[14px] text-on-surface dark:text-gray-100 leading-tight cursor-pointer hover:text-primary transition-colors flex items-center gap-1 truncate">
@@ -688,9 +684,9 @@ function renderPosts(posts, isRefresh = false) {
                 ${commentsHtml}
             </div>
 
-            <!-- ADD COMMENT INLINE INPUT (Visual Trigger) -->
+            <!-- ADD COMMENT INLINE INPUT -->
             <div class="px-3 mt-2 flex items-center gap-2">
-                <img src="${currentUser?.profile_img_url || 'https://ui-avatars.com/api/?name=User'}" class="w-6 h-6 rounded-full object-cover border border-surface-variant/50">
+                <img src="${currentUser?.profile_img_url || 'https://ui-avatars.com/api/?name=User'}" class="w-6 h-6 rounded-full object-cover border border-surface-variant/50 shrink-0">
                 <p data-post-id="${post.id}" class="comment-btn flex-1 text-[13px] text-on-surface-variant dark:text-gray-500 cursor-text">Add a comment...</p>
             </div>
 
@@ -703,6 +699,7 @@ function renderPosts(posts, isRefresh = false) {
     if (isRefresh) container.innerHTML = htmlString;
     else container.insertAdjacentHTML('beforeend', htmlString);
 }
+
 // ==========================================
 // OPTIMISTIC LIKE ENGINE (Global & Failsafe)
 // ==========================================
