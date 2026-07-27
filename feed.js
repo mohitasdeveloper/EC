@@ -6,6 +6,27 @@ import { CLOUDINARY_CLOUD_NAME } from './config.js';
 let currentUser = null;
 let isVoting = false; 
 
+// Add this near the top of feed.js with your other let variables
+let quillEditor = null;
+
+// Add this function anywhere in feed.js
+function initQuillEditor() {
+    if (quillEditor) return; // Only initialize once
+    
+    quillEditor = new Quill('#rich-text-editor', {
+        theme: 'snow',
+        placeholder: 'What do you want to talk about?',
+        modules: {
+            toolbar: [
+                ['bold', 'italic', 'underline', 'strike'],
+                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                ['link'],
+                ['clean']
+            ]
+        }
+    });
+}
+
 // ========================================================
 // PROFESSIONAL SKELETON LOADER
 // ========================================================
@@ -37,11 +58,13 @@ export function initFeed(user) {
     setupImagePreviews();
 setupLikesModalTouchPhysics();
     
-    document.addEventListener('openCreatePostView', () => {
+  document.addEventListener('openCreatePostView', () => {
         if(currentUser) {
             document.getElementById('create-post-avatar').src = currentUser.profile_img_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.full_name)}&background=e1e3e4`;
             document.getElementById('create-post-name').innerHTML = `${currentUser.full_name} ${getTickHtml(currentUser.tick_type)}`;
         }
+        // Initialize rich text editor when the modal opens
+        initQuillEditor();
     });
 
     // 1. GLOBAL Event Delegation (Listens to the whole body so Profile & Notification views work too!)
@@ -157,13 +180,16 @@ async function uploadToCloudinary(file) {
 }
 
 // ==========================================
-// POST CREATION
+// POST CREATION (Advanced Relational Logic)
 // ==========================================
 async function submitPost() {
     const postType = document.getElementById('current-post-type').value;
-    const content = document.getElementById('post-content-input').value.trim();
     
-    if (!content) {
+    // Get HTML content from Quill, and plain text just to check if it's empty
+    const contentHTML = quillEditor.root.innerHTML;
+    const plainText = quillEditor.getText().trim();
+    
+    if (!plainText && postType === 'text') {
         showToast('Please write something to post.', 'warning');
         return;
     }
@@ -172,59 +198,112 @@ async function submitPost() {
     btn.disabled = true;
     btn.textContent = 'Publishing...';
 
-    let payload = { user_id: currentUser.id, post_type: postType, content: content };
-
     try {
+        // 1. Setup Base Post Payload
+        const expiryDays = parseInt(document.getElementById('post-expiry-select').value) || 7;
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + expiryDays);
+
+        const viewersAccess = document.getElementById('post-viewers-access')?.value || 'all';
+
+        let basePayload = { 
+            user_id: currentUser.id, 
+            post_type: postType, 
+            content: contentHTML,
+            expires_at: expiresAt.toISOString(),
+            viewers_access: viewersAccess
+        };
+
+        // Handle Standard Image Upload
         if (postType === 'image') {
             const fileInput = document.getElementById('post-image-upload');
             if (!fileInput.files[0]) throw new Error("Please select an image to upload.");
-            payload.media_url = await uploadToCloudinary(fileInput.files[0]);
-        } 
-        else if (postType === 'poll') {
-            const inputs = document.querySelectorAll('.poll-opt-input');
-            const options = Array.from(inputs).map(inp => inp.value.trim()).filter(val => val !== '');
-            if(options.length < 2) throw new Error("Polls need at least 2 options.");
-            
-            payload.poll_options = options;
-            payload.poll_is_anon = document.getElementById('poll-is-anon').checked;
-            payload.poll_is_multiple_choice = document.getElementById('poll-is-multiple').checked;
-            
-            const expiry = document.getElementById('poll-expiry').value;
-            if (expiry) payload.poll_expires_at = new Date(expiry).toISOString();
-        } 
-        else if (postType === 'event') {
-            const fileInput = document.getElementById('event-image-upload');
-            if (fileInput.files[0]) payload.event_image_url = await uploadToCloudinary(fileInput.files[0]);
-            payload.event_date = document.getElementById('event-date').value || null;
-            payload.event_location = document.getElementById('event-location').value.trim();
-            payload.event_register_url = document.getElementById('event-register-url').value.trim();
-            const customBtnInput = document.getElementById('event-button-text');
-            payload.event_button_text = (customBtnInput && customBtnInput.value.trim()) ? customBtnInput.value.trim() : 'View Link';
+            basePayload.media_url = await uploadToCloudinary(fileInput.files[0]);
         }
 
-        // Return the inserted data so we can get the post ID
-        const { data: newPost, error } = await supabase.from('posts').insert(payload).select('id').single();
-        if (error) throw error;
+        // 2. Insert into the MAIN `posts` table first to get the ID
+        const { data: newPost, error: postError } = await supabase
+            .from('posts')
+            .insert(basePayload)
+            .select('id')
+            .single();
 
-        // NEW: Mass-Notify Followers if it's an Official Page
-        if (currentUser.role === 'page' && newPost) {
+        if (postError) throw postError;
+        const newPostId = newPost.id;
+
+        // 3. Handle specific Sub-Tables (Polls or Events)
+        if (postType === 'poll') {
+            const inputs = document.querySelectorAll('.poll-opt-input');
+            const rawOptions = Array.from(inputs).map(inp => inp.value.trim()).filter(val => val !== '');
+            if(rawOptions.length < 2) throw new Error("Polls need at least 2 options.");
+            
+            // Format options for the JSONB column: [{"id": "1", "text": "Apple"}, ...]
+            const formattedOptions = rawOptions.map((opt, index) => ({
+                id: (index + 1).toString(),
+                text: opt
+            }));
+
+            const pollPayload = {
+                post_id: newPostId,
+                options: formattedOptions,
+                is_multiple_choice: document.getElementById('poll-is-multiple').checked,
+                can_undo_vote: document.getElementById('poll-can-undo').checked,
+                voters_list_visibility: document.getElementById('poll-voters-visibility').value,
+                deadline_type: document.getElementById('poll-deadline-type').value
+            };
+
+            if (pollPayload.deadline_type === 'voter_count') {
+                const countVal = parseInt(document.getElementById('poll-deadline-count').value);
+                if (!countVal || countVal < 1) throw new Error("Please enter a valid target vote count.");
+                pollPayload.deadline_count = countVal;
+            }
+
+            const { error: pollError } = await supabase.from('post_polls').insert(pollPayload);
+            if (pollError) throw pollError;
+        } 
+        
+        else if (postType === 'event') {
+            const dateVal = document.getElementById('event-date').value;
+            if (!dateVal) throw new Error("Please select an event date and time.");
+
+            const eventPayload = {
+                post_id: newPostId,
+                event_date: new Date(dateVal).toISOString(),
+                event_location: document.getElementById('event-location').value.trim() || null,
+                enable_rsvp: document.getElementById('event-enable-rsvp').checked,
+                rsvp_list_visibility: document.getElementById('event-rsvp-visibility').value,
+                show_register_btn: document.getElementById('event-show-register').checked,
+                register_url: document.getElementById('event-register-url').value.trim() || null
+            };
+
+            const fileInput = document.getElementById('event-image-upload');
+            if (fileInput.files[0]) {
+                eventPayload.event_image_url = await uploadToCloudinary(fileInput.files[0]);
+            }
+
+            const { error: eventError } = await supabase.from('post_events').insert(eventPayload);
+            if (eventError) throw eventError;
+        }
+
+        // Mass-Notify Followers if it's an Official Page
+        if (currentUser.role === 'page') {
             await supabase.rpc('notify_page_followers', {
                 p_page_id: currentUser.id,
                 p_type: 'page_new_post',
                 p_message: 'published a new post.',
-                p_target_id: newPost.id
+                p_target_id: newPostId
             });
         }
 
+        // 4. Clean up UI & Reset
         window.closeCreatePostView();
-        document.getElementById('post-content-input').value = '';
+        quillEditor.setContents([]); // Clear Rich Text Editor
         if (document.getElementById('post-image-upload')) document.getElementById('post-image-upload').value = '';
         if (document.getElementById('event-image-upload')) document.getElementById('event-image-upload').value = '';
-        if (document.getElementById('event-button-text')) document.getElementById('event-button-text').value = '';
         
         showToast('Post published successfully!', 'success');
         
-        // FIX: Trigger a true refresh to reset pagination and show the new post
+        // Refresh feed to show new post
         window.refreshMainFeed();
 
     } catch (error) {
