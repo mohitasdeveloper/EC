@@ -495,186 +495,185 @@
     <!-- DEDICATED FULL-SCREEN VIEWS -->
     <!-- ============================================== -->
 
-    <!-- CREATE POST FULL-SCREEN VIEW -->
-<div id="view-create-post" class="fixed top-0 left-0 w-full h-[100dvh] z-[150] bg-surface dark:bg-[#121212] hidden flex-col transition-transform duration-300 translate-y-full">
-    <!-- Header code remains the same... -->
+   <!-- CREATE POST FULL-SCREEN VIEW -->
+<div id="view-create-post" class="fixed top-0 left-0 w-full h-[100dvh] z-[200] bg-surface dark:bg-[#121212] hidden flex-col transition-transform duration-300 translate-y-full">
     
-    <!-- Add overscroll-contain to the body -->
-    <div class="flex-1 overflow-y-auto overscroll-contain p-5 pb-24">
-        <!-- ... content ... -->    
-    <!-- Header -->
-    <div class="modal-header-safe flex items-center justify-between px-4 border-b border-surface-variant/40 dark:border-neutral-800 bg-surface/80 dark:bg-[#121212]/80 backdrop-blur-xl shrink-0">
-        <button onclick="closeCreatePostView()" class="p-2 -ml-2 rounded-full hover:bg-surface-variant/50 transition-colors text-on-surface dark:text-gray-100">
-            <span class="material-symbols-outlined text-[24px]">close</span>
-        </button>
-        <h2 class="text-lg font-bold text-on-surface dark:text-gray-100">Create Post</h2>
-        <button id="submit-post-btn" class="text-primary font-bold px-3 py-1.5 rounded-full hover:bg-primary/10 transition-colors active:scale-95 disabled:opacity-50">
-            Publish
-        </button>
-    </div>
-
-    <div class="flex-1 overflow-y-auto p-5">
-        <!-- Author Info & Global Post Settings -->
-        <div class="flex items-center justify-between mb-6">
-            <div class="flex items-center gap-3">
-                <img id="create-post-avatar" src="https://ui-avatars.com/api/?name=User" class="w-10 h-10 rounded-full border border-surface-variant shadow-sm object-cover">
-                <div>
-                    <p id="create-post-name" class="font-bold text-sm text-on-surface dark:text-gray-100 flex items-center">User Name</p>
-                    <!-- Visibility / Expiry Picker -->
-                   <!-- Native Expiry Action Sheet Trigger -->
-<div onclick="openExpirySelector()" class="flex items-center gap-1 text-xs font-medium text-on-surface-variant dark:text-gray-400 cursor-pointer active:opacity-70 bg-surface-variant/20 dark:bg-neutral-800 px-2 py-1 rounded-md">
-    <span id="post-expiry-label">Expires in 7 Days</span>
-    <span class="material-symbols-outlined text-[14px]">expand_more</span>
-</div>
-<input type="hidden" id="post-expiry-value" value="7">
-                </div>
-            </div>
-        </div>
-
-        <!-- Post Type Selector -->
-        <div id="post-type-selector" class="flex gap-2 overflow-x-auto hide-scrollbar mb-4 pb-2">
-            <button data-type="text" class="post-type-tab active bg-primary text-white px-5 py-2 rounded-full text-[13px] font-bold shrink-0 transition-colors shadow-sm">Text</button>
-            <button data-type="image" class="post-type-tab hidden bg-surface-variant/50 dark:bg-surface-variant/10 text-on-surface-variant dark:text-gray-300 px-5 py-2 rounded-full text-[13px] font-bold shrink-0 transition-colors">Image</button>
-            <button data-type="poll" class="post-type-tab hidden bg-surface-variant/50 dark:bg-surface-variant/10 text-on-surface-variant dark:text-gray-300 px-5 py-2 rounded-full text-[13px] font-bold shrink-0 transition-colors">Poll</button>
-            <button data-type="event" class="post-type-tab hidden bg-surface-variant/50 dark:bg-surface-variant/10 text-on-surface-variant dark:text-gray-300 px-5 py-2 rounded-full text-[13px] font-bold shrink-0 transition-colors">Event</button>
-        </div>
-        <input type="hidden" id="current-post-type" value="text">
-
-        <!-- RICH TEXT EDITOR CONTAINER -->
-        <div class="mb-4 bg-surface dark:bg-[#121212] rounded-xl border border-surface-variant/50 dark:border-neutral-700 overflow-hidden">
-            <!-- Quill Toolbar will be injected here automatically by JS -->
-            <div id="rich-text-editor" class="h-32 text-[15px] text-on-surface dark:text-gray-100"></div>
-        </div>
+    <!-- Desktop Centering Wrapper -->
+    <div class="w-full max-w-screen-md mx-auto flex flex-col h-full bg-surface dark:bg-[#121212] shadow-2xl relative">
         
-        <!-- Viewer Access Override (Optional) -->
-       <!-- Native Viewer Action Sheet Trigger -->
-<div class="mb-6">
-    <div onclick="openVisibilitySelector()" class="w-full flex items-center justify-between bg-surface-variant/10 dark:bg-neutral-800/50 border border-surface-variant/30 dark:border-neutral-700 rounded-xl px-4 py-3.5 text-sm text-on-surface dark:text-gray-200 cursor-pointer active:scale-[0.98] transition-all shadow-sm">
-        <span id="post-viewers-label" class="font-bold flex items-center gap-2 text-primary">
-            <span class="material-symbols-outlined text-[18px]">public</span> Everyone can see this
-        </span>
-        <span class="material-symbols-outlined text-[20px] text-on-surface-variant">expand_more</span>
-    </div>
-    <input type="hidden" id="post-viewers-value" value="all">
-</div>
-
-        <!-- Dynamic Inputs -->
-        <div id="input-text" class="post-input-section block"></div>
-
-        <!-- Image Input -->
-        <div id="input-image" class="post-input-section hidden mb-6 relative">
-            <input type="file" id="post-image-upload" accept="image/*" class="hidden">
-            <div id="post-image-preview-container" class="w-full h-auto min-h-[12rem] border-2 border-dashed border-surface-variant/80 dark:border-neutral-700 rounded-2xl flex flex-col items-center justify-center text-on-surface-variant dark:text-gray-400 cursor-pointer hover:border-primary hover:text-primary transition-colors bg-surface-variant/10 relative overflow-hidden p-2" onclick="document.getElementById('post-image-upload').click()">
-                <span class="material-symbols-outlined text-[32px] mb-2" id="img-icon-placeholder">add_photo_alternate</span>
-                <span class="text-sm font-medium" id="img-text-placeholder">Tap to upload image</span>
-            </div>
+        <!-- Header -->
+        <div class="modal-header-safe flex items-center justify-between px-4 py-2 border-b border-surface-variant/40 dark:border-neutral-800 bg-surface/80 dark:bg-[#121212]/80 backdrop-blur-xl shrink-0">
+            <button onclick="closeCreatePostView()" class="p-2 -ml-2 rounded-full hover:bg-surface-variant/50 transition-colors text-on-surface dark:text-gray-100">
+                <span class="material-symbols-outlined text-[24px]">close</span>
+            </button>
+            <h2 class="text-lg font-bold text-on-surface dark:text-gray-100">Create Post</h2>
+            <button id="submit-post-btn" class="text-primary font-bold px-3 py-1.5 rounded-full hover:bg-primary/10 transition-colors active:scale-95 disabled:opacity-50">
+                Publish
+            </button>
         </div>
 
-        <!-- Poll Input -->
-        <div id="input-poll" class="post-input-section hidden mb-6 space-y-4 bg-surface-variant/10 dark:bg-neutral-800/50 p-4 rounded-2xl border border-surface-variant/30 dark:border-neutral-800">
-            <h4 class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Poll Options</h4>
-            <div id="poll-options-container" class="space-y-3">
-                <input type="text" class="poll-opt-input w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 text-[13px] text-on-surface dark:text-gray-100 outline-none focus:border-primary" placeholder="Option 1">
-                <input type="text" class="poll-opt-input w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 text-[13px] text-on-surface dark:text-gray-100 outline-none focus:border-primary" placeholder="Option 2">
-            </div>
-            <button onclick="addPollOptionUI()" class="text-primary font-bold text-sm flex items-center gap-1 mt-2">
-                <span class="material-symbols-outlined text-[18px]">add</span> Add Option
-            </button>
-
-            <!-- Advanced Poll Settings -->
-            <details class="group mt-4 border-t border-surface-variant/30 dark:border-neutral-700 pt-4">
-                <summary class="flex justify-between items-center font-bold text-sm cursor-pointer text-on-surface dark:text-gray-200 list-none">
-                    <span>Advanced Settings</span>
-                    <span class="transition group-open:rotate-180 material-symbols-outlined">expand_more</span>
-                </summary>
-                
-                <div class="space-y-4 mt-4 animate-fadeIn">
-                    <div class="flex items-center justify-between">
-                        <span class="text-[13px] font-medium text-on-surface dark:text-gray-300">Allow Multiple Choice</span>
-                        <input type="checkbox" id="poll-is-multiple" class="w-5 h-5 rounded text-primary focus:ring-primary border-surface-variant dark:border-neutral-700 dark:bg-neutral-800">
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <span class="text-[13px] font-medium text-on-surface dark:text-gray-300">Allow Vote Undo</span>
-                        <input type="checkbox" id="poll-can-undo" class="w-5 h-5 rounded text-primary focus:ring-primary border-surface-variant dark:border-neutral-700 dark:bg-neutral-800">
-                    </div>
-                    
-                    <div class="space-y-1">
-                        <label class="text-[11px] font-bold text-on-surface-variant uppercase">Voters List Visibility</label>
-                        <select id="poll-voters-visibility" class="w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-2.5 text-[13px] text-on-surface dark:text-gray-200 outline-none">
-                            <option value="public">Public (Everyone can see who voted)</option>
-                            <option value="hidden">Hidden (Only I can see voters)</option>
-                        </select>
-                    </div>
-
-                    <div class="space-y-1">
-                        <label class="text-[11px] font-bold text-on-surface-variant uppercase">End Poll Condition</label>
-                        <select id="poll-deadline-type" class="w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-2.5 text-[13px] text-on-surface dark:text-gray-200 outline-none">
-                            <option value="time">When the Post Expires</option>
-                            <option value="voter_count">After a specific number of votes</option>
-                        </select>
-                        <input type="number" id="poll-deadline-count" placeholder="Target Vote Count (e.g., 50)" class="hidden w-full mt-2 bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-2.5 text-[13px] text-on-surface dark:text-gray-100 outline-none focus:border-primary">
+        <!-- Content Area (Reduced side padding to px-4 for a wider feel) -->
+        <div class="flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-12">
+            
+            <!-- Author Info & Global Post Settings -->
+            <div class="flex items-center justify-between mb-5">
+                <div class="flex items-center gap-3">
+                    <img id="create-post-avatar" src="https://ui-avatars.com/api/?name=User" class="w-10 h-10 rounded-full border border-surface-variant shadow-sm object-cover">
+                    <div>
+                        <p id="create-post-name" class="font-bold text-sm text-on-surface dark:text-gray-100 flex items-center">User Name</p>
+                        <!-- Native Expiry Action Sheet Trigger -->
+                        <div onclick="openExpirySelector()" class="flex items-center gap-1 text-[11px] font-bold text-on-surface-variant dark:text-gray-400 cursor-pointer active:opacity-70 mt-0.5 w-max">
+                            <span id="post-expiry-label">Expires in 7 Days</span>
+                            <span class="material-symbols-outlined text-[14px]">expand_more</span>
+                        </div>
+                        <input type="hidden" id="post-expiry-value" value="7">
                     </div>
                 </div>
-            </details>
-        </div>
-
-        <!-- Event Input -->
-        <div id="input-event" class="post-input-section hidden mb-6 space-y-4 bg-surface-variant/10 dark:bg-neutral-800/50 p-4 rounded-2xl border border-surface-variant/30 dark:border-neutral-800">
-            <h4 class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Event Details</h4>
-
-            <input type="file" id="event-image-upload" accept="image/*" class="hidden">
-            <div id="event-image-preview-container" class="w-full h-auto min-h-[8rem] border-2 border-dashed border-surface-variant/80 dark:border-neutral-700 rounded-xl flex flex-col items-center justify-center text-on-surface-variant dark:text-gray-400 cursor-pointer hover:border-primary hover:text-primary transition-colors bg-surface dark:bg-[#121212] relative overflow-hidden p-2" onclick="document.getElementById('event-image-upload').click()">
-                <span class="material-symbols-outlined text-[24px] mb-1" id="event-img-icon-placeholder">wallpaper</span>
-                <span class="text-xs font-medium" id="event-img-text-placeholder">Add Event Cover Photo</span>
             </div>
 
-            <div>
-                <label class="text-[11px] font-bold text-on-surface-variant uppercase mb-1 block">Date & Time</label>
-                <input type="datetime-local" id="event-date" class="w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 text-[13px] text-on-surface dark:text-gray-100 outline-none focus:border-primary">
+            <!-- Post Type Selector -->
+            <div id="post-type-selector" class="flex gap-2.5 overflow-x-auto hide-scrollbar mb-5 pb-1">
+                <button data-type="text" class="post-type-tab active bg-primary text-white px-5 py-2 rounded-full text-[13px] font-bold shrink-0 transition-colors shadow-sm">Text</button>
+                <button data-type="image" class="post-type-tab hidden bg-surface-variant/50 dark:bg-surface-variant/10 text-on-surface-variant dark:text-gray-300 px-5 py-2 rounded-full text-[13px] font-bold shrink-0 transition-colors">Image</button>
+                <button data-type="poll" class="post-type-tab hidden bg-surface-variant/50 dark:bg-surface-variant/10 text-on-surface-variant dark:text-gray-300 px-5 py-2 rounded-full text-[13px] font-bold shrink-0 transition-colors">Poll</button>
+                <button data-type="event" class="post-type-tab hidden bg-surface-variant/50 dark:bg-surface-variant/10 text-on-surface-variant dark:text-gray-300 px-5 py-2 rounded-full text-[13px] font-bold shrink-0 transition-colors">Event</button>
             </div>
-            <div>
-                <label class="text-[11px] font-bold text-on-surface-variant uppercase mb-1 block">Location</label>
-                <input type="text" id="event-location" placeholder="e.g. Main Auditorium" class="w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 text-[13px] text-on-surface dark:text-gray-100 outline-none focus:border-primary">
+            <input type="hidden" id="current-post-type" value="text">
+
+            <!-- RICH TEXT EDITOR CONTAINER -->
+            <div class="mb-5 bg-surface dark:bg-[#121212] rounded-2xl border border-surface-variant/60 dark:border-neutral-700 overflow-hidden shadow-sm">
+                <div id="rich-text-editor" class="h-[140px] text-[15px] text-on-surface dark:text-gray-100"></div>
             </div>
             
-            <details class="group mt-4 border-t border-surface-variant/30 dark:border-neutral-700 pt-4">
-                <summary class="flex justify-between items-center font-bold text-sm cursor-pointer text-on-surface dark:text-gray-200 list-none">
-                    <span>Participation Settings</span>
-                    <span class="transition group-open:rotate-180 material-symbols-outlined">expand_more</span>
-                </summary>
-                
-                <div class="space-y-4 mt-4 animate-fadeIn">
-                    <div class="flex items-center justify-between">
-                        <span class="text-[13px] font-medium text-on-surface dark:text-gray-300">Enable in-app RSVP</span>
-                        <input type="checkbox" id="event-enable-rsvp" class="w-5 h-5 rounded text-primary focus:ring-primary border-surface-variant dark:border-neutral-700 dark:bg-neutral-800">
-                    </div>
-                    
-                    <div class="space-y-1">
-                        <label class="text-[11px] font-bold text-on-surface-variant uppercase">RSVP List Visibility</label>
-                        <select id="event-rsvp-visibility" class="w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-2.5 text-[13px] text-on-surface dark:text-gray-200 outline-none">
-                            <option value="public">Public (Everyone can see who is attending)</option>
-                            <option value="hidden">Hidden (Only I can see)</option>
-                        </select>
-                    </div>
-
-                    <div class="border-t border-surface-variant/30 dark:border-neutral-700 my-2 pt-2"></div>
-                    
-                    <div class="flex items-center justify-between">
-                        <span class="text-[13px] font-medium text-on-surface dark:text-gray-300">External Registration Link</span>
-                        <input type="checkbox" id="event-show-register" class="w-5 h-5 rounded text-primary focus:ring-primary border-surface-variant dark:border-neutral-700 dark:bg-neutral-800">
-                    </div>
-                    
-                    <div id="event-external-link-container" class="hidden space-y-3">
-                        <input type="url" id="event-register-url" placeholder="https://forms.gle/..." class="w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 text-[13px] text-on-surface dark:text-gray-100 outline-none focus:border-primary">
-                        <input type="text" id="event-button-text" placeholder="Custom Button Text (e.g. Get Tickets)" class="w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 text-[13px] text-on-surface dark:text-gray-100 outline-none focus:border-primary">
-                    </div>
+            <!-- Native Viewer Action Sheet Trigger -->
+            <div class="mb-6">
+                <div onclick="openVisibilitySelector()" class="w-full flex items-center justify-between bg-surface-variant/20 dark:bg-neutral-800/50 border border-surface-variant/40 dark:border-neutral-700 rounded-2xl px-4 py-3.5 text-sm text-on-surface dark:text-gray-200 cursor-pointer active:scale-[0.98] transition-all">
+                    <span id="post-viewers-label" class="font-bold flex items-center gap-2 text-primary">
+                        <span class="material-symbols-outlined text-[18px]">public</span> Everyone can see this
+                    </span>
+                    <span class="material-symbols-outlined text-[20px] text-on-surface-variant">expand_more</span>
                 </div>
-            </details>
-        </div>
+                <input type="hidden" id="post-viewers-value" value="all">
+            </div>
 
+            <!-- Dynamic Inputs -->
+            <div id="input-text" class="post-input-section block"></div>
+
+            <!-- Image Input -->
+            <div id="input-image" class="post-input-section hidden mb-6 relative">
+                <input type="file" id="post-image-upload" accept="image/*" class="hidden">
+                <div id="post-image-preview-container" class="w-full h-auto min-h-[14rem] border-2 border-dashed border-surface-variant/80 dark:border-neutral-700 rounded-2xl flex flex-col items-center justify-center text-on-surface-variant dark:text-gray-400 cursor-pointer hover:border-primary hover:text-primary transition-colors bg-surface-variant/10 relative overflow-hidden p-2" onclick="document.getElementById('post-image-upload').click()">
+                    <span class="material-symbols-outlined text-[32px] mb-2" id="img-icon-placeholder">add_photo_alternate</span>
+                    <span class="text-sm font-medium" id="img-text-placeholder">Tap to upload image</span>
+                </div>
+            </div>
+
+            <!-- Poll Input -->
+            <div id="input-poll" class="post-input-section hidden mb-6 space-y-4 bg-surface-variant/10 dark:bg-neutral-800/50 p-4 rounded-2xl border border-surface-variant/30 dark:border-neutral-800">
+                <h4 class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Poll Options</h4>
+                <div id="poll-options-container" class="space-y-3">
+                    <input type="text" class="poll-opt-input w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3.5 text-[13px] text-on-surface dark:text-gray-100 outline-none focus:border-primary" placeholder="Option 1">
+                    <input type="text" class="poll-opt-input w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3.5 text-[13px] text-on-surface dark:text-gray-100 outline-none focus:border-primary" placeholder="Option 2">
+                </div>
+                <button onclick="addPollOptionUI()" class="text-primary font-bold text-sm flex items-center gap-1 mt-2">
+                    <span class="material-symbols-outlined text-[18px]">add</span> Add Option
+                </button>
+
+                <!-- Advanced Poll Settings -->
+                <details class="group mt-4 border-t border-surface-variant/30 dark:border-neutral-700 pt-4">
+                    <summary class="flex justify-between items-center font-bold text-sm cursor-pointer text-on-surface dark:text-gray-200 list-none">
+                        <span>Advanced Settings</span>
+                        <span class="transition group-open:rotate-180 material-symbols-outlined">expand_more</span>
+                    </summary>
+                    
+                    <div class="space-y-4 mt-4 animate-fadeIn">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[13px] font-medium text-on-surface dark:text-gray-300">Allow Multiple Choice</span>
+                            <input type="checkbox" id="poll-is-multiple" class="w-5 h-5 rounded text-primary focus:ring-primary border-surface-variant dark:border-neutral-700 dark:bg-neutral-800">
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-[13px] font-medium text-on-surface dark:text-gray-300">Allow Vote Undo</span>
+                            <input type="checkbox" id="poll-can-undo" class="w-5 h-5 rounded text-primary focus:ring-primary border-surface-variant dark:border-neutral-700 dark:bg-neutral-800">
+                        </div>
+                        
+                        <div class="space-y-1">
+                            <label class="text-[11px] font-bold text-on-surface-variant uppercase">Voters List Visibility</label>
+                            <select id="poll-voters-visibility" class="w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 text-[13px] text-on-surface dark:text-gray-200 outline-none">
+                                <option value="public">Public (Everyone can see who voted)</option>
+                                <option value="hidden">Hidden (Only I can see voters)</option>
+                            </select>
+                        </div>
+
+                        <div class="space-y-1">
+                            <label class="text-[11px] font-bold text-on-surface-variant uppercase">End Poll Condition</label>
+                            <select id="poll-deadline-type" class="w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 text-[13px] text-on-surface dark:text-gray-200 outline-none">
+                                <option value="time">When the Post Expires</option>
+                                <option value="voter_count">After a specific number of votes</option>
+                            </select>
+                            <input type="number" id="poll-deadline-count" placeholder="Target Vote Count (e.g., 50)" class="hidden w-full mt-2 bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 text-[13px] text-on-surface dark:text-gray-100 outline-none focus:border-primary">
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <!-- Event Input -->
+            <div id="input-event" class="post-input-section hidden mb-6 space-y-4 bg-surface-variant/10 dark:bg-neutral-800/50 p-4 rounded-2xl border border-surface-variant/30 dark:border-neutral-800">
+                <h4 class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Event Details</h4>
+
+                <input type="file" id="event-image-upload" accept="image/*" class="hidden">
+                <div id="event-image-preview-container" class="w-full h-auto min-h-[8rem] border-2 border-dashed border-surface-variant/80 dark:border-neutral-700 rounded-xl flex flex-col items-center justify-center text-on-surface-variant dark:text-gray-400 cursor-pointer hover:border-primary hover:text-primary transition-colors bg-surface dark:bg-[#121212] relative overflow-hidden p-2" onclick="document.getElementById('event-image-upload').click()">
+                    <span class="material-symbols-outlined text-[24px] mb-1" id="event-img-icon-placeholder">wallpaper</span>
+                    <span class="text-xs font-medium" id="event-img-text-placeholder">Add Event Cover Photo</span>
+                </div>
+
+                <div>
+                    <label class="text-[11px] font-bold text-on-surface-variant uppercase mb-1 block">Date & Time</label>
+                    <input type="datetime-local" id="event-date" class="w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 text-[13px] text-on-surface dark:text-gray-100 outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold text-on-surface-variant uppercase mb-1 block">Location</label>
+                    <input type="text" id="event-location" placeholder="e.g. Main Auditorium" class="w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 text-[13px] text-on-surface dark:text-gray-100 outline-none focus:border-primary">
+                </div>
+                
+                <details class="group mt-4 border-t border-surface-variant/30 dark:border-neutral-700 pt-4">
+                    <summary class="flex justify-between items-center font-bold text-sm cursor-pointer text-on-surface dark:text-gray-200 list-none">
+                        <span>Participation Settings</span>
+                        <span class="transition group-open:rotate-180 material-symbols-outlined">expand_more</span>
+                    </summary>
+                    
+                    <div class="space-y-4 mt-4 animate-fadeIn">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[13px] font-medium text-on-surface dark:text-gray-300">Enable in-app RSVP</span>
+                            <input type="checkbox" id="event-enable-rsvp" class="w-5 h-5 rounded text-primary focus:ring-primary border-surface-variant dark:border-neutral-700 dark:bg-neutral-800">
+                        </div>
+                        
+                        <div class="space-y-1">
+                            <label class="text-[11px] font-bold text-on-surface-variant uppercase">RSVP List Visibility</label>
+                            <select id="event-rsvp-visibility" class="w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 text-[13px] text-on-surface dark:text-gray-200 outline-none">
+                                <option value="public">Public (Everyone can see who is attending)</option>
+                                <option value="hidden">Hidden (Only I can see)</option>
+                            </select>
+                        </div>
+
+                        <div class="border-t border-surface-variant/30 dark:border-neutral-700 my-2 pt-2"></div>
+                        
+                        <div class="flex items-center justify-between">
+                            <span class="text-[13px] font-medium text-on-surface dark:text-gray-300">External Registration Link</span>
+                            <input type="checkbox" id="event-show-register" class="w-5 h-5 rounded text-primary focus:ring-primary border-surface-variant dark:border-neutral-700 dark:bg-neutral-800">
+                        </div>
+                        
+                        <div id="event-external-link-container" class="hidden space-y-3">
+                            <input type="url" id="event-register-url" placeholder="https://forms.gle/..." class="w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 text-[13px] text-on-surface dark:text-gray-100 outline-none focus:border-primary">
+                            <input type="text" id="event-button-text" placeholder="Custom Button Text (e.g. Get Tickets)" class="w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 text-[13px] text-on-surface dark:text-gray-100 outline-none focus:border-primary">
+                        </div>
+                    </div>
+                </details>
+            </div>
+            
+        </div>
     </div>
 </div>
-
+    
     <!-- ============================================== -->
     <!-- OVERLAY MODALS SECTION -->
     <!-- ============================================== -->
@@ -1423,27 +1422,32 @@
     
     <!-- INLINE SCRIPT FOR UI TOGGLES -->
     <script>
-        // Full Screen Create Post View
+        // Full Screen Create Post View (Fixed Nav Bar Overlap)
         function openCreatePostView() {
             const view = document.getElementById('view-create-post');
+            const bottomNav = document.querySelector('nav');
+            
             view.classList.remove('hidden');
-            // Slight delay to allow display:block before translating
+            if (bottomNav) bottomNav.classList.add('hidden'); // Explicitly hide nav
+            
             setTimeout(() => {
                 view.classList.remove('translate-y-full');
             }, 10);
 
-            // Trigger an event so feed.js can populate the user name and tick
             document.dispatchEvent(new Event('openCreatePostView'));
         }
 
         function closeCreatePostView() {
             const view = document.getElementById('view-create-post');
+            const bottomNav = document.querySelector('nav');
+            
             view.classList.add('translate-y-full');
+            
             setTimeout(() => {
                 view.classList.add('hidden');
-            }, 300); // match duration-300
+                if (bottomNav) bottomNav.classList.remove('hidden'); // Show nav again
+            }, 300); 
         }
-
         // Dynamic Poll Options
         function addPollOptionUI() {
             const container = document.getElementById('poll-options-container');
