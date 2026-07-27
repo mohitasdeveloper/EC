@@ -632,6 +632,9 @@ function populateProfileUI(profile) {
     if (typeof fetchMyProfileFeed === 'function') {
         fetchMyProfileFeed(profile.id);
     }
+    // Sync Mention Privacy Select
+    const mentionPrivacySelect = document.getElementById('mention-privacy-select');
+    if (mentionPrivacySelect) mentionPrivacySelect.value = profile.mention_privacy || 'connections';
 }
 
 // ========================================================
@@ -2600,3 +2603,25 @@ function renderViewConnectionsList(users, isSearch = false) {
         `;
     }).join('');
 }
+// ========================================================
+// PREFERENCES & PRIVACY UPDATES
+// ========================================================
+window.updateMentionPrivacy = async function(val) {
+    try {
+        const { error } = await supabase
+            .from('users')
+            .update({ mention_privacy: val })
+            .eq('id', currentUserProfile.id);
+            
+        if (error) throw error;
+        
+        currentUserProfile.mention_privacy = val;
+        showToast(`Mentions allowed from: ${val === 'connections' ? 'My Connections' : 'No One'}`, 'success');
+        
+    } catch (err) {
+        console.error("Mention privacy error:", err);
+        showToast('Failed to update settings', 'error');
+        // Revert UI if DB fails
+        document.getElementById('mention-privacy-select').value = currentUserProfile.mention_privacy || 'connections';
+    }
+};
