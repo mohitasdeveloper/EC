@@ -119,13 +119,15 @@ function setupEventListeners() {
     document.getElementById('submit-hotpost-btn')?.addEventListener('click', submitHotpost);
 
 // 🚀 FIX: The 'Aa' button should ALWAYS spawn a new text block, just like Instagram.
-    // If they want to edit, they tap the text or the edit handle.
     document.getElementById('add-text-hotpost-btn')?.addEventListener('click', () => {
         document.querySelectorAll('.text-widget').forEach(el => el.classList.remove('active'));
         activeTextId = null;
         activeTextIdForTouch = null;
         activateTextTool(null);
     });
+    
+    // 🚀 FIX: Restored the missing Draw Tool listener!
+    document.getElementById('doodle-hotpost-btn')?.addEventListener('click', toggleDrawMode);
     document.getElementById('undo-doodle-btn')?.addEventListener('click', undoLastDoodle);
     
     document.querySelectorAll('.doodle-color-btn').forEach(btn => {
@@ -531,7 +533,7 @@ function saveTextFromUI() {
     const content = textarea.value.trim();
     
     if (content) {
-        // 🚀 MEASUREMENT ENGINE: Calculate the exact pixel width of the text!
+        // 🚀 PERFECT MEASUREMENT ENGINE: Forces the box to hug the exact width of the words
         const measureDiv = document.createElement('div');
         measureDiv.style.position = 'absolute';
         measureDiv.style.visibility = 'hidden';
@@ -541,12 +543,10 @@ function saveTextFromUI() {
         measureDiv.style.lineHeight = '1.3';
         measureDiv.style.width = 'max-content';
         measureDiv.style.maxWidth = '85vw';
-        measureDiv.textContent = content;
+        measureDiv.innerHTML = content.replace(/\n/g, '<br>');
         document.body.appendChild(measureDiv);
-        let exactWidth = measureDiv.getBoundingClientRect().width;
+        let exactWidth = Math.ceil(measureDiv.getBoundingClientRect().width) + 8; 
         document.body.removeChild(measureDiv);
-        
-        exactWidth = Math.ceil(exactWidth) + 8; // Small buffer padding
 
         if (activeTextId) {
             const textObj = textElements.find(t => t.id === activeTextId);
@@ -556,11 +556,7 @@ function saveTextFromUI() {
                 textObj.color = currentTextColor;
                 textObj.hasBg = currentTextBg;
                 textObj.align = currentTextAlign;
-                
-                // Shrink-wrap it UNLESS the user manually dragged the width handles
-                if (!textObj.manuallyResized) {
-                    textObj.width = exactWidth;
-                }
+                textObj.width = exactWidth; // 🚀 ALWAYS Shrink-Wrap!
             }
         } else {
             const newId = 'text-' + Date.now();
@@ -574,8 +570,7 @@ function saveTextFromUI() {
                 font: currentTextFont,
                 color: currentTextColor,
                 hasBg: currentTextBg,
-                align: currentTextAlign,
-                manuallyResized: false
+                align: currentTextAlign
             });
             activeTextId = newId; 
         }
@@ -587,6 +582,50 @@ function saveTextFromUI() {
     document.getElementById('hotpost-text-editor-overlay').classList.replace('flex', 'hidden');
 }
 
+function renderTextElements() {
+    const container = document.getElementById('hotpost-preview-container');
+    container.querySelectorAll('.text-widget').forEach(el => el.remove());
+
+    textElements.forEach(tObj => {
+        const isActive = activeTextId === tObj.id;
+        const widget = document.createElement('div');
+        widget.className = `text-widget ${isActive ? 'active' : ''}`;
+        widget.id = tObj.id;
+        widget.style.left = `${tObj.x * 100}%`;
+        widget.style.top = `${tObj.y * 100}%`;
+        widget.style.transform = `translate(-50%, -50%) scale(${tObj.scale})`;
+
+        const isNeon = tObj.font === TEXT_FONTS[2].value;
+        let bgCSS = '';
+        let shadowCSS = '';
+        
+        if (tObj.hasBg) {
+            bgCSS = `background-color: ${tObj.color}; color: ${getContrastYIQ(tObj.color)}; padding: 6px 12px; border-radius: 8px;`;
+            shadowCSS = `text-shadow: none;`;
+        } else {
+            bgCSS = `color: ${tObj.color};`;
+            if (isNeon) {
+                shadowCSS = `text-shadow: 0 0 10px ${tObj.color}, 0 0 20px ${tObj.color};`;
+            } else {
+                shadowCSS = `text-shadow: 0 4px 16px rgba(0,0,0,0.9);`;
+            }
+        }
+
+        // 🚀 Deleted the Width Handle so it scales purely by corners like Instagram
+        widget.innerHTML = `
+            <div class="text-widget-box">
+                <div class="text-handle handle-tl" data-action="delete"><span class="material-symbols-outlined text-[18px]">close</span></div>
+                <div class="text-handle handle-tr" data-action="edit"><span class="material-symbols-outlined text-[16px]">edit</span></div>
+                <div class="text-handle handle-bl" data-action="duplicate"><span class="material-symbols-outlined text-[16px]">content_copy</span></div>
+                <div class="text-handle handle-br" data-action="scale"><span class="material-symbols-outlined text-[18px]">open_in_full</span></div>
+                <div class="text-widget-content" style="width: ${tObj.width}px; font-size: 24px; font-family: ${tObj.font.replace(/"/g, "'")}; text-align: ${tObj.align || 'center'}; line-height: 1.3;">
+                    <span style="${bgCSS} ${shadowCSS} box-decoration-break: clone; -webkit-box-decoration-break: clone; white-space: pre-wrap;">${tObj.content}</span>
+                </div>
+            </div>
+        `;
+        container.appendChild(widget);
+    });
+}
 function renderTextElements() {
     const container = document.getElementById('hotpost-preview-container');
     container.querySelectorAll('.text-widget').forEach(el => el.remove());
@@ -819,22 +858,7 @@ function setupEditorTouchPhysics() {
         const currentY = e.touches[0].clientY;
         const rect = container.getBoundingClientRect();
 
-      if (touchMode === 'width') {
-            const deltaX = currentX - startX;
-            const tObj = textElements.find(t => t.id === activeTextIdForTouch);
-            const adjustedDelta = (deltaX * 2) / tObj.scale; 
-            tObj.width = Math.max(80, initialObjWidth + adjustedDelta);
-            
-            tObj.manuallyResized = true; // 🚀 ADD THIS LINE: Tells the engine not to shrink-wrap this text anymore!
-            
-            const widgetEl = document.getElementById(activeTextIdForTouch);
-            if(widgetEl) {
-                const contentEl = widgetEl.querySelector('.text-widget-content');
-                if(contentEl) contentEl.style.width = `${tObj.width}px`;
-            }
-            return;
-        }
-
+     
         if (touchMode === 'scale') {
             const tObj = textElements.find(t => t.id === activeTextIdForTouch);
             const currentDist = Math.hypot(currentX - widgetCenterX, currentY - widgetCenterY);
