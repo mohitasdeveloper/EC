@@ -525,7 +525,7 @@ function renderPosts(posts, isRefresh = false) {
     const container = document.getElementById('feed-posts-container');
     
     if (posts.length === 0 && isRefresh) {
-        container.innerHTML = `<div class="py-12 flex flex-col items-center justify-center opacity-40"><span class="material-symbols-outlined text-[42px] mb-2">menu_book</span><p class="text-sm font-medium text-on-surface-variant">The feed is empty.</p></div>`;
+        container.innerHTML = `<div class="py-12 flex flex-col items-center justify-center opacity-40"><span class="material-symbols-outlined text-[42px] mb-2">photo_camera</span><p class="text-sm font-medium text-on-surface-variant">The feed is empty.</p></div>`;
         return;
     }
 
@@ -561,16 +561,22 @@ function renderPosts(posts, isRefresh = false) {
             // Show the 1 most recent comment inline
             const latestComment = comments[comments.length - 1];
             if (latestComment) {
-                commentsHtml += `<p class="text-[14px] text-on-surface dark:text-gray-100 mt-1 leading-snug"><span class="font-bold mr-1 cursor-pointer">${latestComment.users?.full_name || 'User'}</span><span class="text-on-surface-variant dark:text-gray-300">${latestComment.content.replace(/<[^>]*>?/gm, '')}</span></p>`;
+                // Strip HTML tags in case there's old Quill formatting in the DB
+                const cleanComment = latestComment.content.replace(/<[^>]*>?/gm, '');
+                commentsHtml += `<p class="text-[14px] text-on-surface dark:text-gray-100 mt-1 leading-snug"><span class="font-bold mr-1 cursor-pointer">${latestComment.users?.full_name || 'User'}</span><span class="text-on-surface-variant dark:text-gray-300">${cleanComment}</span></p>`;
             }
         }
 
-        // --- 3. EDGE-TO-EDGE MEDIA HTML ---
+        // --- 3. USER HEADER ---
+        const verifiedBadge = typeof getTickHtml === 'function' ? getTickHtml(user.tick_type) : '';
+        const rawAvatarUrl = user.profile_img_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&background=e1e3e4`;
+        const optimizedAvatar = typeof optimizeImageUrl === 'function' ? optimizeImageUrl(rawAvatarUrl, 'avatar') : rawAvatarUrl;
+        const headerIcon = `<img loading="lazy" src="${optimizedAvatar}" data-user-id="${user.id}" class="profile-link w-8 h-8 rounded-full border border-surface-variant shadow-sm object-cover cursor-pointer hover:opacity-80 transition-opacity shrink-0">`;
+
+        // --- 4. MEDIA / CONTENT HTML LOGIC ---
         let contentHtml = '';
-        if (post.post_type === 'text') {
-            // Only show caption text
-        } 
-        else if (post.post_type === 'image') {
+        
+        if (post.post_type === 'image') {
             const optimizedMedia = typeof optimizeImageUrl === 'function' ? optimizeImageUrl(post.media_url, 'feed') : post.media_url;
             contentHtml = `
                 <div class="w-full bg-surface-variant/20 dark:bg-neutral-900 flex items-center justify-center border-y border-surface-variant/40 dark:border-neutral-800">
@@ -578,10 +584,104 @@ function renderPosts(posts, isRefresh = false) {
                 </div>
             `;
         }
+        else if (post.post_type === 'event') {
+            const event = post.post_events && post.post_events.length > 0 ? post.post_events[0] : null;
+            if (event) {
+                const optimizedEventMedia = typeof optimizeImageUrl === 'function' && event.event_image_url ? optimizeImageUrl(event.event_image_url, 'feed') : event.event_image_url;
+                const eventImgHtml = event.event_image_url ? `<img loading="lazy" src="${optimizedEventMedia}" class="w-full h-auto max-h-[80vh] object-cover border-y border-surface-variant/40 dark:border-neutral-800">` : '';
+                const dateStr = event.event_date ? new Date(event.event_date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'TBA';
+                
+                let actionHtml = '';
+                if (event.show_register_btn && event.register_url) {
+                    actionHtml = `<a href="${event.register_url}" target="_blank" class="block w-full mt-3 bg-secondary text-white text-center py-2 rounded-xl text-[13px] font-bold active:scale-95 transition-transform">View Link</a>`;
+                } else if (event.enable_rsvp) {
+                    const rsvps = post.post_event_rsvps || [];
+                    const isAttending = !!rsvps.find(r => r.user_id === currentUser.id);
+                    const btnClass = isAttending ? 'bg-surface-variant/50 text-on-surface dark:text-gray-100' : 'bg-primary text-white';
+                    const btnText = isAttending ? '✓ Attending' : 'RSVP Now';
+                    actionHtml = `<button onclick="window.handleRSVP('${post.id}', ${isAttending})" class="block w-full mt-3 ${btnClass} text-center py-2 rounded-xl text-[13px] font-bold active:scale-95 transition-all">${btnText}</button>`;
+                }
 
+                contentHtml = `
+                    ${eventImgHtml}
+                    <div class="px-3 py-3 bg-secondary/5 border-b border-secondary/20 dark:border-neutral-800">
+                        <div class="bg-secondary/10 text-secondary w-max px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest mb-2">Upcoming Event</div>
+                        <div class="space-y-1">
+                            <p class="text-[13px] text-on-surface-variant dark:text-gray-300 flex items-center gap-2 font-medium">
+                                <span class="material-symbols-outlined text-[16px]">calendar_today</span> ${dateStr}
+                            </p>
+                            ${event.event_location ? `<p class="text-[13px] text-on-surface-variant dark:text-gray-300 flex items-center gap-2 font-medium"><span class="material-symbols-outlined text-[16px]">location_on</span> ${event.event_location}</p>` : ''}
+                        </div>
+                        ${actionHtml}
+                    </div>
+                `;
+            }
+        }
+        else if (post.post_type === 'poll') {
+            const poll = post.post_polls && post.post_polls.length > 0 ? post.post_polls[0] : null;
+            if (poll) {
+                const votes = post.post_poll_votes || [];
+                const totalVotes = votes.length;
+                const myVotes = votes.filter(v => v.user_id === currentUser.id).map(v => v.option_id);
+                const userHasVoted = myVotes.length > 0;
+                
+                const postExpired = new Date(post.expires_at) < new Date();
+                const isEnded = postExpired || poll.is_ended_early;
+                const showResults = userHasVoted || isEnded || poll.voters_list_visibility === 'public';
+
+                const optionsHtml = (poll.options || []).map((opt) => {
+                    const optVotes = votes.filter(v => v.option_id === opt.id).length;
+                    const percentage = totalVotes === 0 ? 0 : Math.round((optVotes / totalVotes) * 100);
+                    const iVotedForThis = myVotes.includes(opt.id);
+                    const isClickable = !isEnded && (!userHasVoted || poll.can_undo_vote || poll.is_multiple_choice);
+                    
+                    return `
+                    <div onclick="${isClickable ? `window.handlePollVote('${post.id}', '${opt.id}', ${iVotedForThis})` : ''}" 
+                         class="poll-option-btn ${isClickable ? 'cursor-pointer active:scale-[0.98]' : 'cursor-default'} relative w-full bg-surface-variant/30 dark:bg-surface-variant/10 border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 overflow-hidden transition-all mb-2">
+                        <div class="poll-progress-bar absolute left-0 top-0 bottom-0 bg-primary/20 rounded-r-xl transition-all duration-700 ease-out" style="width: ${showResults ? percentage : 0}%"></div>
+                        <div class="relative flex justify-between items-center text-[13px] font-bold text-on-surface dark:text-gray-100 z-10">
+                            <span class="flex items-center gap-2">
+                                <span class="poll-check-circle w-4 h-4 rounded-full border-2 ${iVotedForThis ? 'border-primary flex items-center justify-center' : 'border-surface-variant/80'}">
+                                    ${iVotedForThis ? '<span class="w-2 h-2 rounded-full bg-primary"></span>' : ''}
+                                </span>
+                                ${opt.text}
+                            </span>
+                            <span class="poll-percentage ${showResults ? 'opacity-100' : 'opacity-0'} transition-opacity">${percentage}%</span>
+                        </div>
+                    </div>`;
+                }).join('');
+
+                contentHtml = `
+                    <div class="px-3 py-3 border-y border-surface-variant/40 dark:border-neutral-800 bg-surface-variant/5 dark:bg-neutral-900/30">
+                        <div class="poll-options-wrapper space-y-2 mb-2">${optionsHtml}</div>
+                        <div class="flex justify-between text-[11px] font-medium text-on-surface-variant dark:text-gray-400">
+                            <span><span class="poll-total-votes">${totalVotes}</span> votes</span>
+                            <span>${isEnded ? 'Ended' : `Ends ${timeAgo(post.expires_at)}`}</span>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // Clean caption HTML logic (Removes Quill <p> wrappers so it displays inline)
+        let captionHtml = '';
+        if (post.content && post.content.trim() !== '' && post.content !== '<p><br></p>') {
+            const cleanContent = post.content.replace(/<p>/g, '').replace(/<\/p>/g, '<br>').replace(/^(<br>)+|(<br>)+$/g, '').trim();
+            if (cleanContent !== '') {
+                captionHtml = `
+                <div class="px-3 text-[14px] text-on-surface dark:text-gray-100 leading-snug mt-1">
+                    <span data-user-id="${user.id}" class="profile-link font-bold mr-1 cursor-pointer hover:underline">${user.full_name}</span>
+                    <span class="rich-text-content inline">${cleanContent}</span>
+                </div>`;
+            }
+        }
+
+        // --- 5. MAIN CARD HTML ---
         return `
         <div data-post-id="${post.id}" class="bg-surface dark:bg-[#121212] mb-6 animate-fadeIn pb-4 border-b border-surface-variant/40 dark:border-neutral-800 relative">
             
+            ${post.is_verified ? '<div class="absolute top-3 right-3 bg-[#e8b339] text-white px-2 py-0.5 rounded text-[9px] font-extrabold uppercase shadow-sm z-10"><span class="material-symbols-outlined text-[12px] align-middle">stars</span> Verified</div>' : ''}
+
             <!-- HEADER -->
             <div class="flex items-center gap-3 px-3 py-3">
                 ${headerIcon}
@@ -589,30 +689,30 @@ function renderPosts(posts, isRefresh = false) {
                     <h4 data-user-id="${user.id}" class="profile-link font-bold text-[14px] text-on-surface dark:text-gray-100 leading-tight cursor-pointer hover:text-primary transition-colors flex items-center gap-1 truncate">
                         ${user.full_name} ${verifiedBadge}
                     </h4>
-                    ${post.event_location ? `<p class="text-[11px] text-on-surface-variant dark:text-gray-400 mt-0.5 truncate">${post.event_location}</p>` : ''}
+                    ${post.post_events && post.post_events.length > 0 && post.post_events[0].event_location ? `<p class="text-[11px] text-on-surface-variant dark:text-gray-400 mt-0.5 truncate">${post.post_events[0].event_location}</p>` : ''}
                 </div>
                 <button data-post-id="${post.id}" data-user-id="${user.id}" data-is-verified="${post.is_verified}" class="post-options-btn text-on-surface dark:text-gray-100 p-1.5 active:opacity-60 transition-opacity">
                     <span class="material-symbols-outlined text-[20px]">more_vert</span>
                 </button>
             </div>
             
-            <!-- EDGE-TO-EDGE MEDIA -->
+            <!-- EDGE-TO-EDGE MEDIA / CONTENT -->
             ${contentHtml}
             
-            <!-- ACTION BAR (Heart, Comment, Share) -->
+            <!-- ACTION BAR -->
             <div class="flex items-center justify-between px-3 pt-2 pb-1 mt-1">
                 <div class="flex items-center gap-4">
-                    <button onclick="window.handleLike('${post.id}', this)" data-post-id="${post.id}" data-liked="${userHasLiked}" class="like-btn flex items-center justify-center transition-transform active:scale-90 ${userHasLiked ? 'text-red-500' : 'text-on-surface dark:text-gray-100'}">
+                    <button onclick="window.handleLike('${post.id}', this)" data-post-id="${post.id}" data-liked="${userHasLiked}" class="like-btn flex items-center justify-center transition-transform active:scale-90 ${userHasLiked ? 'text-red-500' : 'text-on-surface dark:text-gray-100 hover:text-on-surface-variant'}">
                         <span class="material-symbols-outlined text-[26px]" style="font-variation-settings: 'FILL' ${userHasLiked ? 1 : 0};">favorite</span> 
                     </button>
-                    <button data-post-id="${post.id}" class="comment-btn flex items-center justify-center text-on-surface dark:text-gray-100 transition-transform active:scale-90">
+                    <button data-post-id="${post.id}" class="comment-btn flex items-center justify-center text-on-surface dark:text-gray-100 transition-transform active:scale-90 hover:text-on-surface-variant">
                         <span class="material-symbols-outlined text-[24px]" style="transform: scaleX(-1);">chat_bubble_outline</span> 
                     </button>
-                    <button class="flex items-center justify-center text-on-surface dark:text-gray-100 transition-transform active:scale-90">
+                    <button class="flex items-center justify-center text-on-surface dark:text-gray-100 transition-transform active:scale-90 hover:text-on-surface-variant">
                         <span class="material-symbols-outlined text-[24px] -rotate-45 -mt-1">send</span> 
                     </button>
                 </div>
-                <button class="flex items-center justify-center text-on-surface dark:text-gray-100 transition-transform active:scale-90">
+                <button class="flex items-center justify-center text-on-surface dark:text-gray-100 transition-transform active:scale-90 hover:text-on-surface-variant">
                     <span class="material-symbols-outlined text-[26px]">bookmark_border</span>
                 </button>
             </div>
@@ -621,180 +721,21 @@ function renderPosts(posts, isRefresh = false) {
             ${likeCount > 0 ? `<div class="px-3 mb-1 text-[14px] text-on-surface dark:text-gray-100">${likedByHtml}</div>` : ''}
             
             <!-- CAPTION -->
-            ${post.content ? `
-            <div class="px-3 text-[14px] text-on-surface dark:text-gray-100 leading-snug mt-1">
-                <span data-user-id="${user.id}" class="profile-link font-bold mr-1 cursor-pointer hover:underline">${user.full_name}</span>
-                <span class="rich-text-content whitespace-pre-wrap">${post.content}</span>
-            </div>` : ''}
+            ${captionHtml}
             
             <!-- COMMENTS PREVIEW -->
             <div class="px-3 mt-1">
                 ${commentsHtml}
             </div>
 
+            <!-- ADD COMMENT INLINE INPUT (Visual Trigger) -->
+            <div class="px-3 mt-2 flex items-center gap-2">
+                <img src="${currentUser?.profile_img_url || 'https://ui-avatars.com/api/?name=User'}" class="w-6 h-6 rounded-full object-cover border border-surface-variant/50">
+                <p data-post-id="${post.id}" class="comment-btn flex-1 text-[13px] text-on-surface-variant dark:text-gray-500 cursor-text">Add a comment...</p>
+            </div>
+
             <!-- TIMESTAMP -->
-            <p class="px-3 text-[11px] text-on-surface-variant dark:text-gray-500 mt-1.5 uppercase tracking-wide">${timeAgo(post.created_at)}</p>
-        </div>
-        `;
-        }
-       else if (post.post_type === 'event') {
-            const event = post.post_events && post.post_events.length > 0 ? post.post_events[0] : null;
-            if (!event) return ''; // Failsafe
-
-            const optimizedEventMedia = typeof optimizeImageUrl === 'function' && event.event_image_url ? optimizeImageUrl(event.event_image_url, 'feed') : event.event_image_url;
-            const eventImgHtml = event.event_image_url ? `<img loading="lazy" src="${optimizedEventMedia}" class="w-full h-auto max-h-[60vh] object-contain bg-black/5 dark:bg-white/5 border-b border-secondary/20">` : '';
-            const dateStr = event.event_date ? new Date(event.event_date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'TBA';
-
-            let actionHtml = '';
-            
-            // EXTERNAL REGISTRATION LINK
-            if (event.show_register_btn && event.register_url) {
-                actionHtml = `<a href="${event.register_url}" target="_blank" class="block w-full mt-4 bg-secondary text-white text-center py-2.5 rounded-xl text-[13px] font-bold active:scale-95 transition-transform shadow-md shadow-secondary/20">${post.event_button_text || 'View Link'}</a>`;
-            } 
-            // IN-APP RSVP SYSTEM
-            else if (event.enable_rsvp) {
-                const rsvps = post.post_event_rsvps || [];
-                const rsvpCount = rsvps.length;
-                const myRsvp = rsvps.find(r => r.user_id === currentUser.id);
-                const isAttending = !!myRsvp;
-                
-                // Dynamic Button Styling
-                const btnClass = isAttending 
-                    ? 'bg-surface-variant/50 text-on-surface dark:text-gray-100 border border-surface-variant/80' 
-                    : 'bg-primary text-white shadow-md shadow-primary/20 hover:bg-primary/90';
-                const btnText = isAttending ? '✓ Attending' : 'RSVP Now';
-
-                // Viewers List Logic
-                let viewRsvpsHtml = '';
-                if (rsvpCount > 0) {
-                    if (event.rsvp_list_visibility === 'public' || post.user_id === currentUser.id) {
-                        // Clickable link to open the modal
-                        viewRsvpsHtml = `<p onclick="window.openEventRsvps('${post.id}')" class="text-[12px] text-primary font-bold mt-3 cursor-pointer hover:underline text-center active:opacity-70 transition-opacity">${rsvpCount} people attending</p>`;
-                    } else {
-                        // Hidden list text
-                        viewRsvpsHtml = `<p class="text-[12px] text-on-surface-variant dark:text-gray-500 mt-3 text-center">${rsvpCount} people attending (List hidden)</p>`;
-                    }
-                }
-
-                actionHtml = `
-                    <button onclick="window.handleRSVP('${post.id}', ${isAttending})" class="block w-full mt-4 ${btnClass} text-center py-2.5 rounded-xl text-[13px] font-bold active:scale-95 transition-all">
-                        ${btnText}
-                    </button>
-                    ${viewRsvpsHtml}
-                `;
-            }
-
-            contentHtml = `
-                <div class="bg-secondary/5 border border-secondary/20 rounded-2xl mb-4 flex flex-col overflow-hidden">
-                    ${eventImgHtml}
-                    <div class="p-5">
-                        <div class="bg-secondary/10 text-secondary w-max px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest mb-3">Upcoming Event</div>
-                        ${textPayload}
-                        <div class="space-y-2 mt-4">
-                            <p class="text-[13px] text-on-surface-variant dark:text-gray-300 flex items-center gap-2 font-medium">
-                                <span class="material-symbols-outlined text-[18px]">calendar_today</span> ${dateStr}
-                            </p>
-                            ${event.event_location ? `<p class="text-[13px] text-on-surface-variant dark:text-gray-300 flex items-center gap-2 font-medium"><span class="material-symbols-outlined text-[18px]">location_on</span> ${event.event_location}</p>` : ''}
-                        </div>
-                        ${actionHtml}
-                    </div>
-                </div>
-            `;
-        }
-        else if (post.post_type === 'poll') {
-            const poll = post.post_polls && post.post_polls.length > 0 ? post.post_polls[0] : null;
-            if (!poll) return '';
-
-            const votes = post.post_poll_votes || [];
-            const totalVotes = votes.length;
-            
-            // Map the votes to identify which options the current user selected
-            const myVotes = votes.filter(v => v.user_id === currentUser.id).map(v => v.option_id);
-            const userHasVoted = myVotes.length > 0;
-            
-            // Check deadline conditions securely locally (UI visual only, backend enforces strictly)
-            const postExpired = new Date(post.expires_at) < new Date();
-            const timeDeadlinePassed = poll.deadline_type === 'time' && poll.deadline_time && new Date(poll.deadline_time) < new Date();
-            const countDeadlinePassed = poll.deadline_type === 'voter_count' && poll.deadline_count && totalVotes >= poll.deadline_count;
-            const isEnded = postExpired || timeDeadlinePassed || countDeadlinePassed || poll.is_ended_early;
-            
-            const showResults = userHasVoted || isEnded || poll.voters_list_visibility === 'public';
-
-            const optionsHtml = (poll.options || []).map((opt) => {
-                const optVotes = votes.filter(v => v.option_id === opt.id).length;
-                const percentage = totalVotes === 0 ? 0 : Math.round((optVotes / totalVotes) * 100);
-                const iVotedForThis = myVotes.includes(opt.id);
-                
-                // Allow click if: Poll is not ended AND (User hasn't voted OR poll allows undo OR poll allows multiple choices)
-                const isClickable = !isEnded && (!userHasVoted || poll.can_undo_vote || poll.is_multiple_choice);
-                const cursorClass = isClickable ? 'cursor-pointer active:scale-[0.98] hover:border-primary/50' : 'cursor-default';
-
-                return `
-                <div onclick="${isClickable ? `window.handlePollVote('${post.id}', '${opt.id}', ${iVotedForThis})` : ''}" 
-                     class="poll-option-btn ${cursorClass} relative w-full bg-surface-variant/30 dark:bg-surface-variant/10 border border-surface-variant/50 dark:border-neutral-700 rounded-2xl p-3.5 overflow-hidden group transition-all mb-2">
-                    <div class="poll-progress-bar absolute left-0 top-0 bottom-0 bg-primary/20 rounded-r-xl transition-all duration-700 ease-out" style="width: ${showResults ? percentage : 0}%"></div>
-                    <div class="relative flex justify-between items-center text-[13px] font-bold text-on-surface dark:text-gray-100 z-10">
-                        <span class="flex items-center gap-2">
-                            <span class="poll-check-circle w-4 h-4 rounded-full border-2 ${iVotedForThis ? 'border-primary flex items-center justify-center' : 'border-surface-variant/80 dark:border-gray-500'}">
-                                ${iVotedForThis ? '<span class="w-2 h-2 rounded-full bg-primary"></span>' : ''}
-                            </span>
-                            ${opt.text}
-                        </span>
-                        <span class="flex items-center">
-                            <span class="poll-percentage ${showResults ? 'opacity-100' : 'opacity-0'} transition-opacity">${percentage}%</span>
-                        </span>
-                    </div>
-                </div>`;
-            }).join('');
-
-            const expiryText = isEnded ? 'Poll ended' : `Ends ${timeAgo(post.expires_at)}`;
-            const typeText = poll.is_multiple_choice ? 'Multiple choice' : 'Single choice';
-
-            contentHtml = `
-                ${textPayload}
-                <div class="poll-options-wrapper space-y-2.5 mb-3 px-1">${optionsHtml}</div>
-                <div class="flex justify-between px-2 text-[11px] font-medium text-on-surface-variant dark:text-gray-400 mb-2">
-                    <span class="poll-footer-text"><span class="poll-total-votes">${totalVotes}</span> votes • ${typeText}</span>
-                    <span>${expiryText}</span>
-                </div>
-            `;
-        }
-
-        return `
-        <div data-post-id="${post.id}" class="bg-surface-container-lowest dark:bg-[#1e1e1e] rounded-[32px] p-5 border border-surface-variant/60 dark:border-neutral-800 shadow-sm mb-5 animate-fadeIn relative">
-            ${post.is_verified ? '<div class="absolute -top-3 -right-3 bg-[#e8b339] text-white px-3 py-1 rounded-full text-[10px] font-extrabold uppercase shadow-lg shadow-[#e8b339]/30 flex items-center gap-1 z-10"><span class="material-symbols-outlined text-[14px]">stars</span> Verified Post</div>' : ''}
-            
-            <div class="flex items-center gap-3 mb-3">
-                ${headerIcon}
-                <div class="flex-1">
-                    <h4 data-user-id="${user.id}" class="profile-link font-bold text-[14px] text-on-surface dark:text-gray-100 leading-tight cursor-pointer hover:text-primary transition-colors flex items-center gap-1">
-                        ${user.full_name} ${verifiedBadge}
-                    </h4>
-                    <p class="text-[11px] text-on-surface-variant dark:text-gray-400 mt-0.5">${timeAgo(post.created_at)}</p>
-                </div>
-                <button data-post-id="${post.id}" data-user-id="${user.id}" data-is-verified="${post.is_verified}" class="post-options-btn text-on-surface-variant hover:text-on-surface dark:text-gray-400 dark:hover:text-gray-100 p-1 rounded-full hover:bg-surface-variant/50 transition-colors">
-                    <span class="material-symbols-outlined text-[20px]">more_vert</span>
-                </button>
-            </div>
-            
-            ${contentHtml}
-            
-            <div class="flex items-center gap-6 border-t border-surface-variant/40 dark:border-neutral-800 pt-3 px-1 mt-2">
-                <div class="flex items-center gap-1.5">
-                    <button onclick="window.handleLike('${post.id}', this)" data-post-id="${post.id}" data-liked="${userHasLiked}" class="like-btn flex items-center justify-center transition-colors active:scale-95 ${userHasLiked ? 'text-red-500' : 'text-on-surface-variant dark:text-gray-400 hover:text-red-500'}">
-                        <span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' ${userHasLiked ? 1 : 0};">favorite</span> 
-                    </button>
-                    <span onclick="event.stopPropagation(); window.openLikesModal('${post.id}')" class="like-count-text text-[13px] font-bold cursor-pointer hover:underline text-on-surface-variant dark:text-gray-400 active:opacity-70 px-1 py-0.5">
-                        ${likeCount}
-                    </span>
-                </div>
-                <div class="flex items-center gap-1.5">
-                    <button data-post-id="${post.id}" class="comment-btn flex items-center gap-1.5 text-on-surface-variant dark:text-gray-400 hover:text-secondary transition-colors text-[13px] font-medium active:scale-95">
-                        <span class="material-symbols-outlined text-[20px]">chat_bubble</span> 
-                    </button>
-                    <span class="text-[13px] font-bold text-on-surface-variant dark:text-gray-400">${commentCount}</span>
-                </div>
-            </div>
+            <p class="px-3 text-[11px] text-on-surface-variant dark:text-gray-500 mt-2 uppercase tracking-wide">${timeAgo(post.created_at)}</p>
         </div>
         `;
     }).join('');
