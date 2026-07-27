@@ -626,55 +626,6 @@ function renderTextElements() {
         container.appendChild(widget);
     });
 }
-function renderTextElements() {
-    const container = document.getElementById('hotpost-preview-container');
-    container.querySelectorAll('.text-widget').forEach(el => el.remove());
-
-    textElements.forEach(tObj => {
-        const isActive = activeTextId === tObj.id;
-        const widget = document.createElement('div');
-        widget.className = `text-widget ${isActive ? 'active' : ''}`;
-        widget.id = tObj.id;
-        widget.style.left = `${tObj.x * 100}%`;
-        widget.style.top = `${tObj.y * 100}%`;
-        widget.style.transform = `translate(-50%, -50%) scale(${tObj.scale})`;
-
-        const isNeon = tObj.font === TEXT_FONTS[2].value;
-        let bgCSS = '';
-        let shadowCSS = '';
-        
-        // 🚀 Mapped Flexbox alignments matching user choice
-        const alignMap = { left: 'flex-start', right: 'flex-end', center: 'center' };
-        const flexAlign = alignMap[tObj.align || 'center'];
-
-        if (tObj.hasBg) {
-            bgCSS = `background-color: ${tObj.color}; color: ${getContrastYIQ(tObj.color)}; padding: 6px 12px; border-radius: 8px;`;
-            shadowCSS = `text-shadow: none;`;
-        } else {
-            bgCSS = `color: ${tObj.color};`;
-            if (isNeon) {
-                shadowCSS = `text-shadow: 0 0 10px ${tObj.color}, 0 0 20px ${tObj.color};`;
-            } else {
-                shadowCSS = `text-shadow: 0 4px 16px rgba(0,0,0,0.9);`;
-            }
-        }
-
-      widget.innerHTML = `
-            <div class="text-widget-box">
-                <div class="text-handle handle-tl" data-action="delete"><span class="material-symbols-outlined text-[18px]">close</span></div>
-                <div class="text-handle handle-tr" data-action="edit"><span class="material-symbols-outlined text-[16px]">edit</span></div>
-                <div class="text-handle handle-bl" data-action="duplicate"><span class="material-symbols-outlined text-[16px]">content_copy</span></div>
-                <div class="text-handle handle-br" data-action="scale"><span class="material-symbols-outlined text-[18px]">open_in_full</span></div>
-                <div class="text-handle handle-rm" data-action="width"></div>
-                <!-- 🚀 Removed Flexbox to fix Webkit jagged background alignment bug -->
-                <div class="text-widget-content" style="width: ${tObj.width}px; font-size: 24px; font-family: ${tObj.font.replace(/"/g, "'")}; text-align: ${tObj.align || 'center'}; line-height: 1.3;">
-                    <span style="${bgCSS} ${shadowCSS} box-decoration-break: clone; -webkit-box-decoration-break: clone;">${tObj.content}</span>
-                </div>
-            </div>
-        `;
-        container.appendChild(widget);
-    });
-}
 
 function initDoodleCanvas() {
     setTimeout(() => {
