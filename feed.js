@@ -868,10 +868,10 @@ async function submitPostReport() {
 
 window.closeCommentsModal = function() {
     const modal = document.getElementById('modal-post-comments');
-    const bottomNav = document.querySelector('nav.fixed.bottom-0'); // 🚀 GUARANTEED SELECTION
+    const bottomNav = document.querySelector('nav'); // Use standard selector
     
     if (modal) modal.classList.replace('flex', 'hidden');
-    if (bottomNav) bottomNav.style.display = 'flex'; // 🚀 FORCE RESTORE NAV VISIBILITY
+    if (bottomNav) bottomNav.classList.remove('hidden'); // Revert to classList
     
     if (typeof window.cancelReply === 'function') window.cancelReply();
     const input = document.getElementById('post-comment-input');
@@ -958,7 +958,7 @@ async function openCommentsModal(postId) {
     const modal = document.getElementById('modal-post-comments');
     const list = document.getElementById('post-comments-list');
     const input = document.getElementById('post-comment-input');
-    const bottomNav = document.querySelector('nav.fixed.bottom-0'); // 🚀 GUARANTEED SELECTION
+    const bottomNav = document.querySelector('nav'); 
     
     document.getElementById('send-comment-btn').dataset.postId = postId;
     window.cancelReply(); 
@@ -966,7 +966,7 @@ async function openCommentsModal(postId) {
     input.style.height = 'auto';
     currentMentionIds = [];
 
-    if (bottomNav) bottomNav.style.display = 'none'; // 🚀 FORCE HIDE NAV VISIBILITY
+    if (bottomNav) bottomNav.classList.add('hidden'); // Hide the Nav
     modal.classList.replace('hidden', 'flex');
     list.innerHTML = `<p class="text-sm italic text-center py-8 text-on-surface-variant dark:text-gray-400">Loading comments...</p>`;
 
