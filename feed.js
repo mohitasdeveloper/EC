@@ -101,7 +101,7 @@ setupLikesModalTouchPhysics();
         initQuillEditor();
     });
 
-    // 1. GLOBAL Event Delegation (Listens to the whole body so Profile & Notification views work too!)
+    // 1. GLOBAL Event Delegation (Listens to the whole body)
     document.body.addEventListener('click', (e) => {
         const likeBtn = e.target.closest('.like-btn');
         const commentBtn = e.target.closest('.comment-btn');
@@ -109,6 +109,9 @@ setupLikesModalTouchPhysics();
         const profileLink = e.target.closest('.profile-link');
         const optionsBtn = e.target.closest('.post-options-btn');
         const commentOptionsBtn = e.target.closest('.comment-options-btn');
+        
+        // 🚀 NEW: Catch Mention Clicks
+        const mentionLink = e.target.closest('.mention');
 
         if (likeBtn) handleLike(likeBtn.dataset.postId, likeBtn.dataset.liked === 'true');
         if (commentBtn) openCommentsModal(commentBtn.dataset.postId);
@@ -116,8 +119,14 @@ setupLikesModalTouchPhysics();
         if (profileLink) window.viewUserProfile(profileLink.dataset.userId);
         if (optionsBtn) openPostOptions(optionsBtn.dataset.postId, optionsBtn.dataset.userId, optionsBtn.dataset.isVerified === 'true');
         if (commentOptionsBtn) openCommentOptions(commentOptionsBtn.dataset.commentId, commentOptionsBtn.dataset.userId);
+        
+        // 🚀 NEW: Route mention click to profile
+        if (mentionLink && mentionLink.dataset.id) {
+            e.preventDefault(); // Stop any default anchor behavior
+            window.viewUserProfile(mentionLink.dataset.id);
+        }
     });
-
+    
     // 2. Modals and Submissions
     document.getElementById('submit-post-btn')?.addEventListener('click', submitPost);
     document.getElementById('send-comment-btn')?.addEventListener('click', () => {
