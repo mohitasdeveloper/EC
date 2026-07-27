@@ -398,3 +398,39 @@ input, textarea {
     background-color: rgba(120, 220, 119, 0.2);
     color: #78dc77;
 }
+/* =========================================================
+   INTERACTIVE FEED MENTIONS
+   ========================================================= */
+.rich-text-content .mention {
+    background-color: rgba(0, 110, 28, 0.12);
+    color: #006e1c;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none !important;
+    display: inline-block;
+    line-height: 1.1;
+    margin: 0 2px;
+}
+
+.rich-text-content .mention:hover {
+    background-color: rgba(0, 110, 28, 0.25);
+    transform: scale(0.96);
+}
+
+.dark .rich-text-content .mention {
+    background-color: rgba(120, 220, 119, 0.15);
+    color: #78dc77;
+}
+
+.dark .rich-text-content .mention:hover {
+    background-color: rgba(120, 220, 119, 0.3);
+}
+
+/* Ensure the @ symbol inside the mention matches the styling */
+.rich-text-content .mention .ql-mention-denotation-char {
+    margin-right: 1px;
+    opacity: 0.8;
+}
