@@ -118,8 +118,14 @@ function setupEventListeners() {
     document.getElementById('capture-hotpost-btn')?.addEventListener('click', capturePhoto);
     document.getElementById('submit-hotpost-btn')?.addEventListener('click', submitHotpost);
 
-// 🚀 FIX: Pass the active text ID so clicking "Aa" edits the selected text instead of opening an empty box
-    document.getElementById('add-text-hotpost-btn')?.addEventListener('click', () => activateTextTool(activeTextId));    document.getElementById('doodle-hotpost-btn')?.addEventListener('click', toggleDrawMode);
+// 🚀 FIX: The 'Aa' button should ALWAYS spawn a new text block, just like Instagram.
+    // If they want to edit, they tap the text or the edit handle.
+    document.getElementById('add-text-hotpost-btn')?.addEventListener('click', () => {
+        document.querySelectorAll('.text-widget').forEach(el => el.classList.remove('active'));
+        activeTextId = null;
+        activeTextIdForTouch = null;
+        activateTextTool(null);
+    });
     document.getElementById('undo-doodle-btn')?.addEventListener('click', undoLastDoodle);
     
     document.querySelectorAll('.doodle-color-btn').forEach(btn => {
@@ -691,11 +697,10 @@ function setupEditorTouchPhysics() {
         const handle = e.target.closest('.text-handle');
         const widget = e.target.closest('.text-widget');
 
-   if (handle) {
+        if (handle) {
             e.stopPropagation(); 
             touchMode = handle.dataset.action; 
             
-            // 🚀 CRITICAL FIX: Ensure activeTextId is locked to the widget being edited
             activeTextIdForTouch = widget.id;
             activeTextId = widget.id;
 
@@ -709,7 +714,7 @@ function setupEditorTouchPhysics() {
                 if (widgetEl) widgetEl.remove();
                 touchMode = 'idle';
             } else if (touchMode === 'edit') {
-                activateTextTool(activeTextIdForTouch); // Now correctly passes the ID!
+                activateTextTool(activeTextIdForTouch); 
                 touchMode = 'idle';
             } else if (touchMode === 'duplicate') {
                 const tObj = textElements.find(t => t.id === activeTextIdForTouch);
@@ -730,14 +735,8 @@ function setupEditorTouchPhysics() {
             return;
         }
         
-      if (widget && !isDrawMode) {
-            // 🚀 If the text is already selected, tapping it again instantly opens the editor
-            if (widget.classList.contains('active') && !handle) {
-                activateTextTool(widget.id);
-                touchMode = 'idle';
-                return;
-            }
-            
+        if (widget && !isDrawMode) {
+            const wasAlreadyActive = widget.classList.contains('active');
             touchMode = 'drag_text';
             activeTextIdForTouch = widget.id;
             activeTextId = widget.id; 
@@ -747,6 +746,11 @@ function setupEditorTouchPhysics() {
 
             startX = e.touches[0].clientX;
             startY = e.touches[0].clientY;
+            
+            // 🚀 Record intent to distinguish a tap from a drag
+            widget.dataset.wasActive = wasAlreadyActive;
+            widget.dataset.dragged = 'false';
+
             const tObj = textElements.find(t => t.id === activeTextIdForTouch);
             if(tObj) {
                 textInitialObjX = tObj.x;
@@ -816,10 +820,19 @@ function setupEditorTouchPhysics() {
         }
 
         if (touchMode === 'drag_text' && activeTextIdForTouch) {
+            const deltaXpx = currentX - startX;
+            const deltaYpx = currentY - startY;
+
+            // 🚀 If dragged more than 5px, lock it in as a drag
+            if (Math.abs(deltaXpx) > 5 || Math.abs(deltaYpx) > 5) {
+                const widgetEl = document.getElementById(activeTextIdForTouch);
+                if (widgetEl) widgetEl.dataset.dragged = 'true';
+            }
+
             const tObj = textElements.find(t => t.id === activeTextIdForTouch);
             if (tObj) {
-                const deltaX = (currentX - startX) / rect.width;
-                const deltaY = (currentY - startY) / rect.height;
+                const deltaX = deltaXpx / rect.width;
+                const deltaY = deltaYpx / rect.height;
                 tObj.x = Math.max(-0.2, Math.min(1.2, textInitialObjX + deltaX)); 
                 tObj.y = Math.max(-0.2, Math.min(1.2, textInitialObjY + deltaY));
                 
@@ -867,6 +880,14 @@ function setupEditorTouchPhysics() {
     }, { passive: false });
     
     container.addEventListener('touchend', (e) => {
+        // 🚀 NEW: Smart Tap-to-Edit checks if you tapped without dragging
+        if (touchMode === 'drag_text' && activeTextIdForTouch) {
+            const widgetEl = document.getElementById(activeTextIdForTouch);
+            if (widgetEl && widgetEl.dataset.wasActive === 'true' && widgetEl.dataset.dragged === 'false') {
+                activateTextTool(activeTextIdForTouch);
+            }
+        }
+
         if (touchMode === 'draw' && isDrawing) {
             isDrawing = false;
             if (currentPath.length > 1) doodlePaths.push({ color: currentDoodleColor, width: currentDoodleWidth, points: [...currentPath] });
