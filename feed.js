@@ -333,6 +333,9 @@ window.refreshMainFeed = async function() {
     await fetchPosts(true);
 };
 
+// ==========================================
+// FETCHING POSTS (Relational Engine)
+// ==========================================
 async function fetchPosts(isRefresh = false) {
     if (isFetchingFeed || (!hasMorePosts && !isRefresh)) return;
     isFetchingFeed = true;
@@ -341,17 +344,20 @@ async function fetchPosts(isRefresh = false) {
     const to = from + POSTS_PER_PAGE - 1;
 
     try {
-        // 1. Get everyone you blocked (or who blocked you)
         const blockedIds = await window.getBlockedUserIds(currentUser.id);
 
-        // 2. Build the query
+        // Huge nested select to grab metadata, polls, events, and votes in one go
         let query = supabase
             .from('posts')
             .select(`
                 *,
                 users!inner(id, full_name, profile_img_url, tick_type, role, is_deleted, is_deactivated),
                 post_likes(user_id),
-                post_comments(count)
+                post_comments(count),
+                post_polls(*),
+                post_poll_votes(user_id, option_id),
+                post_events(*),
+                post_event_rsvps(user_id, status)
             `)
             .eq('is_deleted', false) 
             .eq('users.is_deleted', false)
@@ -359,7 +365,6 @@ async function fetchPosts(isRefresh = false) {
             .order('created_at', { ascending: false })
             .range(from, to);
 
-        // 3. Apply the Block Filter if necessary
         if (blockedIds.length > 0) {
             query = query.not('user_id', 'in', `(${blockedIds.join(',')})`);
         }
@@ -372,15 +377,12 @@ async function fetchPosts(isRefresh = false) {
             hasMorePosts = false;
         }
 
-        // 🚀 THE FIX: Destroy the old loading spinner BEFORE adding new posts!
-        // This prevents the spinner from getting trapped between old and new posts.
         const oldSentinel = document.getElementById('feed-bottom-sentinel');
         if (oldSentinel) oldSentinel.remove();
 
         renderPosts(data, isRefresh);
         currentFeedPage++;
         
-        // Only spawn a new spinner at the very bottom if there are more posts to fetch
         if (hasMorePosts) {
             setupIntersectionObserver();
         }
@@ -437,90 +439,111 @@ function renderPosts(posts, isRefresh = false) {
         let contentHtml = '';
         const verifiedBadge = getTickHtml(user.tick_type);
         
-        // 🚀 Compress images via new Cloudinary global function
         const rawAvatarUrl = user.profile_img_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&background=e1e3e4`;
         const optimizedAvatar = typeof optimizeImageUrl === 'function' ? optimizeImageUrl(rawAvatarUrl, 'avatar') : rawAvatarUrl;
-        
         const headerIcon = `<img loading="lazy" src="${optimizedAvatar}" data-user-id="${user.id}" class="profile-link w-10 h-10 rounded-full border border-surface-variant shadow-sm object-cover cursor-pointer hover:opacity-80 transition-opacity shrink-0">`;
 
+        // We use rich-text-content wrapper to apply Quill formatting cleanly
+        const textPayload = `<div class="rich-text-content text-[15px] text-on-surface dark:text-gray-100 leading-relaxed mb-4 px-1">${post.content}</div>`;
+
         if (post.post_type === 'text') {
-            contentHtml = `<p class="text-[14px] text-on-surface dark:text-gray-100 leading-relaxed mb-4 px-1 whitespace-pre-wrap">${post.content}</p>`;
+            contentHtml = textPayload;
         } 
         else if (post.post_type === 'image') {
             const optimizedMedia = typeof optimizeImageUrl === 'function' ? optimizeImageUrl(post.media_url, 'feed') : post.media_url;
             contentHtml = `
-                <p class="text-[14px] text-on-surface dark:text-gray-100 leading-relaxed mb-3 px-1 whitespace-pre-wrap">${post.content}</p>
+                ${textPayload}
                 <div class="w-full mb-4 rounded-2xl overflow-hidden border border-surface-variant/50 dark:border-neutral-800 shadow-inner bg-surface-variant/20 dark:bg-neutral-900 flex items-center justify-center">
                     <img loading="lazy" src="${optimizedMedia}" class="w-full h-auto max-h-[80vh] object-contain">
                 </div>
             `;
         }
         else if (post.post_type === 'event') {
-            const optimizedEventMedia = typeof optimizeImageUrl === 'function' ? optimizeImageUrl(post.event_image_url, 'feed') : post.event_image_url;
-            const eventImgHtml = post.event_image_url ? `<img loading="lazy" src="${optimizedEventMedia}" class="w-full h-auto max-h-[60vh] object-contain bg-black/5 dark:bg-white/5 border-b border-secondary/20">` : '';
-            const btnText = post.event_button_text || 'View Link';
-            const registerHtml = post.event_register_url ? `<a href="${post.event_register_url}" target="_blank" class="block w-full mt-4 bg-secondary text-white text-center py-2.5 rounded-xl text-[13px] font-bold active:scale-95 transition-transform shadow-md shadow-secondary/20">${btnText}</a>` : '';
-            const dateStr = post.event_date ? new Date(post.event_date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'TBA';
+            const event = post.post_events && post.post_events.length > 0 ? post.post_events[0] : null;
+            if (!event) return ''; // Failsafe
+
+            const optimizedEventMedia = typeof optimizeImageUrl === 'function' && event.event_image_url ? optimizeImageUrl(event.event_image_url, 'feed') : event.event_image_url;
+            const eventImgHtml = event.event_image_url ? `<img loading="lazy" src="${optimizedEventMedia}" class="w-full h-auto max-h-[60vh] object-contain bg-black/5 dark:bg-white/5 border-b border-secondary/20">` : '';
+            const dateStr = event.event_date ? new Date(event.event_date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'TBA';
+
+            let actionHtml = '';
+            if (event.show_register_btn && event.register_url) {
+                actionHtml = `<a href="${event.register_url}" target="_blank" class="block w-full mt-4 bg-secondary text-white text-center py-2.5 rounded-xl text-[13px] font-bold active:scale-95 transition-transform shadow-md shadow-secondary/20">${post.event_button_text || 'View Link'}</a>`;
+            } else if (event.enable_rsvp) {
+                actionHtml = `<button class="block w-full mt-4 bg-primary text-white text-center py-2.5 rounded-xl text-[13px] font-bold active:scale-95 transition-transform shadow-md shadow-primary/20">RSVP / Attending</button>`;
+            }
 
             contentHtml = `
                 <div class="bg-secondary/5 border border-secondary/20 rounded-2xl mb-4 flex flex-col overflow-hidden">
                     ${eventImgHtml}
                     <div class="p-5">
                         <div class="bg-secondary/10 text-secondary w-max px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest mb-3">Upcoming Event</div>
-                        <p class="text-[15px] font-semibold text-on-surface dark:text-gray-100 leading-relaxed mb-4 whitespace-pre-wrap">${post.content}</p>
-                        
-                        <div class="space-y-2">
+                        ${textPayload}
+                        <div class="space-y-2 mt-4">
                             <p class="text-[13px] text-on-surface-variant dark:text-gray-300 flex items-center gap-2 font-medium">
                                 <span class="material-symbols-outlined text-[18px]">calendar_today</span> ${dateStr}
                             </p>
-                            ${post.event_location ? `<p class="text-[13px] text-on-surface-variant dark:text-gray-300 flex items-center gap-2 font-medium"><span class="material-symbols-outlined text-[18px]">location_on</span> ${post.event_location}</p>` : ''}
+                            ${event.event_location ? `<p class="text-[13px] text-on-surface-variant dark:text-gray-300 flex items-center gap-2 font-medium"><span class="material-symbols-outlined text-[18px]">location_on</span> ${event.event_location}</p>` : ''}
                         </div>
-                        ${registerHtml}
+                        ${actionHtml}
                     </div>
                 </div>
             `;
         }
         else if (post.post_type === 'poll') {
+            const poll = post.post_polls && post.post_polls.length > 0 ? post.post_polls[0] : null;
+            if (!poll) return '';
+
             const votes = post.post_poll_votes || [];
             const totalVotes = votes.length;
-            const myVotes = votes.filter(v => v.user_id === currentUser.id).map(v => v.option_index);
+            
+            // Map the votes to identify which options the current user selected
+            const myVotes = votes.filter(v => v.user_id === currentUser.id).map(v => v.option_id);
             const userHasVoted = myVotes.length > 0;
             
-            const isExpired = post.poll_expires_at && new Date(post.poll_expires_at) < new Date();
-            const showResults = userHasVoted || isExpired || post.poll_is_anon;
+            // Check deadline conditions securely locally (UI visual only, backend enforces strictly)
+            const postExpired = new Date(post.expires_at) < new Date();
+            const timeDeadlinePassed = poll.deadline_type === 'time' && poll.deadline_time && new Date(poll.deadline_time) < new Date();
+            const countDeadlinePassed = poll.deadline_type === 'voter_count' && poll.deadline_count && totalVotes >= poll.deadline_count;
+            const isEnded = postExpired || timeDeadlinePassed || countDeadlinePassed || poll.is_ended_early;
+            
+            const showResults = userHasVoted || isEnded || poll.voters_list_visibility === 'public';
 
-            const optionsHtml = (post.poll_options || []).map((opt, index) => {
-                const optVotes = votes.filter(v => v.option_index === index).length;
+            const optionsHtml = (poll.options || []).map((opt) => {
+                const optVotes = votes.filter(v => v.option_id === opt.id).length;
                 const percentage = totalVotes === 0 ? 0 : Math.round((optVotes / totalVotes) * 100);
-                const iVotedForThis = myVotes.includes(index);
-                const viewVotersBtn = (!post.poll_is_anon && optVotes > 0) ? `<span onclick="event.stopPropagation(); window.openPollVoters('${post.id}', ${index})" class="material-symbols-outlined text-[16px] ml-1.5 text-on-surface-variant hover:text-primary transition-colors cursor-pointer" title="View Voters">visibility</span>` : '';
+                const iVotedForThis = myVotes.includes(opt.id);
+                
+                // Allow click if: Poll is not ended AND (User hasn't voted OR poll allows undo OR poll allows multiple choices)
+                const isClickable = !isEnded && (!userHasVoted || poll.can_undo_vote || poll.is_multiple_choice);
+                const cursorClass = isClickable ? 'cursor-pointer active:scale-[0.98] hover:border-primary/50' : 'cursor-default';
 
                 return `
-                <div data-post-id="${post.id}" data-option-index="${index}" data-is-multiple="${post.poll_is_multiple_choice}" class="poll-option-btn ${!isExpired ? 'cursor-pointer active:scale-[0.98]' : 'cursor-default'} relative w-full bg-surface-variant/30 dark:bg-surface-variant/10 border border-surface-variant/50 dark:border-neutral-700 rounded-2xl p-3.5 overflow-hidden group hover:border-primary/50 transition-all mb-2">
+                <div onclick="${isClickable ? `window.handlePollVote('${post.id}', '${opt.id}', ${iVotedForThis})` : ''}" 
+                     class="poll-option-btn ${cursorClass} relative w-full bg-surface-variant/30 dark:bg-surface-variant/10 border border-surface-variant/50 dark:border-neutral-700 rounded-2xl p-3.5 overflow-hidden group transition-all mb-2">
                     <div class="poll-progress-bar absolute left-0 top-0 bottom-0 bg-primary/20 rounded-r-xl transition-all duration-700 ease-out" style="width: ${showResults ? percentage : 0}%"></div>
                     <div class="relative flex justify-between items-center text-[13px] font-bold text-on-surface dark:text-gray-100 z-10">
                         <span class="flex items-center gap-2">
                             <span class="poll-check-circle w-4 h-4 rounded-full border-2 ${iVotedForThis ? 'border-primary flex items-center justify-center' : 'border-surface-variant/80 dark:border-gray-500'}">
                                 ${iVotedForThis ? '<span class="w-2 h-2 rounded-full bg-primary"></span>' : ''}
                             </span>
-                            ${opt}
+                            ${opt.text}
                         </span>
                         <span class="flex items-center">
                             <span class="poll-percentage ${showResults ? 'opacity-100' : 'opacity-0'} transition-opacity">${percentage}%</span>
-                            ${viewVotersBtn}
                         </span>
                     </div>
                 </div>`;
             }).join('');
 
-            const expiryText = isExpired ? 'Poll ended' : (post.poll_expires_at ? `Ends ${timeAgo(post.poll_expires_at)}` : 'Ongoing');
-            const typeText = post.poll_is_multiple_choice ? 'Multiple choice' : 'Single choice';
+            const expiryText = isEnded ? 'Poll ended' : `Ends ${timeAgo(post.expires_at)}`;
+            const typeText = poll.is_multiple_choice ? 'Multiple choice' : 'Single choice';
 
             contentHtml = `
-                <p class="text-[15px] font-semibold text-on-surface dark:text-gray-100 mb-4 px-1 whitespace-pre-wrap">${post.content}</p>
+                ${textPayload}
                 <div class="poll-options-wrapper space-y-2.5 mb-3 px-1">${optionsHtml}</div>
                 <div class="flex justify-between px-2 text-[11px] font-medium text-on-surface-variant dark:text-gray-400 mb-2">
-                    <span class="poll-footer-text"><span class="poll-total-votes">${totalVotes}</span> votes • ${typeText} ${post.poll_is_anon ? 'Anonymous' : 'Public'}</span>
+                    <span class="poll-footer-text"><span class="poll-total-votes">${totalVotes}</span> votes • ${typeText}</span>
                     <span>${expiryText}</span>
                 </div>
             `;
@@ -528,9 +551,8 @@ function renderPosts(posts, isRefresh = false) {
 
         return `
         <div data-post-id="${post.id}" class="bg-surface-container-lowest dark:bg-[#1e1e1e] rounded-[32px] p-5 border border-surface-variant/60 dark:border-neutral-800 shadow-sm mb-5 animate-fadeIn relative">
-            
             ${post.is_verified ? '<div class="absolute -top-3 -right-3 bg-[#e8b339] text-white px-3 py-1 rounded-full text-[10px] font-extrabold uppercase shadow-lg shadow-[#e8b339]/30 flex items-center gap-1 z-10"><span class="material-symbols-outlined text-[14px]">stars</span> Verified Post</div>' : ''}
-
+            
             <div class="flex items-center gap-3 mb-3">
                 ${headerIcon}
                 <div class="flex-1">
@@ -547,7 +569,6 @@ function renderPosts(posts, isRefresh = false) {
             ${contentHtml}
             
             <div class="flex items-center gap-6 border-t border-surface-variant/40 dark:border-neutral-800 pt-3 px-1 mt-2">
-                
                 <div class="flex items-center gap-1.5">
                     <button onclick="window.handleLike('${post.id}', this)" data-post-id="${post.id}" data-liked="${userHasLiked}" class="like-btn flex items-center justify-center transition-colors active:scale-95 ${userHasLiked ? 'text-red-500' : 'text-on-surface-variant dark:text-gray-400 hover:text-red-500'}">
                         <span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' ${userHasLiked ? 1 : 0};">favorite</span> 
@@ -556,27 +577,19 @@ function renderPosts(posts, isRefresh = false) {
                         ${likeCount}
                     </span>
                 </div>
-
                 <div class="flex items-center gap-1.5">
                     <button data-post-id="${post.id}" class="comment-btn flex items-center gap-1.5 text-on-surface-variant dark:text-gray-400 hover:text-secondary transition-colors text-[13px] font-medium active:scale-95">
                         <span class="material-symbols-outlined text-[20px]">chat_bubble</span> 
                     </button>
-                    <span class="text-[13px] font-bold text-on-surface-variant dark:text-gray-400">
-                        ${commentCount}
-                    </span>
+                    <span class="text-[13px] font-bold text-on-surface-variant dark:text-gray-400">${commentCount}</span>
                 </div>
-
             </div>
         </div>
         `;
     }).join('');
 
-    if (isRefresh) {
-        container.innerHTML = htmlString;
-    } else {
-        // 🚀 Safely append to the bottom without destroying the page
-        container.insertAdjacentHTML('beforeend', htmlString);
-    }
+    if (isRefresh) container.innerHTML = htmlString;
+    else container.insertAdjacentHTML('beforeend', htmlString);
 }
 
 // ==========================================
@@ -642,27 +655,41 @@ window.handleLike = async function(postId, btnElement) {
     }
 };
 
-async function handlePollVote(postId, optionIndex, isMultipleChoice) {
+// ==========================================
+// SECURE RPC POLL VOTING
+// ==========================================
+window.handlePollVote = async function(postId, optionId, isUndo) {
     if (isVoting) return; 
     isVoting = true;
     
+    // Optimistic lock visually
+    const postEl = document.querySelector(`div[data-post-id="${postId}"]`);
+    if (postEl) postEl.style.opacity = '0.6';
+
     try {
-        const { error } = await supabase.from('post_poll_votes').insert({
-            post_id: postId,
-            user_id: currentUser.id,
-            option_index: optionIndex
+        const { error } = await supabase.rpc('cast_poll_vote', {
+            p_post_id: postId,
+            p_option_id: optionId,
+            p_is_undo: isUndo
         });
 
-        if (error && error.code === '23505') {
-            await supabase.from('post_poll_votes').delete().match({ post_id: postId, user_id: currentUser.id, option_index: optionIndex });
+        if (error) {
+            showToast(error.message, 'error');
+            throw error;
         }
-        
-        const { data: votes } = await supabase.from('post_poll_votes').select('user_id, option_index').eq('post_id', postId);
-        updatePollDOM(postId, votes);
+
+        // Hard reload this specific post via fetch to get the fresh accurate data
+        // For a production app you'd strictly update the DOM optimistically,
+        // but for safety with single/multi choices, refetching the single post ensures sync.
+        if (typeof window.refreshMainFeed === 'function') {
+            // Small background refresh of the feed to true-up data
+            await window.refreshMainFeed(); 
+        }
 
     } catch (error) {
         console.error("Poll vote error:", error);
     } finally {
+        if (postEl) postEl.style.opacity = '1';
         isVoting = false; 
     }
 }
