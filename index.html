@@ -85,6 +85,21 @@
                 @apply bg-error text-white px-5 py-3 rounded-xl font-bold flex justify-center items-center gap-1 active:scale-95 transition-all shadow-md shadow-error/25 disabled:bg-error/50 disabled:cursor-not-allowed;
             }
         }
+        /* Quill Editor Customizations */
+.ql-toolbar.ql-snow, .ql-container.ql-snow {
+    border-color: rgba(156, 163, 175, 0.3) !important;
+}
+.dark .ql-toolbar.ql-snow .ql-picker, 
+.dark .ql-toolbar.ql-snow .ql-stroke {
+    color: #f3f4f6 !important;
+    stroke: #f3f4f6 !important;
+}
+.dark .ql-toolbar.ql-snow .ql-fill {
+    fill: #f3f4f6 !important;
+}
+.dark .ql-editor.ql-blank::before {
+    color: rgba(255,255,255,0.4) !important;
+}
     </style>
 </head>
 
