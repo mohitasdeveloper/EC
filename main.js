@@ -651,7 +651,7 @@ window.fetchMyProfileFeed = async function(userId) {
                 users ( id, full_name, profile_img_url, role, tick_type ),
                 post_likes ( user_id ),
                 post_comments ( count ),
-                post_poll_votes ( user_id, option_index )
+                post_poll_votes ( user_id, option_id ) /* <-- FIXED HERE */
             `)
             .eq('user_id', userId)
             .eq('is_deleted', false)
@@ -737,7 +737,9 @@ function generatePostHTML(posts, currentUserId) {
         else if (post.post_type === 'poll') {
             const votes = post.post_poll_votes || [];
             const totalVotes = votes.length;
-            const myVotes = votes.filter(v => v.user_id === currentUserId).map(v => v.option_index);
+            
+            // FIXED: map(v => v.option_id)
+            const myVotes = votes.filter(v => v.user_id === currentUserId).map(v => v.option_id);
             const userHasVoted = myVotes.length > 0;
             
             const isExpired = post.poll_expires_at && new Date(post.poll_expires_at) < new Date();
