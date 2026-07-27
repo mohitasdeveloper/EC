@@ -605,7 +605,7 @@ function renderTextElements() {
         // Split text into lines so backgrounds don't bleed across empty spaces
         const linesHTML = tObj.content.split('\n').map(line => {
             const safeLine = line === '' ? '&#8203;' : line.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            return `<span style="${bgCSS} ${shadowCSS} display: inline-block; max-width: 85vw; word-wrap: break-word; white-space: pre-wrap; margin-bottom: 3px;">${safeLine}</span>`;
+            return `<span style="${bgCSS} ${shadowCSS} display: inline-block; max-width: 85vw; word-wrap: break-word; white-space: pre-wrap; margin-bottom: 4px;">${safeLine}</span>`;
         }).join('');
 
         widget.innerHTML = `
@@ -614,7 +614,7 @@ function renderTextElements() {
                 <div class="text-handle handle-tr" data-action="edit"><span class="material-symbols-outlined text-[16px]">edit</span></div>
                 <div class="text-handle handle-bl" data-action="duplicate"><span class="material-symbols-outlined text-[16px]">content_copy</span></div>
                 <div class="text-handle handle-br" data-action="scale"><span class="material-symbols-outlined text-[18px]">open_in_full</span></div>
-                <div class="text-widget-content" style="width: 100%; display: flex; flex-direction: column; align-items: ${flexAlign}; font-size: 24px; font-family: ${tObj.font.replace(/"/g, "'")}; text-align: ${tObj.align || 'center'}; line-height: 1.3;">
+                <div class="text-widget-content" style="display: flex; flex-direction: column; align-items: ${flexAlign}; font-size: 24px; font-family: ${tObj.font.replace(/"/g, "'")}; text-align: ${tObj.align || 'center'}; line-height: 1.3;">
                     ${linesHTML}
                 </div>
             </div>
@@ -993,7 +993,9 @@ async function submitHotpost() {
                     
                     const paragraphs = tObj.content.split('\n');
                     let wrappedLines = [];
-                    const screen85 = finalWidth * 0.85;
+                    
+                    // 🚀 PERFECT MATCH: Use exactly 85% of the device screen width, identical to CSS 'max-width: 85vw'
+                    const uiMaxWidth = screenW * 0.85;
                     
                     paragraphs.forEach(paragraph => {
                         if (!paragraph) { wrappedLines.push(''); return; }
@@ -1002,23 +1004,22 @@ async function submitHotpost() {
                         for (let i = 0; i < words.length; i++) {
                             const testLine = currentLine + words[i] + ' ';
                             const metrics = ctx.measureText(testLine);
-                            if (metrics.width > screen85 && currentLine.length > 0) {
-                                wrappedLines.push(currentLine.trim());
+                            if (metrics.width > uiMaxWidth && currentLine.length > 0) {
+                                wrappedLines.push(currentLine.trimEnd());
                                 currentLine = words[i] + ' ';
                             } else {
                                 currentLine = testLine;
                             }
                         }
-                        wrappedLines.push(currentLine.trim());
+                        wrappedLines.push(currentLine.trimEnd());
                     });
 
-                    // Measure longest line dynamically for the compiler
+                    // Measure longest line dynamically for the compiler background sizing
                     let longestLineW = 0;
                     wrappedLines.forEach(l => {
                         const w = ctx.measureText(l).width;
                         if (w > longestLineW) longestLineW = w;
                     });
-                    const maxWidth = longestLineW;
 
                     const finalX = finalWidth * tObj.x;
                     const finalY = finalHeight * tObj.y;
@@ -1033,8 +1034,8 @@ async function submitHotpost() {
 
                     ctx.textAlign = tObj.align || 'center';
                     let textDrawX = 0;
-                    if (tObj.align === 'left') textDrawX = -(maxWidth / 2);
-                    if (tObj.align === 'right') textDrawX = (maxWidth / 2);
+                    if (tObj.align === 'left') textDrawX = -(longestLineW / 2);
+                    if (tObj.align === 'right') textDrawX = (longestLineW / 2);
 
                     if (tObj.hasBg) {
                         ctx.fillStyle = tObj.color;
@@ -1046,7 +1047,7 @@ async function submitHotpost() {
                             const lineW = ctx.measureText(line).width;
                             const lineY = startY + (index * lineHeight);
                             const px = 12; 
-                            const py = 4;  
+                            const py = 6;  
                             
                             let bgStartX = 0;
                             if (tObj.align === 'center') bgStartX = -lineW/2 - px;
