@@ -530,28 +530,10 @@ function updateTextUIPreview() {
 
 function saveTextFromUI() {
     const textarea = document.getElementById('hotpost-in-ui-textarea');
-    
-    // 🚀 FIX: Strip invisible trailing spaces from EVERY line that ruin alignment!
+    // Strip invisible trailing spaces that ruin alignment
     const content = textarea.value.split('\n').map(line => line.trimEnd()).join('\n').trim();
     
     if (content) {
-        // 🚀 FLAWLESS MEASUREMENT ENGINE
-        const measureDiv = document.createElement('div');
-        measureDiv.style.position = 'absolute';
-        measureDiv.style.visibility = 'hidden';
-        measureDiv.style.whiteSpace = 'pre-wrap';
-        measureDiv.style.fontSize = '24px';
-        measureDiv.style.fontFamily = currentTextFont.replace(/"/g, "'");
-        measureDiv.style.lineHeight = '1.3';
-        measureDiv.style.width = 'max-content';
-        measureDiv.style.maxWidth = '85vw';
-        measureDiv.style.textAlign = currentTextAlign;
-        measureDiv.textContent = content; // Retains native \n breaks exactly
-        
-        document.body.appendChild(measureDiv);
-        let exactWidth = Math.ceil(measureDiv.getBoundingClientRect().width) + 8; // Small visual buffer
-        document.body.removeChild(measureDiv);
-
         if (activeTextId) {
             const textObj = textElements.find(t => t.id === activeTextId);
             if (textObj) {
@@ -560,7 +542,6 @@ function saveTextFromUI() {
                 textObj.color = currentTextColor;
                 textObj.hasBg = currentTextBg;
                 textObj.align = currentTextAlign;
-                textObj.width = exactWidth; 
             }
         } else {
             const newId = 'text-' + Date.now();
@@ -569,7 +550,6 @@ function saveTextFromUI() {
                 content: content, 
                 x: 0.5, 
                 y: 0.5, 
-                width: exactWidth, 
                 scale: 1.0,
                 font: currentTextFont,
                 color: currentTextColor,
@@ -603,8 +583,11 @@ function renderTextElements() {
         let bgCSS = '';
         let shadowCSS = '';
         
+        // Dynamic Padding for Backgrounds
+        const paddingCSS = tObj.hasBg ? 'padding: 4px 12px; border-radius: 8px;' : 'padding: 0;';
+
         if (tObj.hasBg) {
-            bgCSS = `background-color: ${tObj.color}; color: ${getContrastYIQ(tObj.color)}; padding: 6px 12px; border-radius: 8px;`;
+            bgCSS = `background-color: ${tObj.color}; color: ${getContrastYIQ(tObj.color)}; ${paddingCSS}`;
             shadowCSS = `text-shadow: none;`;
         } else {
             bgCSS = `color: ${tObj.color};`;
@@ -615,15 +598,24 @@ function renderTextElements() {
             }
         }
 
-     // 🚀 Native Text Alignment Rendering inside the strict bounding box
+        // Flexbox mapping aligns the individual lines perfectly
+        const alignMap = { left: 'flex-start', center: 'center', right: 'flex-end' };
+        const flexAlign = alignMap[tObj.align || 'center'];
+
+        // Split text into lines so backgrounds don't bleed across empty spaces
+        const linesHTML = tObj.content.split('\n').map(line => {
+            const safeLine = line === '' ? '&#8203;' : line.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            return `<span style="${bgCSS} ${shadowCSS} display: inline-block; max-width: 85vw; word-wrap: break-word; white-space: pre-wrap; margin-bottom: 3px;">${safeLine}</span>`;
+        }).join('');
+
         widget.innerHTML = `
-            <div class="text-widget-box">
+            <div class="text-widget-box" style="display: flex; flex-direction: column; align-items: ${flexAlign}; max-width: 85vw; width: max-content;">
                 <div class="text-handle handle-tl" data-action="delete"><span class="material-symbols-outlined text-[18px]">close</span></div>
                 <div class="text-handle handle-tr" data-action="edit"><span class="material-symbols-outlined text-[16px]">edit</span></div>
                 <div class="text-handle handle-bl" data-action="duplicate"><span class="material-symbols-outlined text-[16px]">content_copy</span></div>
                 <div class="text-handle handle-br" data-action="scale"><span class="material-symbols-outlined text-[18px]">open_in_full</span></div>
-                <div class="text-widget-content" style="width: ${tObj.width}px; font-size: 24px; font-family: ${tObj.font.replace(/"/g, "'")}; text-align: ${tObj.align || 'center'}; line-height: 1.3;">
-                    <span style="${bgCSS} ${shadowCSS} box-decoration-break: clone; -webkit-box-decoration-break: clone; white-space: pre-wrap;">${tObj.content}</span>
+                <div class="text-widget-content" style="width: 100%; display: flex; flex-direction: column; align-items: ${flexAlign}; font-size: 24px; font-family: ${tObj.font.replace(/"/g, "'")}; text-align: ${tObj.align || 'center'}; line-height: 1.3;">
+                    ${linesHTML}
                 </div>
             </div>
         `;
@@ -635,14 +627,12 @@ function initDoodleCanvas() {
     setTimeout(() => {
         const canvas = document.getElementById('hotpost-doodle-canvas');
         const container = document.getElementById('hotpost-preview-container');
-        
-        // 🚀 FIX: Fallback to innerWidth/innerHeight prevents the 0x0 bug!
+        // 🚀 FIX: Fallback to innerWidth/innerHeight prevents the 0x0 hidden container bug
         canvas.width = container.clientWidth || window.innerWidth;
         canvas.height = container.clientHeight || window.innerHeight;
-        
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }, 100); // Wait for DOM to paint
+    }, 150); // Give the container slightly more time to paint before fetching width
 }
 
 function toggleDrawMode() {
@@ -999,13 +989,11 @@ async function submitHotpost() {
 
                     const baseFontSize = 24; 
                     ctx.font = `800 ${baseFontSize}px ${tObj.font}`;
-                    ctx.textAlign = tObj.align || 'center'; // Apply requested alignment
                     ctx.textBaseline = "middle";
-                    
-                    const maxWidth = tObj.width || 250; 
                     
                     const paragraphs = tObj.content.split('\n');
                     let wrappedLines = [];
+                    const screen85 = finalWidth * 0.85;
                     
                     paragraphs.forEach(paragraph => {
                         if (!paragraph) { wrappedLines.push(''); return; }
@@ -1014,8 +1002,7 @@ async function submitHotpost() {
                         for (let i = 0; i < words.length; i++) {
                             const testLine = currentLine + words[i] + ' ';
                             const metrics = ctx.measureText(testLine);
-                            
-                            if (metrics.width > maxWidth && currentLine.length > 0) {
+                            if (metrics.width > screen85 && currentLine.length > 0) {
                                 wrappedLines.push(currentLine.trim());
                                 currentLine = words[i] + ' ';
                             } else {
@@ -1024,6 +1011,14 @@ async function submitHotpost() {
                         }
                         wrappedLines.push(currentLine.trim());
                     });
+
+                    // Measure longest line dynamically for the compiler
+                    let longestLineW = 0;
+                    wrappedLines.forEach(l => {
+                        const w = ctx.measureText(l).width;
+                        if (w > longestLineW) longestLineW = w;
+                    });
+                    const maxWidth = longestLineW;
 
                     const finalX = finalWidth * tObj.x;
                     const finalY = finalHeight * tObj.y;
@@ -1036,12 +1031,11 @@ async function submitHotpost() {
                     const totalHeight = wrappedLines.length * lineHeight;
                     const startY = -(totalHeight / 2) + (lineHeight / 2);
 
-                    // Calculate X rendering offset based on alignment
+                    ctx.textAlign = tObj.align || 'center';
                     let textDrawX = 0;
                     if (tObj.align === 'left') textDrawX = -(maxWidth / 2);
                     if (tObj.align === 'right') textDrawX = (maxWidth / 2);
 
-                    // 1. Render Backgrounds (If enabled)
                     if (tObj.hasBg) {
                         ctx.fillStyle = tObj.color;
                         ctx.shadowColor = "transparent";
@@ -1049,13 +1043,11 @@ async function submitHotpost() {
                         
                         wrappedLines.forEach((line, index) => {
                             if(!line) return; 
-                            const metrics = ctx.measureText(line);
-                            const lineW = metrics.width;
+                            const lineW = ctx.measureText(line).width;
                             const lineY = startY + (index * lineHeight);
                             const px = 12; 
-                            const py = 6;  
+                            const py = 4;  
                             
-                            // Align background box dynamically
                             let bgStartX = 0;
                             if (tObj.align === 'center') bgStartX = -lineW/2 - px;
                             if (tObj.align === 'left') bgStartX = textDrawX - px;
@@ -1078,7 +1070,6 @@ async function submitHotpost() {
                         }
                     }
 
-                    // 2. Render Text
                     wrappedLines.forEach((line, index) => {
                         const lineY = startY + (index * lineHeight);
                         if (!tObj.hasBg && isNeon) ctx.fillText(line, textDrawX, lineY); 
@@ -1087,7 +1078,7 @@ async function submitHotpost() {
 
                     ctx.restore(); 
                 });
-
+                
                 bakeCanvas.toBlob(resolve, 'image/webp', 0.65); 
             } catch (err) {
                 reject(err);
