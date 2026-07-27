@@ -714,16 +714,24 @@
             </button>
             <h3 class="text-xl font-extrabold text-on-surface dark:text-gray-100 shrink-0 mb-4">Comments</h3>
             <div id="post-comments-list" class="flex-1 overflow-y-auto space-y-4 pr-1 mb-4"></div>
-           <!-- Interactive Comment Editor -->
-            <div class="flex items-center gap-2 shrink-0 border-t border-surface-variant/40 pt-3">
-                <div id="comment-rich-text-wrapper" class="flex-1 bg-surface-variant/30 dark:bg-surface-variant/5 rounded-3xl border border-surface-variant/50 dark:border-neutral-700 relative flex items-center min-h-[44px]">
-                    <div id="post-comment-input" class="w-full text-on-surface dark:text-gray-100"></div>
+           <!-- Interactive Comment Editor (Native) -->
+            <div class="flex flex-col border-t border-surface-variant/40 dark:border-neutral-800 pt-3 relative bg-surface dark:bg-[#1e1e1e]">
+                
+                <!-- Custom Native Mention Dropdown -->
+                <div id="comment-mention-list" class="absolute bottom-full left-0 w-full bg-surface-container-lowest dark:bg-[#1e1e1e] border border-surface-variant/50 dark:border-neutral-700 rounded-t-2xl shadow-[0_-10px_30px_rgba(0,0,0,0.15)] max-h-40 overflow-y-auto hidden z-[510] divide-y divide-surface-variant/40 dark:divide-neutral-800"></div>
+                
+                <!-- Replying Indicator -->
+                <div id="replying-to-indicator" class="hidden flex items-center justify-between bg-surface-variant/30 dark:bg-neutral-800 px-3 py-2 rounded-t-xl text-[12px] text-on-surface-variant dark:text-gray-400 mb-2">
+                    <span>Replying to <strong id="replying-to-name" class="text-on-surface dark:text-gray-200">User</strong></span>
+                    <span onclick="window.cancelReply()" class="material-symbols-outlined text-[16px] cursor-pointer hover:text-on-surface dark:hover:text-white">close</span>
                 </div>
-                <button id="send-comment-btn" class="w-11 h-11 bg-primary text-white rounded-full flex items-center justify-center hover:bg-primary/90 transition-all shrink-0 active:scale-95 shadow-md shadow-primary/20">
-                    <span class="material-symbols-outlined text-[20px] ml-1">send</span>
-                </button>
+                
+                <div class="flex items-center gap-3">
+                    <img id="current-user-comment-avatar" src="" class="w-9 h-9 rounded-full object-cover shrink-0 border border-surface-variant/50">
+                    <textarea id="post-comment-input" rows="1" class="flex-1 bg-transparent border-none p-0 text-[14px] text-on-surface dark:text-gray-100 outline-none focus:ring-0 resize-none hide-scrollbar max-h-20" placeholder="Add a comment..."></textarea>
+                    <button id="send-comment-btn" class="text-primary font-bold text-[14px] px-2 active:opacity-60 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed" disabled>Post</button>
+                </div>
             </div>
-        </div>
     </div>
 
     <!-- POLL VOTERS MODAL -->
