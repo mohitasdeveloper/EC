@@ -449,13 +449,13 @@ async function fetchPosts(isRefresh = false) {
         const blockedIds = await window.getBlockedUserIds(currentUser.id);
 
         // Huge nested select to grab metadata, polls, events, and votes in one go
-        let query = supabase
+       let query = supabase
             .from('posts')
             .select(`
                 *,
                 users!inner(id, full_name, profile_img_url, tick_type, role, is_deleted, is_deactivated),
-                post_likes(user_id),
-                post_comments(count),
+                post_likes(user_id, users(full_name)),
+                post_comments(id, content, created_at, users(full_name)),
                 post_polls(*),
                 post_poll_votes(user_id, option_id),
                 post_events(*),
@@ -533,32 +533,109 @@ function renderPosts(posts, isRefresh = false) {
         const user = post.users;
         if (!user) return '';
 
+        // --- 1. LIKES LOGIC ---
         const likes = post.post_likes || [];
         const likeCount = likes.length;
         const userHasLiked = likes.some(like => like.user_id === currentUser.id);
-        const commentCount = post.post_comments[0]?.count || 0;
-
-        let contentHtml = '';
-        const verifiedBadge = getTickHtml(user.tick_type);
         
-        const rawAvatarUrl = user.profile_img_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&background=e1e3e4`;
-        const optimizedAvatar = typeof optimizeImageUrl === 'function' ? optimizeImageUrl(rawAvatarUrl, 'avatar') : rawAvatarUrl;
-        const headerIcon = `<img loading="lazy" src="${optimizedAvatar}" data-user-id="${user.id}" class="profile-link w-10 h-10 rounded-full border border-surface-variant shadow-sm object-cover cursor-pointer hover:opacity-80 transition-opacity shrink-0">`;
+        let likedByHtml = '';
+        if (likeCount > 0) {
+            // Find a liker to feature (preferring someone other than the current user if possible)
+            const featuredLiker = likes.find(l => l.user_id !== currentUser.id)?.users?.full_name || likes[0]?.users?.full_name || 'Someone';
+            
+            if (likeCount === 1) {
+                likedByHtml = `Liked by <span class="font-bold text-on-surface dark:text-gray-100">${featuredLiker}</span>`;
+            } else {
+                likedByHtml = `Liked by <span class="font-bold text-on-surface dark:text-gray-100">${featuredLiker}</span> and <span onclick="window.openLikesModal('${post.id}')" class="font-bold text-on-surface dark:text-gray-100 cursor-pointer">others</span>`;
+            }
+        }
 
-        // We use rich-text-content wrapper to apply Quill formatting cleanly
-        const textPayload = `<div class="rich-text-content text-[15px] text-on-surface dark:text-gray-100 leading-relaxed mb-4 px-1">${post.content}</div>`;
+        // --- 2. COMMENTS PREVIEW LOGIC ---
+        const comments = post.post_comments || [];
+        const commentCount = comments.length;
+        let commentsHtml = '';
+        if (commentCount > 0) {
+            const previewCount = commentCount > 1 ? `View all ${commentCount} comments` : 'View 1 comment';
+            commentsHtml = `<p data-post-id="${post.id}" class="comment-btn text-[14px] text-on-surface-variant dark:text-gray-400 mt-1 cursor-pointer active:opacity-70">${previewCount}</p>`;
+            
+            // Show the 1 most recent comment inline
+            const latestComment = comments[comments.length - 1];
+            if (latestComment) {
+                commentsHtml += `<p class="text-[14px] text-on-surface dark:text-gray-100 mt-1 leading-snug"><span class="font-bold mr-1 cursor-pointer">${latestComment.users?.full_name || 'User'}</span><span class="text-on-surface-variant dark:text-gray-300">${latestComment.content.replace(/<[^>]*>?/gm, '')}</span></p>`;
+            }
+        }
 
+        // --- 3. EDGE-TO-EDGE MEDIA HTML ---
+        let contentHtml = '';
         if (post.post_type === 'text') {
-            contentHtml = textPayload;
+            // Only show caption text
         } 
         else if (post.post_type === 'image') {
             const optimizedMedia = typeof optimizeImageUrl === 'function' ? optimizeImageUrl(post.media_url, 'feed') : post.media_url;
             contentHtml = `
-                ${textPayload}
-                <div class="w-full mb-4 rounded-2xl overflow-hidden border border-surface-variant/50 dark:border-neutral-800 shadow-inner bg-surface-variant/20 dark:bg-neutral-900 flex items-center justify-center">
-                    <img loading="lazy" src="${optimizedMedia}" class="w-full h-auto max-h-[80vh] object-contain">
+                <div class="w-full bg-surface-variant/20 dark:bg-neutral-900 flex items-center justify-center border-y border-surface-variant/40 dark:border-neutral-800">
+                    <img loading="lazy" src="${optimizedMedia}" class="w-full h-auto max-h-[80vh] object-cover">
                 </div>
             `;
+        }
+
+        return `
+        <div data-post-id="${post.id}" class="bg-surface dark:bg-[#121212] mb-6 animate-fadeIn pb-4 border-b border-surface-variant/40 dark:border-neutral-800 relative">
+            
+            <!-- HEADER -->
+            <div class="flex items-center gap-3 px-3 py-3">
+                ${headerIcon}
+                <div class="flex-1 min-w-0">
+                    <h4 data-user-id="${user.id}" class="profile-link font-bold text-[14px] text-on-surface dark:text-gray-100 leading-tight cursor-pointer hover:text-primary transition-colors flex items-center gap-1 truncate">
+                        ${user.full_name} ${verifiedBadge}
+                    </h4>
+                    ${post.event_location ? `<p class="text-[11px] text-on-surface-variant dark:text-gray-400 mt-0.5 truncate">${post.event_location}</p>` : ''}
+                </div>
+                <button data-post-id="${post.id}" data-user-id="${user.id}" data-is-verified="${post.is_verified}" class="post-options-btn text-on-surface dark:text-gray-100 p-1.5 active:opacity-60 transition-opacity">
+                    <span class="material-symbols-outlined text-[20px]">more_vert</span>
+                </button>
+            </div>
+            
+            <!-- EDGE-TO-EDGE MEDIA -->
+            ${contentHtml}
+            
+            <!-- ACTION BAR (Heart, Comment, Share) -->
+            <div class="flex items-center justify-between px-3 pt-2 pb-1 mt-1">
+                <div class="flex items-center gap-4">
+                    <button onclick="window.handleLike('${post.id}', this)" data-post-id="${post.id}" data-liked="${userHasLiked}" class="like-btn flex items-center justify-center transition-transform active:scale-90 ${userHasLiked ? 'text-red-500' : 'text-on-surface dark:text-gray-100'}">
+                        <span class="material-symbols-outlined text-[26px]" style="font-variation-settings: 'FILL' ${userHasLiked ? 1 : 0};">favorite</span> 
+                    </button>
+                    <button data-post-id="${post.id}" class="comment-btn flex items-center justify-center text-on-surface dark:text-gray-100 transition-transform active:scale-90">
+                        <span class="material-symbols-outlined text-[24px]" style="transform: scaleX(-1);">chat_bubble_outline</span> 
+                    </button>
+                    <button class="flex items-center justify-center text-on-surface dark:text-gray-100 transition-transform active:scale-90">
+                        <span class="material-symbols-outlined text-[24px] -rotate-45 -mt-1">send</span> 
+                    </button>
+                </div>
+                <button class="flex items-center justify-center text-on-surface dark:text-gray-100 transition-transform active:scale-90">
+                    <span class="material-symbols-outlined text-[26px]">bookmark_border</span>
+                </button>
+            </div>
+            
+            <!-- LIKES TEXT -->
+            ${likeCount > 0 ? `<div class="px-3 mb-1 text-[14px] text-on-surface dark:text-gray-100">${likedByHtml}</div>` : ''}
+            
+            <!-- CAPTION -->
+            ${post.content ? `
+            <div class="px-3 text-[14px] text-on-surface dark:text-gray-100 leading-snug mt-1">
+                <span data-user-id="${user.id}" class="profile-link font-bold mr-1 cursor-pointer hover:underline">${user.full_name}</span>
+                <span class="rich-text-content whitespace-pre-wrap">${post.content}</span>
+            </div>` : ''}
+            
+            <!-- COMMENTS PREVIEW -->
+            <div class="px-3 mt-1">
+                ${commentsHtml}
+            </div>
+
+            <!-- TIMESTAMP -->
+            <p class="px-3 text-[11px] text-on-surface-variant dark:text-gray-500 mt-1.5 uppercase tracking-wide">${timeAgo(post.created_at)}</p>
+        </div>
+        `;
         }
        else if (post.post_type === 'event') {
             const event = post.post_events && post.post_events.length > 0 ? post.post_events[0] : null;
