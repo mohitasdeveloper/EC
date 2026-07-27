@@ -714,11 +714,12 @@
             </button>
             <h3 class="text-xl font-extrabold text-on-surface dark:text-gray-100 shrink-0 mb-4">Comments</h3>
             <div id="post-comments-list" class="flex-1 overflow-y-auto space-y-4 pr-1 mb-4"></div>
-            <div class="flex items-center gap-2 shrink-0 border-t border-surface-variant/40 pt-4">
-                <input type="text" id="post-comment-input" placeholder="Add a comment..."
-                    class="flex-1 bg-surface-variant/30 dark:bg-surface-variant/5 text-on-surface dark:text-gray-100 px-4 py-3 rounded-full text-[13px] font-medium border border-surface-variant/50 dark:border-neutral-700 outline-none focus:border-primary">
-                <button id="send-comment-btn"
-                    class="w-11 h-11 bg-primary text-white rounded-full flex items-center justify-center hover:bg-primary/90 transition-all shrink-0 active:scale-95 shadow-md shadow-primary/20">
+           <!-- Interactive Comment Editor -->
+            <div class="flex items-center gap-2 shrink-0 border-t border-surface-variant/40 pt-3">
+                <div id="comment-rich-text-wrapper" class="flex-1 bg-surface-variant/30 dark:bg-surface-variant/5 rounded-3xl border border-surface-variant/50 dark:border-neutral-700 relative flex items-center min-h-[44px]">
+                    <div id="post-comment-input" class="w-full text-on-surface dark:text-gray-100"></div>
+                </div>
+                <button id="send-comment-btn" class="w-11 h-11 bg-primary text-white rounded-full flex items-center justify-center hover:bg-primary/90 transition-all shrink-0 active:scale-95 shadow-md shadow-primary/20">
                     <span class="material-symbols-outlined text-[20px] ml-1">send</span>
                 </button>
             </div>
