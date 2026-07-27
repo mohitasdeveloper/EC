@@ -526,27 +526,38 @@
             </button>
         </div>
 
-        <!-- Content Area (Reduced side padding to px-4 for a wider feel) -->
+       <!-- Content Area -->
         <div class="flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-12">
             
-            <!-- Author Info & Global Post Settings -->
-            <div class="flex items-center justify-between mb-5">
+            <!-- Author Info & Grouped Post Settings -->
+            <div class="flex items-start justify-between mb-5">
                 <div class="flex items-center gap-3">
-                    <img id="create-post-avatar" src="https://ui-avatars.com/api/?name=User" class="w-10 h-10 rounded-full border border-surface-variant shadow-sm object-cover">
-                    <div>
-                        <p id="create-post-name" class="font-bold text-sm text-on-surface dark:text-gray-100 flex items-center">User Name</p>
-                        <!-- Native Expiry Action Sheet Trigger -->
-                        <div onclick="openExpirySelector()" class="flex items-center gap-1 text-[11px] font-bold text-on-surface-variant dark:text-gray-400 cursor-pointer active:opacity-70 mt-0.5 w-max">
-                            <span id="post-expiry-label">Expires in 7 Days</span>
-                            <span class="material-symbols-outlined text-[14px]">expand_more</span>
+                    <img id="create-post-avatar" src="https://ui-avatars.com/api/?name=User" class="w-11 h-11 rounded-full border border-surface-variant shadow-sm object-cover">
+                    <div class="flex flex-col">
+                        <p id="create-post-name" class="font-bold text-[15px] text-on-surface dark:text-gray-100 flex items-center">User Name</p>
+                        
+                        <!-- Grouped Settings Badges -->
+                        <div class="flex items-center gap-2 mt-1 flex-wrap">
+                            <!-- Visibility Badge -->
+                            <div onclick="openVisibilitySelector()" class="flex items-center gap-1 text-[11px] font-bold text-primary bg-primary/10 px-2 py-1 rounded-md cursor-pointer active:opacity-70 transition-opacity">
+                                <span id="post-viewers-label" class="flex items-center gap-1"><span class="material-symbols-outlined text-[13px]">public</span> Everyone</span>
+                                <span class="material-symbols-outlined text-[14px]">expand_more</span>
+                            </div>
+                            <input type="hidden" id="post-viewers-value" value="all">
+
+                            <!-- Expiry Badge -->
+                            <div onclick="openExpirySelector()" class="flex items-center gap-1 text-[11px] font-bold text-on-surface-variant dark:text-gray-400 bg-surface-variant/30 dark:bg-neutral-800 px-2 py-1 rounded-md cursor-pointer active:opacity-70 transition-opacity">
+                                <span id="post-expiry-label">Expires: 7 Days</span>
+                                <span class="material-symbols-outlined text-[14px]">expand_more</span>
+                            </div>
+                            <input type="hidden" id="post-expiry-value" value="7">
                         </div>
-                        <input type="hidden" id="post-expiry-value" value="7">
                     </div>
                 </div>
             </div>
 
             <!-- Post Type Selector -->
-            <div id="post-type-selector" class="flex gap-2.5 overflow-x-auto hide-scrollbar mb-5 pb-1">
+            <div id="post-type-selector" class="flex gap-2.5 overflow-x-auto hide-scrollbar mb-4 pb-1">
                 <button data-type="text" class="post-type-tab active bg-primary text-white px-5 py-2 rounded-full text-[13px] font-bold shrink-0 transition-colors shadow-sm">Text</button>
                 <button data-type="image" class="post-type-tab hidden bg-surface-variant/50 dark:bg-surface-variant/10 text-on-surface-variant dark:text-gray-300 px-5 py-2 rounded-full text-[13px] font-bold shrink-0 transition-colors">Image</button>
                 <button data-type="poll" class="post-type-tab hidden bg-surface-variant/50 dark:bg-surface-variant/10 text-on-surface-variant dark:text-gray-300 px-5 py-2 rounded-full text-[13px] font-bold shrink-0 transition-colors">Poll</button>
@@ -554,20 +565,9 @@
             </div>
             <input type="hidden" id="current-post-type" value="text">
 
-            <!-- RICH TEXT EDITOR CONTAINER -->
-            <div class="mb-5 bg-surface dark:bg-[#121212] rounded-2xl border border-surface-variant/60 dark:border-neutral-700 overflow-hidden shadow-sm">
-                <div id="rich-text-editor" class="h-[140px] text-[15px] text-on-surface dark:text-gray-100"></div>
-            </div>
-            
-            <!-- Native Viewer Action Sheet Trigger -->
-            <div class="mb-6">
-                <div onclick="openVisibilitySelector()" class="w-full flex items-center justify-between bg-surface-variant/20 dark:bg-neutral-800/50 border border-surface-variant/40 dark:border-neutral-700 rounded-2xl px-4 py-3.5 text-sm text-on-surface dark:text-gray-200 cursor-pointer active:scale-[0.98] transition-all">
-                    <span id="post-viewers-label" class="font-bold flex items-center gap-2 text-primary">
-                        <span class="material-symbols-outlined text-[18px]">public</span> Everyone can see this
-                    </span>
-                    <span class="material-symbols-outlined text-[20px] text-on-surface-variant">expand_more</span>
-                </div>
-                <input type="hidden" id="post-viewers-value" value="all">
+            <!-- RICH TEXT EDITOR CONTAINER (Fixed clipping bug) -->
+            <div class="mb-5 bg-surface dark:bg-[#121212] rounded-2xl border border-surface-variant/60 dark:border-neutral-700 flex flex-col shadow-sm">
+                <div id="rich-text-editor" class="h-[120px] text-[15px] text-on-surface dark:text-gray-100"></div>
             </div>
 
             <!-- Dynamic Inputs -->
@@ -1611,10 +1611,12 @@ window.openVisibilitySelector = function() {
 };
 
 window.setVisibility = function(val, icon, label) {
-    document.getElementById('post-viewers-value').value = val;
-    document.getElementById('post-viewers-label').innerHTML = `<span class="material-symbols-outlined text-[18px]">${icon}</span> ${label}`;
-    window.closeActionSheet();
-};
+            document.getElementById('post-viewers-value').value = val;
+            // Use a compact label for the small badge UI
+            let compactLabel = val === 'all' ? 'Everyone' : 'Connections';
+            document.getElementById('post-viewers-label').innerHTML = `<span class="material-symbols-outlined text-[13px]">${icon}</span> ${compactLabel}`;
+            window.closeActionSheet();
+        };
         
     </script>
 </body>
