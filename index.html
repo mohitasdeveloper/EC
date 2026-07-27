@@ -496,8 +496,12 @@
     <!-- ============================================== -->
 
     <!-- CREATE POST FULL-SCREEN VIEW -->
-<div id="view-create-post" class="fixed inset-0 z-[150] bg-surface dark:bg-[#121212] hidden flex-col transition-transform duration-300 translate-y-full">
+<div id="view-create-post" class="fixed top-0 left-0 w-full h-[100dvh] z-[150] bg-surface dark:bg-[#121212] hidden flex-col transition-transform duration-300 translate-y-full">
+    <!-- Header code remains the same... -->
     
+    <!-- Add overscroll-contain to the body -->
+    <div class="flex-1 overflow-y-auto overscroll-contain p-5 pb-24">
+        <!-- ... content ... -->    
     <!-- Header -->
     <div class="modal-header-safe flex items-center justify-between px-4 border-b border-surface-variant/40 dark:border-neutral-800 bg-surface/80 dark:bg-[#121212]/80 backdrop-blur-xl shrink-0">
         <button onclick="closeCreatePostView()" class="p-2 -ml-2 rounded-full hover:bg-surface-variant/50 transition-colors text-on-surface dark:text-gray-100">
@@ -517,11 +521,12 @@
                 <div>
                     <p id="create-post-name" class="font-bold text-sm text-on-surface dark:text-gray-100 flex items-center">User Name</p>
                     <!-- Visibility / Expiry Picker -->
-                    <select id="post-expiry-select" class="text-xs bg-transparent border-none text-on-surface-variant dark:text-gray-400 p-0 pr-4 outline-none focus:ring-0 cursor-pointer">
-                        <option value="1">Expires in 1 Day</option>
-                        <option value="7" selected>Expires in 7 Days</option>
-                        <option value="15">Expires in 15 Days</option>
-                    </select>
+                   <!-- Native Expiry Action Sheet Trigger -->
+<div onclick="openExpirySelector()" class="flex items-center gap-1 text-xs font-medium text-on-surface-variant dark:text-gray-400 cursor-pointer active:opacity-70 bg-surface-variant/20 dark:bg-neutral-800 px-2 py-1 rounded-md">
+    <span id="post-expiry-label">Expires in 7 Days</span>
+    <span class="material-symbols-outlined text-[14px]">expand_more</span>
+</div>
+<input type="hidden" id="post-expiry-value" value="7">
                 </div>
             </div>
         </div>
@@ -542,12 +547,16 @@
         </div>
         
         <!-- Viewer Access Override (Optional) -->
-        <div class="mb-6">
-             <select id="post-viewers-access" class="w-full bg-surface-variant/10 dark:bg-neutral-800/50 border border-surface-variant/30 dark:border-neutral-800 rounded-xl px-3 py-2 text-sm text-on-surface dark:text-gray-200 outline-none focus:border-primary">
-                 <option value="all">Who can see this? Everyone</option>
-                 <option value="connections">Only My Connections</option>
-             </select>
-        </div>
+       <!-- Native Viewer Action Sheet Trigger -->
+<div class="mb-6">
+    <div onclick="openVisibilitySelector()" class="w-full flex items-center justify-between bg-surface-variant/10 dark:bg-neutral-800/50 border border-surface-variant/30 dark:border-neutral-700 rounded-xl px-4 py-3.5 text-sm text-on-surface dark:text-gray-200 cursor-pointer active:scale-[0.98] transition-all shadow-sm">
+        <span id="post-viewers-label" class="font-bold flex items-center gap-2 text-primary">
+            <span class="material-symbols-outlined text-[18px]">public</span> Everyone can see this
+        </span>
+        <span class="material-symbols-outlined text-[20px] text-on-surface-variant">expand_more</span>
+    </div>
+    <input type="hidden" id="post-viewers-value" value="all">
+</div>
 
         <!-- Dynamic Inputs -->
         <div id="input-text" class="post-input-section block"></div>
@@ -1553,6 +1562,41 @@ document.getElementById('event-show-register')?.addEventListener('change', (e) =
     if (e.target.checked) linkContainer.classList.remove('hidden');
     else linkContainer.classList.add('hidden');
 });
+
+        window.openExpirySelector = function() {
+    const buttons = `
+        <div class="px-4 py-3 border-b border-surface-variant/40 dark:border-neutral-800 text-center">
+            <p class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Post Expiry</p>
+        </div>
+        <button onclick="setExpiry(1)" class="w-full flex items-center gap-3 px-5 py-4 border-b border-surface-variant/40 dark:border-neutral-800 font-bold text-[15px] text-on-surface dark:text-gray-100 hover:bg-surface-variant/30 active:bg-surface-variant/50 transition-colors"><span class="material-symbols-outlined text-primary">timer_10</span> Expires in 1 Day</button>
+        <button onclick="setExpiry(7)" class="w-full flex items-center gap-3 px-5 py-4 border-b border-surface-variant/40 dark:border-neutral-800 font-bold text-[15px] text-on-surface dark:text-gray-100 hover:bg-surface-variant/30 active:bg-surface-variant/50 transition-colors"><span class="material-symbols-outlined text-primary">date_range</span> Expires in 7 Days</button>
+        <button onclick="setExpiry(15)" class="w-full flex items-center gap-3 px-5 py-4 font-bold text-[15px] text-on-surface dark:text-gray-100 hover:bg-surface-variant/30 active:bg-surface-variant/50 transition-colors"><span class="material-symbols-outlined text-primary">calendar_month</span> Expires in 15 Days</button>
+    `;
+    window.openActionSheet(buttons);
+};
+
+window.setExpiry = function(days) {
+    document.getElementById('post-expiry-value').value = days;
+    document.getElementById('post-expiry-label').innerText = `Expires in ${days} Day${days > 1 ? 's' : ''}`;
+    window.closeActionSheet();
+};
+
+window.openVisibilitySelector = function() {
+    const buttons = `
+        <div class="px-4 py-3 border-b border-surface-variant/40 dark:border-neutral-800 text-center">
+            <p class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Who can see this?</p>
+        </div>
+        <button onclick="setVisibility('all', 'public', 'Everyone can see this')" class="w-full flex items-center gap-3 px-5 py-4 border-b border-surface-variant/40 dark:border-neutral-800 font-bold text-[15px] text-on-surface dark:text-gray-100 hover:bg-surface-variant/30 active:bg-surface-variant/50 transition-colors"><span class="material-symbols-outlined text-primary">public</span> Everyone</button>
+        <button onclick="setVisibility('connections', 'group', 'Only My Connections')" class="w-full flex items-center gap-3 px-5 py-4 font-bold text-[15px] text-on-surface dark:text-gray-100 hover:bg-surface-variant/30 active:bg-surface-variant/50 transition-colors"><span class="material-symbols-outlined text-primary">group</span> My Connections</button>
+    `;
+    window.openActionSheet(buttons);
+};
+
+window.setVisibility = function(val, icon, label) {
+    document.getElementById('post-viewers-value').value = val;
+    document.getElementById('post-viewers-label').innerHTML = `<span class="material-symbols-outlined text-[18px]">${icon}</span> ${label}`;
+    window.closeActionSheet();
+};
         
     </script>
 </body>
