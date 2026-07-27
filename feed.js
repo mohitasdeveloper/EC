@@ -502,7 +502,7 @@ function renderPosts(posts, isRefresh = false) {
                 </div>
             `;
         }
-        else if (post.post_type === 'event') {
+       else if (post.post_type === 'event') {
             const event = post.post_events && post.post_events.length > 0 ? post.post_events[0] : null;
             if (!event) return ''; // Failsafe
 
@@ -511,10 +511,42 @@ function renderPosts(posts, isRefresh = false) {
             const dateStr = event.event_date ? new Date(event.event_date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'TBA';
 
             let actionHtml = '';
+            
+            // EXTERNAL REGISTRATION LINK
             if (event.show_register_btn && event.register_url) {
                 actionHtml = `<a href="${event.register_url}" target="_blank" class="block w-full mt-4 bg-secondary text-white text-center py-2.5 rounded-xl text-[13px] font-bold active:scale-95 transition-transform shadow-md shadow-secondary/20">${post.event_button_text || 'View Link'}</a>`;
-            } else if (event.enable_rsvp) {
-                actionHtml = `<button class="block w-full mt-4 bg-primary text-white text-center py-2.5 rounded-xl text-[13px] font-bold active:scale-95 transition-transform shadow-md shadow-primary/20">RSVP / Attending</button>`;
+            } 
+            // IN-APP RSVP SYSTEM
+            else if (event.enable_rsvp) {
+                const rsvps = post.post_event_rsvps || [];
+                const rsvpCount = rsvps.length;
+                const myRsvp = rsvps.find(r => r.user_id === currentUser.id);
+                const isAttending = !!myRsvp;
+                
+                // Dynamic Button Styling
+                const btnClass = isAttending 
+                    ? 'bg-surface-variant/50 text-on-surface dark:text-gray-100 border border-surface-variant/80' 
+                    : 'bg-primary text-white shadow-md shadow-primary/20 hover:bg-primary/90';
+                const btnText = isAttending ? '✓ Attending' : 'RSVP Now';
+
+                // Viewers List Logic
+                let viewRsvpsHtml = '';
+                if (rsvpCount > 0) {
+                    if (event.rsvp_list_visibility === 'public' || post.user_id === currentUser.id) {
+                        // Clickable link to open the modal
+                        viewRsvpsHtml = `<p onclick="window.openEventRsvps('${post.id}')" class="text-[12px] text-primary font-bold mt-3 cursor-pointer hover:underline text-center active:opacity-70 transition-opacity">${rsvpCount} people attending</p>`;
+                    } else {
+                        // Hidden list text
+                        viewRsvpsHtml = `<p class="text-[12px] text-on-surface-variant dark:text-gray-500 mt-3 text-center">${rsvpCount} people attending (List hidden)</p>`;
+                    }
+                }
+
+                actionHtml = `
+                    <button onclick="window.handleRSVP('${post.id}', ${isAttending})" class="block w-full mt-4 ${btnClass} text-center py-2.5 rounded-xl text-[13px] font-bold active:scale-95 transition-all">
+                        ${btnText}
+                    </button>
+                    ${viewRsvpsHtml}
+                `;
             }
 
             contentHtml = `
@@ -1205,4 +1237,124 @@ window.closeLikesModal = function() {
         modal.classList.replace('flex', 'hidden'); 
         modal.style.pointerEvents = 'auto'; // Reset
     }, 300); 
+};
+// ==========================================
+// VIEWERS: POLLS & EVENTS
+// ==========================================
+window.openPollVoters = async (postId, optionId) => {
+    const modal = document.getElementById('modal-poll-voters');
+    const list = document.getElementById('poll-voters-list');
+    if (!modal || !list) return;
+
+    modal.classList.replace('hidden', 'flex');
+    list.innerHTML = `<p class="text-sm italic text-center py-8 text-on-surface-variant dark:text-gray-400">Loading voters...</p>`;
+
+    try {
+        const { data, error } = await supabase
+            .from('post_poll_votes')
+            .select('users(id, full_name, profile_img_url, tick_type)')
+            .eq('post_id', postId)
+            .eq('option_id', optionId);
+
+        if (error) throw error;
+        if (data.length === 0) {
+            list.innerHTML = `<p class="text-sm italic text-center py-8 text-on-surface-variant dark:text-gray-400">No votes yet.</p>`;
+            return;
+        }
+
+        list.innerHTML = data.map(v => `
+            <div class="flex items-center gap-3 p-3 bg-surface-variant/10 dark:bg-neutral-800 rounded-2xl border border-surface-variant/30 dark:border-neutral-700">
+                <img onclick="window.viewUserProfile('${v.users.id}')" src="${v.users.profile_img_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(v.users.full_name)}`}" class="w-10 h-10 rounded-full object-cover cursor-pointer">
+                <p onclick="window.viewUserProfile('${v.users.id}')" class="font-bold text-sm text-on-surface dark:text-gray-100 flex items-center gap-1 cursor-pointer hover:text-primary transition-colors">${v.users.full_name} ${window.getTickHtml ? window.getTickHtml(v.users.tick_type) : ''}</p>
+            </div>
+        `).join('');
+    } catch (e) {
+        list.innerHTML = `<p class="text-sm italic text-center py-8 text-error">Failed to load voters. The list might be hidden by the author.</p>`;
+        console.error("Voters load error:", e);
+    }
+};
+
+window.openEventRsvps = async (postId) => {
+    const modal = document.getElementById('modal-event-rsvps');
+    const list = document.getElementById('event-rsvps-list');
+    if (!modal || !list) return;
+
+    modal.classList.replace('hidden', 'flex');
+    list.innerHTML = `<p class="text-sm italic text-center py-8 text-on-surface-variant dark:text-gray-400">Loading RSVPs...</p>`;
+
+    try {
+        const { data, error } = await supabase
+            .from('post_event_rsvps')
+            .select('users(id, full_name, profile_img_url, tick_type)')
+            .eq('post_id', postId)
+            .eq('status', 'attending');
+
+        if (error) throw error;
+        if (data.length === 0) {
+            list.innerHTML = `<p class="text-sm italic text-center py-8 text-on-surface-variant dark:text-gray-400">No one has RSVP'd yet.</p>`;
+            return;
+        }
+
+        list.innerHTML = data.map(v => `
+            <div class="flex items-center gap-3 p-3 bg-surface-variant/10 dark:bg-neutral-800 rounded-2xl border border-surface-variant/30 dark:border-neutral-700">
+                <img onclick="window.viewUserProfile('${v.users.id}')" src="${v.users.profile_img_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(v.users.full_name)}`}" class="w-10 h-10 rounded-full object-cover cursor-pointer">
+                <p onclick="window.viewUserProfile('${v.users.id}')" class="font-bold text-sm text-on-surface dark:text-gray-100 flex items-center gap-1 cursor-pointer hover:text-primary transition-colors">${v.users.full_name} ${window.getTickHtml ? window.getTickHtml(v.users.tick_type) : ''}</p>
+            </div>
+        `).join('');
+    } catch (e) {
+        list.innerHTML = `<p class="text-sm italic text-center py-8 text-error">Failed to load RSVPs. The list might be hidden by the author.</p>`;
+        console.error("RSVP load error:", e);
+    }
+};
+
+// ==========================================
+// SECURE EVENT RSVP ENGINE
+// ==========================================
+window.isRsvping = false;
+
+window.handleRSVP = async function(postId, isCurrentlyAttending) {
+    if (window.isRsvping) return;
+    window.isRsvping = true;
+    
+    // Optimistic UI lock
+    const postEl = document.querySelector(`div[data-post-id="${postId}"]`);
+    if (postEl) postEl.style.opacity = '0.6';
+
+    try {
+        if (isCurrentlyAttending) {
+            // Remove RSVP
+            const { error } = await supabase
+                .from('post_event_rsvps')
+                .delete()
+                .match({ post_id: postId, user_id: currentUser.id });
+                
+            if (error) throw error;
+            showToast('RSVP Cancelled', 'info');
+            
+        } else {
+            // Add RSVP
+            const { error } = await supabase
+                .from('post_event_rsvps')
+                .insert({ 
+                    post_id: postId, 
+                    user_id: currentUser.id, 
+                    status: 'attending' 
+                });
+                
+            if (error) throw error;
+            showToast('RSVP Confirmed!', 'success');
+        }
+
+        // Hard reload the feed to ensure RSVP counts and UI buttons sync perfectly
+        if (typeof window.refreshMainFeed === 'function') {
+            await window.refreshMainFeed(); 
+        }
+
+    } catch (error) {
+        console.error('RSVP Error:', error);
+        showToast(error.message || 'Failed to update RSVP status', 'error');
+    } finally {
+        if (postEl) postEl.style.opacity = '1';
+        window.isRsvping = false;
+    }
 };
