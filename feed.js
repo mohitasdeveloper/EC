@@ -9,20 +9,55 @@ let isVoting = false;
 // Add this near the top of feed.js with your other let variables
 let quillEditor = null;
 
-// Add this function anywhere in feed.js
 function initQuillEditor() {
-    if (quillEditor) return; // Only initialize once
+    if (quillEditor) return; 
     
     quillEditor = new Quill('#rich-text-editor', {
         theme: 'snow',
-        placeholder: 'What do you want to talk about?',
+        placeholder: 'What do you want to talk about? (Type @ to mention)',
         modules: {
             toolbar: [
                 ['bold', 'italic', 'underline', 'strike'],
                 [{ 'list': 'ordered'}, { 'list': 'bullet' }],
                 ['link'],
                 ['clean']
-            ]
+            ],
+            mention: {
+                allowedChars: /^[A-Za-z\sÅÄÖåäö]*$/,
+                mentionDenotationChars: ["@"],
+                source: async function (searchTerm, renderList, mentionChar) {
+                    if (searchTerm.length === 0) {
+                        renderList([], searchTerm);
+                        return;
+                    }
+                    try {
+                        // Securely search for users to mention
+                        const { data } = await supabase
+                            .from('users')
+                            .select('id, full_name, profile_img_url')
+                            .ilike('full_name', `%${searchTerm}%`)
+                            .eq('is_deleted', false)
+                            .limit(10);
+                        
+                        const matches = data.map(u => ({
+                            id: u.id,
+                            value: u.full_name,
+                            avatar: u.profile_img_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.full_name)}`
+                        }));
+                        renderList(matches, searchTerm);
+                    } catch (e) {
+                        console.error("Mention search error", e);
+                        renderList([], searchTerm);
+                    }
+                },
+                renderItem: function(item) {
+                    // Custom HTML for the dropdown list of users
+                    return `<div class="flex items-center gap-2">
+                                <img src="${item.avatar}" class="w-6 h-6 rounded-full object-cover">
+                                <span class="text-sm font-bold text-on-surface dark:text-gray-100">${item.value}</span>
+                            </div>`;
+                }
+            }
         }
     });
 }
@@ -206,13 +241,22 @@ async function submitPost() {
 
         const viewersAccess = document.getElementById('post-viewers-access')?.value || 'all';
 
-        let basePayload = { 
-            user_id: currentUser.id, 
-            post_type: postType, 
-            content: contentHTML,
-            expires_at: expiresAt.toISOString(),
-            viewers_access: viewersAccess
-        };
+        // Extract mentioned user IDs from Quill's internal Delta state
+const mentionedIds = [];
+quillEditor.getContents().ops.forEach(op => {
+    if (op.insert && op.insert.mention) {
+        mentionedIds.push(op.insert.mention.id);
+    }
+});
+
+let basePayload = { 
+    user_id: currentUser.id, 
+    post_type: postType, 
+    content: contentHTML,
+    expires_at: expiresAt.toISOString(),
+    viewers_access: viewersAccess,
+    mentioned_user_ids: mentionedIds // <-- ADD THIS LINE
+};
 
         // Handle Standard Image Upload
         if (postType === 'image') {
