@@ -7,58 +7,6 @@ let currentUser = null;
 let isVoting = false; 
 
 let quillEditor = null;
-let commentQuillEditor = null; // <-- NEW
-
-function initCommentQuill() {
-    if (commentQuillEditor) return;
-    
-    commentQuillEditor = new Quill('#post-comment-input', {
-        theme: 'snow',
-        placeholder: 'Add a comment... (@ to mention)',
-        modules: {
-            toolbar: false, // Hide toolbar for comments! Just text and mentions.
-            mention: {
-                allowedChars: /^[A-Za-z\sÅÄÖåäö]*$/,
-                mentionDenotationChars: ["@"],
-                source: async function (searchTerm, renderList, mentionChar) {
-                    if (searchTerm.length === 0) {
-                        renderList([], searchTerm);
-                        return;
-                    }
-                    try {
-                        const { data, error } = await supabase.rpc('search_mentionable_users', {
-                            p_search_term: searchTerm,
-                            p_current_user_id: currentUser.id
-                        });
-                        if (error) throw error;
-                        
-                        const matches = data.map(u => ({
-                            id: u.id,
-                            value: u.full_name,
-                            avatar: u.profile_img_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.full_name)}`
-                        }));
-                        renderList(matches, searchTerm);
-                    } catch (e) {
-                        renderList([], searchTerm);
-                    }
-                },
-                renderItem: function(item) {
-                    return `<div class="flex items-center gap-3">
-                                <img src="${item.avatar}" class="w-8 h-8 rounded-full object-cover border border-surface-variant/50">
-                                <span class="text-[14px] font-bold text-on-surface dark:text-gray-100">${item.value}</span>
-                            </div>`;
-                }
-            }
-        }
-    });
-
-    // Submit the comment if the user presses the "Enter" key
-    commentQuillEditor.keyboard.addBinding({ key: 'Enter', shiftKey: false }, function() {
-        const postId = document.getElementById('send-comment-btn').dataset.postId;
-        if (postId) submitComment(postId);
-        return false; // Prevent new line
-    });
-}
 function initQuillEditor() {
     // Prevent multiple initializations if the user opens and closes the modal repeatedly
     if (quillEditor) return;
@@ -1087,6 +1035,29 @@ async function submitPostReport() {
 // ==========================================
 // COMMENTS 
 // ==========================================
+
+function closeCommentsModal() {
+    const modal = document.getElementById('modal-post-comments');
+    if (modal) {
+        modal.classList.replace('flex', 'hidden');
+    }
+    
+    // Reset the input and reply UI
+    if (typeof window.cancelReply === 'function') window.cancelReply();
+    
+    const input = document.getElementById('post-comment-input');
+    if (input) {
+        input.value = '';
+        input.style.height = 'auto';
+    }
+    
+    // Clear any pending mentions
+    if (typeof currentMentionIds !== 'undefined') {
+        currentMentionIds = [];
+    }
+}
+// Expose globally so inline HTML handlers can use it if needed
+window.closeCommentsModal = closeCommentsModal;
 // ==========================================
 // NATIVE COMMENTS, REPLIES & MENTIONS
 // ==========================================
