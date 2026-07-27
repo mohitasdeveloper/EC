@@ -704,17 +704,18 @@
     </div>
 
     <!-- POST COMMENTS MODAL -->
-    <div id="modal-post-comments"
-        class="fixed inset-0 z-[500] bg-black/40 backdrop-blur-sm hidden flex-col justify-end transition-opacity">
-        <div
-            class="bg-surface dark:bg-[#1e1e1e] w-full max-w-screen-md mx-auto rounded-t-[32px] p-6 pb-8 relative animate-[slideUp_0.3s_ease-out] flex flex-col max-h-[85vh]">
-            <button id="close-post-comments-btn"
-                class="absolute top-4 right-5 w-8 h-8 bg-surface-variant/50 dark:bg-neutral-800 rounded-full flex items-center justify-center text-on-surface dark:text-gray-100">
+    <div id="modal-post-comments" class="fixed inset-0 z-[500] bg-black/40 backdrop-blur-sm hidden flex-col justify-end transition-opacity">
+        <div class="bg-surface dark:bg-[#1e1e1e] w-full max-w-screen-md mx-auto rounded-t-[32px] p-6 pb-8 relative animate-[slideUp_0.3s_ease-out] flex flex-col max-h-[85vh]">
+            
+            <button id="close-post-comments-btn" class="absolute top-4 right-5 w-8 h-8 bg-surface-variant/50 dark:bg-neutral-800 rounded-full flex items-center justify-center text-on-surface dark:text-gray-100">
                 <span class="material-symbols-outlined text-[18px]">close</span>
             </button>
+            
             <h3 class="text-xl font-extrabold text-on-surface dark:text-gray-100 shrink-0 mb-4">Comments</h3>
+            
             <div id="post-comments-list" class="flex-1 overflow-y-auto space-y-4 pr-1 mb-4"></div>
-           <!-- Interactive Comment Editor (Native) -->
+           
+            <!-- Interactive Comment Editor (Native) -->
             <div class="flex flex-col border-t border-surface-variant/40 dark:border-neutral-800 pt-3 relative bg-surface dark:bg-[#1e1e1e]">
                 
                 <!-- Custom Native Mention Dropdown -->
@@ -732,8 +733,9 @@
                     <button id="send-comment-btn" class="text-primary font-bold text-[14px] px-2 active:opacity-60 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed" disabled>Post</button>
                 </div>
             </div>
-    </div>
 
+        </div>
+    </div> <!-- 🚀 CRITICAL FIX: This closing div was missing! -->
     <!-- POLL VOTERS MODAL -->
     <div id="modal-poll-voters"
         class="fixed inset-0 z-[500] bg-black/40 backdrop-blur-sm hidden flex-col justify-end transition-opacity duration-300">
