@@ -6,22 +6,17 @@ import { CLOUDINARY_CLOUD_NAME } from './config.js';
 let currentUser = null;
 let isVoting = false; 
 
-// Add this near the top of feed.js with your other let variables
 let quillEditor = null;
+let commentQuillEditor = null; // <-- NEW
 
-function initQuillEditor() {
-    if (quillEditor) return; 
+function initCommentQuill() {
+    if (commentQuillEditor) return;
     
-    quillEditor = new Quill('#rich-text-editor', {
+    commentQuillEditor = new Quill('#post-comment-input', {
         theme: 'snow',
-        placeholder: 'What do you want to talk about? (Type @ to mention)',
+        placeholder: 'Add a comment... (@ to mention)',
         modules: {
-            toolbar: [
-                ['bold', 'italic', 'underline', 'strike'],
-                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                ['link'],
-                ['clean']
-            ],
+            toolbar: false, // Hide toolbar for comments! Just text and mentions.
             mention: {
                 allowedChars: /^[A-Za-z\sÅÄÖåäö]*$/,
                 mentionDenotationChars: ["@"],
@@ -31,12 +26,10 @@ function initQuillEditor() {
                         return;
                     }
                     try {
-                        // 🚀 SECURE RPC SEARCH: Only shows users who allow mentions!
                         const { data, error } = await supabase.rpc('search_mentionable_users', {
                             p_search_term: searchTerm,
                             p_current_user_id: currentUser.id
                         });
-                        
                         if (error) throw error;
                         
                         const matches = data.map(u => ({
@@ -46,12 +39,10 @@ function initQuillEditor() {
                         }));
                         renderList(matches, searchTerm);
                     } catch (e) {
-                        console.error("Mention search error", e);
                         renderList([], searchTerm);
                     }
                 },
                 renderItem: function(item) {
-                    // Enhanced HTML for the beautiful dropdown list
                     return `<div class="flex items-center gap-3">
                                 <img src="${item.avatar}" class="w-8 h-8 rounded-full object-cover border border-surface-variant/50">
                                 <span class="text-[14px] font-bold text-on-surface dark:text-gray-100">${item.value}</span>
@@ -59,6 +50,13 @@ function initQuillEditor() {
                 }
             }
         }
+    });
+
+    // Submit the comment if the user presses the "Enter" key
+    commentQuillEditor.keyboard.addBinding({ key: 'Enter', shiftKey: false }, function() {
+        const postId = document.getElementById('send-comment-btn').dataset.postId;
+        if (postId) submitComment(postId);
+        return false; // Prevent new line
     });
 }
 // ========================================================
@@ -1028,6 +1026,9 @@ async function openCommentsModal(postId) {
     modal.classList.replace('hidden', 'flex');
     list.innerHTML = `<p class="text-sm italic text-center py-8 text-on-surface-variant dark:text-gray-400">Loading comments...</p>`;
 
+    // 🚀 Initialize the comment text editor
+    initCommentQuill();
+
     try {
         const { data, error } = await supabase
             .from('post_comments')
@@ -1051,7 +1052,9 @@ async function openCommentsModal(postId) {
                         <p onclick="window.viewUserProfile('${comment.users.id}')" class="text-xs font-bold text-on-surface dark:text-gray-100 cursor-pointer hover:text-primary transition-colors flex items-center gap-1">${comment.users.full_name} ${getTickHtml(comment.users.tick_type)}</p>
                         <p class="text-[10px] text-on-surface-variant dark:text-gray-400">${timeAgo(comment.created_at)}</p>
                     </div>
-                    <p class="text-sm text-on-surface dark:text-gray-200 leading-relaxed pr-6">${comment.content}</p>
+                    
+                    <!-- 🚀 Replaced <p> with rich-text-content wrapper -->
+                    <div class="rich-text-content text-sm text-on-surface dark:text-gray-200 leading-relaxed pr-6">${comment.content}</div>
                     
                     <button data-comment-id="${comment.id}" data-user-id="${comment.user_id}" class="comment-options-btn absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1 text-on-surface-variant hover:text-on-surface dark:hover:text-white transition-all">
                         <span class="material-symbols-outlined text-[18px]">more_vert</span>
@@ -1069,31 +1072,41 @@ async function openCommentsModal(postId) {
 function closeCommentsModal() {
     const modal = document.getElementById('modal-post-comments');
     if (modal) modal.classList.replace('flex', 'hidden');
-    const input = document.getElementById('post-comment-input');
-    if (input) input.value = '';
+    // Clear the quill editor
+    if (commentQuillEditor) commentQuillEditor.setContents([]);
 }
 
 async function submitComment(postId) {
-    const input = document.getElementById('post-comment-input');
-    const content = input.value.trim();
-    if (!content) return;
+    if (!commentQuillEditor) return;
+
+    const contentHTML = commentQuillEditor.root.innerHTML;
+    const plainText = commentQuillEditor.getText().trim();
+    if (!plainText) return;
 
     const btn = document.getElementById('send-comment-btn');
     btn.disabled = true;
 
+    // Extract Mentions
+    const mentionedIds = [];
+    commentQuillEditor.getContents().ops.forEach(op => {
+        if (op.insert && op.insert.mention) {
+            mentionedIds.push(op.insert.mention.id);
+        }
+    });
+
     const { error } = await supabase.from('post_comments').insert({
         post_id: postId,
         user_id: currentUser.id,
-        content: content
+        content: contentHTML,
+        mentioned_user_ids: mentionedIds
     });
 
     if (error) {
         showToast('Failed to post comment.', 'error');
     } else {
-        input.value = '';
-        openCommentsModal(postId); 
+        commentQuillEditor.setContents([]); // Clear input
+        openCommentsModal(postId); // Refresh comment list
 
-        // Update comment counter universally across Feed and Profile views
         const commentBtns = document.querySelectorAll(`.comment-btn[data-post-id="${postId}"]`);
         commentBtns.forEach(commentBtn => {
             const countSpan = commentBtn.querySelector('span:last-child');
