@@ -952,7 +952,9 @@ function renderSingleComment(comment, isReply) {
 
     return `
         <div class="flex items-start gap-3 mb-4 ${paddingLeft}" data-comment-id="${comment.id}" ${parentIdAttr}>
-            <img onclick="window.viewUserProfile('${comment.users.id}')" src="${comment.users.profile_img_url}" class="w-8 h-8 rounded-full object-cover shrink-0 cursor-pointer mt-1 border border-surface-variant/50">
+            
+            <!-- 🚀 FIX: Close Modal BEFORE routing to profile -->
+            <img onclick="window.closeCommentsModal(); setTimeout(() => window.viewUserProfile('${comment.users.id}'), 200);" src="${comment.users.profile_img_url}" class="w-8 h-8 rounded-full object-cover shrink-0 cursor-pointer mt-1 border border-surface-variant/50">
             
             <div class="comment-body flex-1 min-w-0 flex flex-col cursor-pointer select-none active:opacity-60 transition-opacity" 
                  data-comment-id="${comment.id}" 
@@ -960,7 +962,10 @@ function renderSingleComment(comment, isReply) {
                  oncontextmenu="event.preventDefault(); window.openCommentActionSheet('${comment.id}', '${comment.user_id}'); return false;">
                  
                 <p class="text-[13px] text-on-surface dark:text-gray-100 leading-snug">
-                    <span onclick="event.stopPropagation(); window.viewUserProfile('${comment.users.id}')" class="font-extrabold mr-1 hover:underline text-on-surface dark:text-gray-100">${comment.users.full_name}</span>
+                    
+                    <!-- 🚀 FIX: Close Modal BEFORE routing to profile -->
+                    <span onclick="event.stopPropagation(); window.closeCommentsModal(); setTimeout(() => window.viewUserProfile('${comment.users.id}'), 200);" class="font-extrabold mr-1 hover:underline text-on-surface dark:text-gray-100">${comment.users.full_name}</span>
+                    
                     ${formattedContent}
                 </p>
                 <div class="flex items-center gap-4 mt-1">
