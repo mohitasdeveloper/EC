@@ -525,6 +525,7 @@ function renderPosts(posts, isRefresh = false) {
     else container.insertAdjacentHTML('beforeend', htmlString);
 }
 
+// 🚀 UPDATED: Removed manual notification logic (Database Triggers handle it now)
 window.handleLike = async function(postId, btnElement) {
     if (!currentUser) return; 
     
@@ -562,15 +563,6 @@ window.handleLike = async function(postId, btnElement) {
             await supabase.from('post_likes').delete().match({ post_id: postId, user_id: currentUser.id });
         } else {
             await supabase.from('post_likes').insert({ post_id: postId, user_id: currentUser.id });
-            const { data: postData } = await supabase.from('posts').select('user_id').eq('id', postId).single();
-            if (postData && postData.user_id !== currentUser.id) {
-                await supabase.from('notifications').insert({
-                    user_id: postData.user_id,
-                    sender_id: currentUser.id,
-                    type: 'post_like',
-                    target_id: postId
-                });
-            }
         }
     } catch (error) {
         console.error("Like error:", error);
