@@ -958,7 +958,7 @@ async function openCommentsModal(postId) {
     const modal = document.getElementById('modal-post-comments');
     const list = document.getElementById('post-comments-list');
     const input = document.getElementById('post-comment-input');
-    const bottomNav = document.querySelector('nav'); 
+    const bottomNav = document.querySelector('nav.fixed.bottom-0'); 
     
     document.getElementById('send-comment-btn').dataset.postId = postId;
     window.cancelReply(); 
@@ -966,12 +966,18 @@ async function openCommentsModal(postId) {
     input.style.height = 'auto';
     currentMentionIds = [];
 
-    if (bottomNav) bottomNav.classList.add('hidden'); // Hide the Nav
+    if (bottomNav) bottomNav.style.display = 'none'; 
     modal.classList.replace('hidden', 'flex');
     list.innerHTML = `<p class="text-sm italic text-center py-8 text-on-surface-variant dark:text-gray-400">Loading comments...</p>`;
 
     try {
-        const { data, error } = await supabase.from('post_comments').select('*, users(id, full_name, profile_img_url, tick_type)').eq('post_id', postId).eq('is_deleted', false).order('created_at', { ascending: true });
+        // 🚀 FIX: Added comment_likes(user_id) to the query
+        const { data, error } = await supabase.from('post_comments')
+            .select('*, users(id, full_name, profile_img_url, tick_type), comment_likes(user_id)')
+            .eq('post_id', postId)
+            .eq('is_deleted', false)
+            .order('created_at', { ascending: true });
+            
         if (error) throw error;
 
         if (data.length === 0) {
@@ -996,6 +1002,11 @@ function renderSingleComment(comment, isReply) {
     const paddingLeft = isReply ? 'ml-12' : ''; 
     let formattedContent = comment.content.replace(/@([\w\s]+)(?=\s|$)/g, '<span class="text-primary font-bold">@$1</span>');
 
+    // 🚀 NEW: Check if current user has liked this comment
+    const isLiked = comment.comment_likes && comment.comment_likes.some(like => like.user_id === currentUser.id);
+    const heartClass = isLiked ? 'text-red-500' : 'text-on-surface-variant dark:text-gray-500';
+    const heartFill = isLiked ? '1' : '0';
+
     return `
         <div class="flex items-start gap-3 mb-4 ${paddingLeft}" data-comment-id="${comment.id}">
             <img onclick="window.viewUserProfile('${comment.users.id}')" src="${comment.users.profile_img_url}" class="w-8 h-8 rounded-full object-cover shrink-0 cursor-pointer mt-1 border border-surface-variant/50">
@@ -1012,8 +1023,8 @@ function renderSingleComment(comment, isReply) {
             </div>
 
             <div class="flex flex-col items-center justify-start ml-2 mt-1">
-                <button onclick="window.handleCommentLike('${comment.id}', this)" class="text-on-surface-variant dark:text-gray-500 hover:text-red-500 transition-colors active:scale-90 flex flex-col items-center p-1">
-                    <span class="material-symbols-outlined text-[14px]">favorite</span>
+                <button onclick="window.handleCommentLike('${comment.id}', this)" class="${heartClass} hover:text-red-500 transition-colors active:scale-90 flex flex-col items-center p-1">
+                    <span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' ${heartFill};">favorite</span>
                 </button>
             </div>
         </div>
