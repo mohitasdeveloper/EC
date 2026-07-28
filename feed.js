@@ -97,7 +97,7 @@ export function initFeed(user) {
         const commentOptionsBtn = e.target.closest('.comment-options-btn');
         const mentionLink = e.target.closest('.mention');
         
-        // 🚀 ADD THIS: Safely detect the post comment button
+        // 🚀 Safely detect the post comment button
         const sendCommentBtn = e.target.closest('#send-comment-btn'); 
 
         if (likeBtn) window.handleLike(likeBtn.dataset.postId, likeBtn);
@@ -121,17 +121,9 @@ export function initFeed(user) {
             window.viewUserProfile(mentionLink.dataset.id);
         }
 
-        // 🚀 ADD THIS: Trigger the submitComment function!
+        // 🚀 Trigger the submitComment function!
         if (sendCommentBtn && !sendCommentBtn.disabled) {
             submitComment(sendCommentBtn.dataset.postId);
-        }
-    });
-        }
-        
-        if (commentOptionsBtn) window.openCommentOptions(commentOptionsBtn.dataset.commentId, commentOptionsBtn.dataset.userId);
-        if (mentionLink && mentionLink.dataset.id) {
-            e.preventDefault(); 
-            window.viewUserProfile(mentionLink.dataset.id);
         }
     });
     
