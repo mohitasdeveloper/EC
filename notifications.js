@@ -18,9 +18,10 @@ const NOTIF_SKELETON = `
 const iconMap = {
     'post_like': { icon: 'favorite', color: 'text-red-500', bg: 'bg-red-500/10' },
     'post_comment': { icon: 'chat_bubble', color: 'text-blue-500', bg: 'bg-blue-500/10' },
-    'comment_reply': { icon: 'forum', color: 'text-indigo-500', bg: 'bg-indigo-500/10' }, /* 🚀 NEW */
-    'comment_like': { icon: 'favorite', color: 'text-red-500', bg: 'bg-red-500/10' },    /* 🚀 NEW */
-    'post_mention': { icon: 'alternate_email', color: 'text-primary', bg: 'bg-primary/10' }, /* 🚀 NEW */
+    'comment_reply': { icon: 'forum', color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
+    'comment_like': { icon: 'favorite', color: 'text-red-500', bg: 'bg-red-500/10' },
+    'post_mention': { icon: 'alternate_email', color: 'text-primary', bg: 'bg-primary/10' },
+    'comment_mention': { icon: 'alternate_email', color: 'text-primary', bg: 'bg-primary/10' },
     'hotpost_like': { icon: 'local_fire_department', color: 'text-orange-500', bg: 'bg-orange-500/10' },
     'hotpost_reply': { icon: 'reply', color: 'text-purple-500', bg: 'bg-purple-500/10' },
     'connection_request': { icon: 'person_add', color: 'text-primary', bg: 'bg-primary/10' },
@@ -126,6 +127,10 @@ async function setupPushNotifications() {
             setTimeout(() => {
                 if (data.type.startsWith('post_') && data.target_id) {
                     window.openSinglePostView(data.target_id);
+                    // Open comments automatically if it's a comment interaction
+                    if (['post_comment', 'comment_reply', 'comment_like', 'post_mention', 'comment_mention'].includes(data.type)) {
+                        setTimeout(() => window.openCommentsModal(data.target_id), 500);
+                    }
                 } 
                 else if ((data.type === 'connection_accepted' || data.type === 'connection_request') && data.sender_id) {
                     window.viewUserProfile(data.sender_id);
@@ -250,6 +255,7 @@ function renderList(containerId, data, emptyMessage) {
     }
     container.innerHTML = data.map(notif => renderNotificationItem(notif)).join('');
 }
+
 function renderNotificationItem(notif) {
     const sender = notif.sender;
     const ui = iconMap[notif.type] || { icon: 'notifications', color: 'text-gray-500', bg: 'bg-gray-100' };
@@ -260,16 +266,15 @@ function renderNotificationItem(notif) {
     const optimizedAvatar = typeof window.optimizeImageUrl === 'function' ? window.optimizeImageUrl(rawAvatarUrl, 'avatar') : rawAvatarUrl;
     const fallback = `this.onerror=null; this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(sender.full_name)}&background=e1e3e4';`;
 
-  let textContent = '';
+    let textContent = '';
     let actionButtons = '';
 
     if (notif.type === 'post_like') textContent = 'liked your post.';
     else if (notif.type === 'post_comment') textContent = `commented: "<span class="text-on-surface-variant italic">${notif.message.replace(/<[^>]*>?/gm, '').replace(/\u00A0/g, ' ')}</span>"`;
-    // 🚀 NEW TEXT LOGICS
     else if (notif.type === 'comment_reply') textContent = `replied to your comment: "<span class="text-on-surface-variant italic">${notif.message.replace(/<[^>]*>?/gm, '').replace(/\u00A0/g, ' ')}</span>"`;
     else if (notif.type === 'comment_like') textContent = 'liked your comment.';
-    else if (notif.type === 'post_mention') textContent = `mentioned you in a comment: "<span class="text-on-surface-variant italic">${notif.message.replace(/<[^>]*>?/gm, '').replace(/\u00A0/g, ' ')}</span>"`;
-    // -----------
+    else if (notif.type === 'post_mention') textContent = `mentioned you in a post: "<span class="text-on-surface-variant italic">${notif.message.replace(/<[^>]*>?/gm, '').replace(/\u00A0/g, ' ')}</span>"`;
+    else if (notif.type === 'comment_mention') textContent = `mentioned you in a comment: "<span class="text-on-surface-variant italic">${notif.message.replace(/<[^>]*>?/gm, '').replace(/\u00A0/g, ' ')}</span>"`;
     else if (notif.type === 'hotpost_like') textContent = 'liked your Hotpost.';
     else if (notif.type === 'hotpost_reply') textContent = `replied to your Hotpost: "<span class="text-on-surface-variant italic">${notif.message}</span>"`;
     else if (notif.type === 'connection_accepted') textContent = 'accepted your connection request.';
@@ -285,6 +290,7 @@ function renderNotificationItem(notif) {
             </div>
         `;
     }
+    
     return `
         <div data-notif-id="${notif.id}" class="notif-card p-4 ${isUnread} flex items-start gap-3.5 cursor-pointer hover:bg-surface-variant/30 dark:hover:bg-neutral-800/50 transition-colors">
             <div class="relative shrink-0">
@@ -308,8 +314,8 @@ async function handleNotificationClick(notif, element) {
     element.classList.remove('bg-primary/5', 'dark:bg-primary/10');
     element.classList.add('bg-surface', 'dark:bg-[#121212]');
 
-    // 🚀 ADDED NEW TYPES TO THIS ARRAY
-    if (['post_like', 'post_comment', 'page_new_post', 'comment_reply', 'comment_like', 'post_mention'].includes(notif.type)) {
+    // 1. POST NOTIFICATIONS
+    if (['post_like', 'post_comment', 'page_new_post', 'comment_reply', 'comment_like', 'post_mention', 'comment_mention'].includes(notif.type)) {
         
         const { data } = await supabase.from('posts')
             .select('id')
@@ -319,16 +325,23 @@ async function handleNotificationClick(notif, element) {
             
         if (data) {
             closeNotifications(); 
+            
+            // Open the post immediately
             setTimeout(() => window.openSinglePostView(notif.target_id), 150);
+
+            // Open comments automatically if it's a comment interaction
+            if (['post_comment', 'comment_reply', 'comment_like', 'post_mention', 'comment_mention'].includes(notif.type)) {
+                setTimeout(() => window.openCommentsModal(notif.target_id), 500);
+            }
+
         } else {
             showToast('Post not available.', 'info');
         }
     }
-    // 2. HOTPOST NOTIFICATIONS (Likes, Replies, New Page Hotposts)
+    // 2. HOTPOST NOTIFICATIONS
     else if (notif.type === 'hotpost_like' || notif.type === 'hotpost_reply' || notif.type === 'page_new_hotpost') {
         const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
         
-        // Query to check if the specific Hotpost exists AND is within 24 hours
         const { data } = await supabase.from('hotposts')
             .select('id, user_id')
             .eq('id', notif.target_id)
@@ -339,7 +352,6 @@ async function handleNotificationClick(notif, element) {
         if (data) {
             closeNotifications();
             setTimeout(() => {
-                // Route directly to the owner of the hotpost
                 if (typeof window.openHotpostViewer === 'function') window.openHotpostViewer(data.user_id); 
             }, 150);
         } else {
@@ -349,17 +361,17 @@ async function handleNotificationClick(notif, element) {
     // 3. PROFILE & CONNECTION NOTIFICATIONS
     else if (notif.type === 'connection_accepted' || notif.type === 'connection_request' || notif.type === 'new_follower') {
         closeNotifications();
-        // Clicking the notification card (not the accept/decline buttons) opens their profile
         setTimeout(() => window.viewUserProfile(notif.sender.id), 150);
     }
 }
+
 async function handleAcceptRequest(userId, btn) {
-    await window.handleConnectionAction(userId, 'accept', btn); // Added window.
+    await window.handleConnectionAction(userId, 'accept', btn);
     fetchNotifications(); 
 }
 
 async function handleDeclineRequest(userId, btn) {
-    await window.handleConnectionAction(userId, 'decline', btn); // Added window.
+    await window.handleConnectionAction(userId, 'decline', btn);
     fetchNotifications(); 
 }
 
