@@ -653,7 +653,7 @@ window.fetchMyProfileFeed = async function(userId) {
                 *,
                 users ( id, full_name, profile_img_url, role, tick_type ),
                 post_likes ( user_id ),
-                post_comments ( id, content, created_at, users(full_name) ), /* 🚀 CRITICAL FIX */
+                post_comments ( id, content, created_at, users(full_name) ),
                 post_poll_votes ( user_id, option_id )
             `)
             .eq('user_id', userId)
