@@ -703,7 +703,13 @@
             </button>
         </div>
     </div>
-
+<!-- INSTAGRAM STYLE FLOATING COMMENT OPTIONS MODAL -->
+    <div id="modal-comment-options" class="fixed inset-0 z-[600] bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 transition-opacity duration-200 opacity-0 pointer-events-none">
+        <div class="absolute inset-0" onclick="closeCommentActionSheet()"></div>
+        <div id="comment-options-card" class="bg-surface-container-lowest dark:bg-[#262626] w-full max-w-[280px] rounded-[20px] flex flex-col overflow-hidden transform scale-95 transition-transform duration-200 z-10 shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
+            <!-- Buttons injected here by JS -->
+        </div>
+    </div>
     <!-- POST COMMENTS MODAL -->
     <div id="modal-post-comments" class="fixed inset-0 z-[500] bg-black/40 backdrop-blur-sm hidden flex-col justify-end transition-opacity">
         <div class="bg-surface dark:bg-[#1e1e1e] w-full max-w-screen-md mx-auto rounded-t-[32px] p-6 pb-8 relative animate-[slideUp_0.3s_ease-out] flex flex-col max-h-[85vh]">
