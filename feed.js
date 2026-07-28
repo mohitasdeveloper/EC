@@ -524,34 +524,40 @@ function renderPosts(posts, isRefresh = false) {
     if (isRefresh) container.innerHTML = htmlString;
     else container.insertAdjacentHTML('beforeend', htmlString);
 }
-// 🚀 INSTANT POST LIKE ENGINE
+// 🚀 NEW: Spam Lock to prevent 409 Conflict Errors
+window._likeLocks = window._likeLocks || {};
+
 window.handleLike = async function(postId, btnElement) {
-    if (!currentUser) return; 
+    if (!currentUser || window._likeLocks[postId]) return; 
+    window._likeLocks[postId] = true; // Lock the function
     
-    // Check if the heart is currently red
     const isLiked = btnElement.classList.contains('text-red-500');
     const nextLikedState = !isLiked;
 
-    // Update ALL instances of this post's like button instantly
     const likeBtns = document.querySelectorAll(`.like-btn[data-post-id="${postId}"]`);
     
     likeBtns.forEach(likeBtn => {
         likeBtn.dataset.liked = nextLikedState.toString();
+
+        const container = likeBtn.parentElement.parentElement.parentElement; 
+        const countSpan = container ? container.querySelector('.like-count-text') : null;
         const iconSpan = likeBtn.querySelector('.material-symbols-outlined');
+        
+        if (countSpan) {
+            let currentCount = parseInt(countSpan.textContent.trim()) || 0;
+            countSpan.textContent = nextLikedState ? currentCount + 1 : Math.max(0, currentCount - 1);
+        }
         
         if (iconSpan) {
             if (nextLikedState) {
-                // Instantly turn red & fill
                 likeBtn.classList.remove('text-on-surface', 'dark:text-gray-100', 'hover:text-on-surface-variant');
                 likeBtn.classList.add('text-red-500');
                 iconSpan.style.fontVariationSettings = "'FILL' 1";
                 
-                // Force animation to play smoothly
                 iconSpan.classList.remove('animate-[pulse_0.3s_ease-out]');
-                void iconSpan.offsetWidth; // Trigger browser reflow
+                void iconSpan.offsetWidth; 
                 iconSpan.classList.add('animate-[pulse_0.3s_ease-out]');
             } else {
-                // Instantly revert to outline
                 likeBtn.classList.remove('text-red-500');
                 likeBtn.classList.add('text-on-surface', 'dark:text-gray-100', 'hover:text-on-surface-variant');
                 iconSpan.style.fontVariationSettings = "'FILL' 0";
@@ -560,15 +566,19 @@ window.handleLike = async function(postId, btnElement) {
         }
     });
 
-    // Sync with database silently in background
     try {
         if (!nextLikedState) {
             await supabase.from('post_likes').delete().match({ post_id: postId, user_id: currentUser.id });
         } else {
-            await supabase.from('post_likes').insert({ post_id: postId, user_id: currentUser.id });
+            const { error } = await supabase.from('post_likes').insert({ post_id: postId, user_id: currentUser.id });
+            // 🚀 FIX: Ignore the 409 error silently if it happens
+            if (error && error.code !== '23505') throw error; 
         }
     } catch (error) {
         console.error("Like error:", error);
+    } finally {
+        // Unlock after 300ms
+        setTimeout(() => { window._likeLocks[postId] = false; }, 300);
     }
 };
 
@@ -1160,11 +1170,14 @@ window.deleteComment = async (commentId) => {
     }
 };
 
-// 🚀 INSTANT COMMENT LIKE ENGINE
+window._commentLikeLocks = window._commentLikeLocks || {};
+
 window.handleCommentLike = async function(commentId, btnElement) {
+    if (window._commentLikeLocks[commentId]) return;
+    window._commentLikeLocks[commentId] = true;
+
     const iconSpan = btnElement.querySelector('.material-symbols-outlined');
     const isLiked = btnElement.classList.contains('text-red-500');
-    
     let countSpan = btnElement.parentElement.querySelector('.comment-like-count');
     
     if (isLiked) {
@@ -1182,9 +1195,8 @@ window.handleCommentLike = async function(commentId, btnElement) {
         btnElement.classList.add('text-red-500');
         iconSpan.style.fontVariationSettings = "'FILL' 1";
         
-        // Force animation to play smoothly
         iconSpan.classList.remove('animate-[pulse_0.3s_ease-out]');
-        void iconSpan.offsetWidth; // Trigger browser reflow
+        void iconSpan.offsetWidth; 
         iconSpan.classList.add('animate-[pulse_0.3s_ease-out]');
         
         if (countSpan) {
@@ -1195,15 +1207,18 @@ window.handleCommentLike = async function(commentId, btnElement) {
     }
 
     try {
-        if (isLiked) await supabase.from('comment_likes').delete().match({ comment_id: commentId, user_id: currentUser.id });
-        else await supabase.from('comment_likes').insert({ comment_id: commentId, user_id: currentUser.id });
-    } catch(e) { console.error(e); }
+        if (isLiked) {
+            await supabase.from('comment_likes').delete().match({ comment_id: commentId, user_id: currentUser.id });
+        } else {
+            const { error } = await supabase.from('comment_likes').insert({ comment_id: commentId, user_id: currentUser.id });
+            if (error && error.code !== '23505') throw error; 
+        }
+    } catch(e) { 
+        console.error(e); 
+    } finally {
+        setTimeout(() => { window._commentLikeLocks[commentId] = false; }, 300);
+    }
 };
-
-document.getElementById('send-comment-btn')?.addEventListener('click', () => {
-    submitComment(document.getElementById('send-comment-btn').dataset.postId);
-});
-
 // ==========================================
 // LIKES MODAL TOUCH PHYSICS (Swipe to Close)
 // ==========================================
