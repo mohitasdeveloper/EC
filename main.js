@@ -653,15 +653,14 @@ window.fetchMyProfileFeed = async function(userId) {
                 *,
                 users ( id, full_name, profile_img_url, role, tick_type ),
                 post_likes ( user_id ),
-                post_comments ( count ),
-                post_poll_votes ( user_id, option_id ) /* <-- FIXED HERE */
+                post_comments ( id, content, created_at, users(full_name) ), /* 🚀 CRITICAL FIX */
+                post_poll_votes ( user_id, option_id )
             `)
             .eq('user_id', userId)
             .eq('is_deleted', false)
             .order('created_at', { ascending: false });
         
         if (error) throw error;
-
         const countEl = document.getElementById('my-profile-posts-count');
         if (countEl) countEl.textContent = posts.length;
 
