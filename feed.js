@@ -971,7 +971,9 @@ async function handleNativeMentions(text, inputElement) {
 
 window.insertMention = function(userId, fullName) {
     const input = document.getElementById('post-comment-input');
-    input.value = input.value.replace(/@[a-zA-Z0-9_]+$/, `@${fullName} `);
+    // Replace standard spaces with non-breaking spaces (\u00A0)
+    const safeName = fullName.replace(/ /g, '\u00A0'); 
+    input.value = input.value.replace(/@[a-zA-Z0-9_]+$/, `@${safeName} `);
     currentMentionIds.push(userId); 
     
     document.getElementById('comment-mention-list').classList.add('hidden');
@@ -1026,7 +1028,11 @@ async function openCommentsModal(postId) {
 
 function renderSingleComment(comment, isReply) {
     const paddingLeft = isReply ? 'ml-12' : ''; 
-    let formattedContent = comment.content.replace(/@([\w\s]+)(?=\s|$)/g, '<span class="text-primary font-bold">@$1</span>');
+    const parentIdAttr = isReply ? `data-parent-id="${comment.parent_comment_id}"` : '';
+    
+    // 🚀 FIX: Only highlight the bound name, then convert the non-breaking space back to normal for display
+    let formattedContent = comment.content.replace(/@([\w\u00A0]+)/g, '<span class="text-primary font-bold">@$1</span>');
+    formattedContent = formattedContent.replace(/\u00A0/g, ' ');
 
     const isLiked = comment.comment_likes && comment.comment_likes.some(like => like.user_id === currentUser.id);
     const likeCount = comment.comment_likes ? comment.comment_likes.length : 0;
@@ -1034,7 +1040,7 @@ function renderSingleComment(comment, isReply) {
     const heartFill = isLiked ? '1' : '0';
 
     return `
-        <div class="flex items-start gap-3 mb-4 ${paddingLeft}" data-comment-id="${comment.id}">
+        <div class="flex items-start gap-3 mb-4 ${paddingLeft}" data-comment-id="${comment.id}" ${parentIdAttr}>
             <img onclick="window.viewUserProfile('${comment.users.id}')" src="${comment.users.profile_img_url}" class="w-8 h-8 rounded-full object-cover shrink-0 cursor-pointer mt-1 border border-surface-variant/50">
             
             <div class="comment-body flex-1 min-w-0 flex flex-col cursor-pointer select-none active:opacity-60 transition-opacity" 
@@ -1043,7 +1049,7 @@ function renderSingleComment(comment, isReply) {
                  oncontextmenu="event.preventDefault(); window.openCommentActionSheet('${comment.id}', '${comment.user_id}'); return false;">
                  
                 <p class="text-[13px] text-on-surface dark:text-gray-100 leading-snug">
-                    <span onclick="event.stopPropagation(); window.viewUserProfile('${comment.users.id}')" class="font-extrabold mr-1 hover:underline text-primary">${comment.users.full_name}</span>
+                    <span onclick="event.stopPropagation(); window.viewUserProfile('${comment.users.id}')" class="font-extrabold mr-1 hover:underline text-on-surface dark:text-gray-100">${comment.users.full_name}</span>
                     ${formattedContent}
                 </p>
                 <div class="flex items-center gap-4 mt-1">
@@ -1052,7 +1058,6 @@ function renderSingleComment(comment, isReply) {
                 </div>
             </div>
 
-            <!-- 🚀 UPDATED: Heart Button + Counter -->
             <div class="flex flex-col items-center justify-start ml-2 mt-1 shrink-0">
                 <button onclick="window.handleCommentLike('${comment.id}', this)" class="${heartClass} hover:text-red-500 transition-colors active:scale-90 flex flex-col items-center px-2 pt-1 pb-0.5">
                     <span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' ${heartFill};">favorite</span>
@@ -1062,54 +1067,84 @@ function renderSingleComment(comment, isReply) {
         </div>
     `;
 }
-
-// 🚀 UPDATED: EXACT INSTAGRAM ACTION SHEET LAYOUT
 window.openCommentActionSheet = function(commentId, commentOwnerId) {
     if (typeof longPressTimer !== 'undefined') clearTimeout(longPressTimer);
     window.isLongPressing = false;
 
     const isOwner = currentUser.id === commentOwnerId;
+    const card = document.getElementById('comment-options-card');
     let buttonsHtml = '';
 
     if (isOwner) {
         buttonsHtml = `
-            <div class="flex flex-col space-y-1">
-                <button class="w-full flex items-center gap-4 px-4 py-3.5 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-2xl font-semibold text-on-surface dark:text-gray-100 transition-colors text-[15px]">
-                    <span class="material-symbols-outlined text-[24px]">send</span> Share
-                </button>
-                <button onclick="window.deleteComment('${commentId}')" class="w-full flex items-center gap-4 px-4 py-3.5 hover:bg-error/10 rounded-2xl font-semibold text-error transition-colors text-[15px]">
-                    <span class="material-symbols-outlined text-[24px]">delete</span> Delete
-                </button>
-            </div>
+            <button class="w-full flex items-center gap-4 px-5 py-4 hover:bg-surface-variant/30 dark:hover:bg-white/5 font-semibold text-on-surface dark:text-gray-100 transition-colors border-b border-surface-variant/50 dark:border-white/10 text-[15px]">
+                <span class="material-symbols-outlined text-[24px]">send</span> Share
+            </button>
+            <button onclick="window.deleteComment('${commentId}')" class="w-full flex items-center gap-4 px-5 py-4 hover:bg-surface-variant/30 dark:hover:bg-white/5 font-semibold text-error transition-colors text-[15px]">
+                <span class="material-symbols-outlined text-[24px]">delete</span> Delete
+            </button>
         `;
     } else {
         buttonsHtml = `
-            <div class="flex flex-col space-y-1">
-                <button class="w-full flex items-center gap-4 px-4 py-3.5 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-2xl font-semibold text-on-surface dark:text-gray-100 transition-colors text-[15px]">
-                    <span class="material-symbols-outlined text-[24px]">send</span> Share
-                </button>
-                <button class="w-full flex items-center gap-4 px-4 py-3.5 hover:bg-orange-500/10 rounded-2xl font-semibold text-orange-500 transition-colors text-[15px]">
-                    <span class="material-symbols-outlined text-[24px]">flag</span> Report
-                </button>
-            </div>
+            <button class="w-full flex items-center gap-4 px-5 py-4 hover:bg-surface-variant/30 dark:hover:bg-white/5 font-semibold text-on-surface dark:text-gray-100 transition-colors border-b border-surface-variant/50 dark:border-white/10 text-[15px]">
+                <span class="material-symbols-outlined text-[24px]">send</span> Share
+            </button>
+            <button class="w-full flex items-center gap-4 px-5 py-4 hover:bg-orange-500/10 dark:hover:bg-white/5 font-semibold text-orange-500 transition-colors text-[15px]">
+                <span class="material-symbols-outlined text-[24px]">flag</span> Report
+            </button>
         `;
     }
 
-    window.openActionSheet(buttonsHtml);
+    card.innerHTML = buttonsHtml;
+
+    const modal = document.getElementById('modal-comment-options');
+    modal.classList.replace('hidden', 'flex');
+    modal.style.pointerEvents = 'auto';
+    setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        card.classList.remove('scale-95');
+    }, 10);
 };
 
-window.deleteComment = async (commentId) => {
-    window.closeActionSheet();
-    const commentEl = document.querySelector(`div[data-comment-id="${commentId}"]`);
-    if (commentEl) commentEl.style.display = 'none';
-
-    const { error } = await supabase.from('post_comments').update({ is_deleted: true }).eq('id', commentId);
+window.closeCommentActionSheet = function() {
+    const modal = document.getElementById('modal-comment-options');
+    const card = document.getElementById('comment-options-card');
     
-    if (error) {
-        if (commentEl) commentEl.style.display = 'flex'; 
+    modal.style.pointerEvents = 'none';
+    modal.classList.add('opacity-0');
+    card.classList.add('scale-95');
+    setTimeout(() => modal.classList.replace('flex', 'hidden'), 200);
+};
+
+// 🚀 NEW: Smooth Cascade Deletion
+window.deleteComment = async (commentId) => {
+    window.closeCommentActionSheet();
+    
+    // 1. Identify main comment and all its replies
+    const commentEl = document.querySelector(`div[data-comment-id="${commentId}"]`);
+    const replyEls = document.querySelectorAll(`div[data-parent-id="${commentId}"]`);
+    
+    // 2. Smoothly animate them out
+    const elementsToRemove = [commentEl, ...Array.from(replyEls)].filter(Boolean);
+    elementsToRemove.forEach(el => {
+        el.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+        el.style.opacity = '0';
+        el.style.transform = 'scale(0.95)';
+        setTimeout(() => el.style.display = 'none', 200); 
+        setTimeout(() => el.remove(), 300); 
+    });
+
+    // 3. Delete from database (Concurrent Cascade)
+    const [mainRes, repliesRes] = await Promise.all([
+        supabase.from('post_comments').update({ is_deleted: true }).eq('id', commentId),
+        supabase.from('post_comments').update({ is_deleted: true }).eq('parent_comment_id', commentId)
+    ]);
+    
+    if (mainRes.error) {
+        // Revert UI if DB fails
+        elementsToRemove.forEach(el => { el.style.display = 'flex'; el.style.opacity = '1'; el.style.transform = 'scale(1)'; });
         showToast('Failed to delete comment.', 'error');
     } else {
-        if (commentEl) commentEl.remove();
         showToast('Comment deleted.', 'success');
     }
 };
