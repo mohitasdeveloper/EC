@@ -653,7 +653,7 @@ window.fetchMyProfileFeed = async function(userId) {
                 *,
                 users ( id, full_name, profile_img_url, role, tick_type ),
                 post_likes ( user_id ),
-                post_comments ( id, content, created_at, users(full_name) ),
+                post_comments(id, content, created_at, is_deleted, parent_comment_id, users(id, full_name, profile_img_url, tick_type)),
                 post_poll_votes ( user_id, option_id )
             `)
             .eq('user_id', userId)
@@ -700,7 +700,8 @@ function generatePostHTML(posts, currentUserId) {
             }
         }
 
-        const comments = post.post_comments || [];
+        // 🚀 FIX: Filter deleted comments in Profile Feed
+        const comments = (post.post_comments || []).filter(c => !c.is_deleted);
         const commentCount = comments.length;
         let commentsHtml = '';
         if (commentCount > 0) {
@@ -709,11 +710,10 @@ function generatePostHTML(posts, currentUserId) {
             
             const latestComment = comments[comments.length - 1];
             if (latestComment) {
-                const cleanComment = latestComment.content.replace(/<[^>]*>?/gm, '');
+                const cleanComment = latestComment.content.replace(/<[^>]*>?/gm, '').replace(/\u00A0/g, ' ');
                 commentsHtml += `<p class="text-[14px] text-on-surface dark:text-gray-100 mt-1 leading-snug"><span class="font-bold mr-1 cursor-pointer">${latestComment.users?.full_name || 'User'}</span><span class="text-on-surface-variant dark:text-gray-300">${cleanComment}</span></p>`;
             }
         }
-
         const verifiedBadge = typeof getTickHtmlLocal === 'function' ? getTickHtmlLocal(user.tick_type) : '';
         const rawAvatarUrl = user.profile_img_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&background=e1e3e4`;
         const optimizedAvatar = typeof optimizeImageUrl === 'function' ? optimizeImageUrl(rawAvatarUrl, 'avatar') : rawAvatarUrl;
