@@ -96,13 +96,15 @@ export function initFeed(user) {
         const optionsBtn = e.target.closest('.post-options-btn');
         const commentOptionsBtn = e.target.closest('.comment-options-btn');
         const mentionLink = e.target.closest('.mention');
+        
+        // 🚀 ADD THIS: Safely detect the post comment button
+        const sendCommentBtn = e.target.closest('#send-comment-btn'); 
 
         if (likeBtn) window.handleLike(likeBtn.dataset.postId, likeBtn);
         if (commentBtn) window.openCommentsModal(commentBtn.dataset.postId);
         if (pollOption) window.handlePollVote(pollOption.dataset.postId, parseInt(pollOption.dataset.optionIndex), pollOption.dataset.isMultiple === 'true');
         if (profileLink) window.viewUserProfile(profileLink.dataset.userId);
         
-        // 🚀 FIX: Pass the new boolean settings to the Action Sheet
         if (optionsBtn) {
             window.openPostOptions(
                 optionsBtn.dataset.postId, 
@@ -111,6 +113,19 @@ export function initFeed(user) {
                 optionsBtn.dataset.hideLikes === 'true',
                 optionsBtn.dataset.disableComments === 'true'
             );
+        }
+        
+        if (commentOptionsBtn) window.openCommentOptions(commentOptionsBtn.dataset.commentId, commentOptionsBtn.dataset.userId);
+        if (mentionLink && mentionLink.dataset.id) {
+            e.preventDefault(); 
+            window.viewUserProfile(mentionLink.dataset.id);
+        }
+
+        // 🚀 ADD THIS: Trigger the submitComment function!
+        if (sendCommentBtn && !sendCommentBtn.disabled) {
+            submitComment(sendCommentBtn.dataset.postId);
+        }
+    });
         }
         
         if (commentOptionsBtn) window.openCommentOptions(commentOptionsBtn.dataset.commentId, commentOptionsBtn.dataset.userId);
