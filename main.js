@@ -653,7 +653,7 @@ window.fetchMyProfileFeed = async function(userId) {
                 *,
                 users ( id, full_name, profile_img_url, role, tick_type ),
                 post_likes ( user_id ),
-                post_comments(id, content, created_at, is_deleted, parent_comment_id, users(id, full_name, profile_img_url, tick_type)),
+                post_comments ( id, content, created_at, is_deleted, parent_comment_id, users(id, full_name, profile_img_url, tick_type) ),
                 post_poll_votes ( user_id, option_id )
             `)
             .eq('user_id', userId)
@@ -692,28 +692,43 @@ function generatePostHTML(posts, currentUserId) {
         
         let likedByHtml = '';
         if (likeCount > 0) {
-            const featuredLiker = likes.find(l => l.user_id !== currentUserId)?.users?.full_name || likes[0]?.users?.full_name || 'Someone';
-            if (likeCount === 1) {
-                likedByHtml = `Liked by <span class="font-bold text-on-surface dark:text-gray-100">${featuredLiker}</span>`;
+            if (post.hide_likes) {
+                const featuredLiker = likes.find(l => l.user_id !== currentUserId)?.users?.full_name || likes[0]?.users?.full_name || 'Someone';
+                likedByHtml = likeCount === 1 
+                    ? `Liked by <span class="font-bold text-on-surface dark:text-gray-100">${featuredLiker}</span>` 
+                    : `Liked by <span class="font-bold text-on-surface dark:text-gray-100">${featuredLiker}</span> and <span onclick="window.openLikesModal('${post.id}')" class="font-bold text-on-surface dark:text-gray-100 cursor-pointer">others</span>`;
             } else {
-                likedByHtml = `Liked by <span class="font-bold text-on-surface dark:text-gray-100">${featuredLiker}</span> and <span onclick="window.openLikesModal('${post.id}')" class="font-bold text-on-surface dark:text-gray-100 cursor-pointer">others</span>`;
+                likedByHtml = `<span onclick="window.openLikesModal('${post.id}')" class="font-bold text-on-surface dark:text-gray-100 cursor-pointer">${likeCount} ${likeCount === 1 ? 'like' : 'likes'}</span>`;
             }
         }
 
-        // 🚀 FIX: Filter deleted comments in Profile Feed
-        const comments = (post.post_comments || []).filter(c => !c.is_deleted);
-        const commentCount = comments.length;
-        let commentsHtml = '';
-        if (commentCount > 0) {
-            const previewCount = commentCount > 1 ? `View all ${commentCount} comments` : 'View 1 comment';
-            commentsHtml = `<p data-post-id="${post.id}" class="comment-btn text-[14px] text-on-surface-variant dark:text-gray-400 mt-1 cursor-pointer active:opacity-70">${previewCount}</p>`;
+        let commentsSectionHtml = '';
+        if (!post.disable_comments) {
+            // 🚀 Safe filtering to prevent crashes
+            const comments = (post.post_comments || []).filter(c => !c.is_deleted && c.content);
+            const commentCount = comments.length;
+            let commentsHtml = '';
             
-            const latestComment = comments[comments.length - 1];
-            if (latestComment) {
-                const cleanComment = latestComment.content.replace(/<[^>]*>?/gm, '').replace(/\u00A0/g, ' ');
-                commentsHtml += `<p class="text-[14px] text-on-surface dark:text-gray-100 mt-1 leading-snug"><span class="font-bold mr-1 cursor-pointer">${latestComment.users?.full_name || 'User'}</span><span class="text-on-surface-variant dark:text-gray-300">${cleanComment}</span></p>`;
+            if (commentCount > 0) {
+                const previewCount = commentCount > 1 ? `View all ${commentCount} comments` : 'View 1 comment';
+                commentsHtml = `<p data-post-id="${post.id}" class="comment-btn text-[14px] text-on-surface-variant dark:text-gray-400 mt-1 cursor-pointer active:opacity-70">${previewCount}</p>`;
+                
+                const latestComment = comments[comments.length - 1];
+                if (latestComment && latestComment.content) {
+                    const cleanComment = latestComment.content.replace(/<[^>]*>?/gm, '').replace(/\u00A0/g, ' ');
+                    commentsHtml += `<p class="text-[14px] text-on-surface dark:text-gray-100 mt-1 leading-snug"><span class="font-bold mr-1 cursor-pointer">${latestComment.users?.full_name || 'User'}</span><span class="text-on-surface-variant dark:text-gray-300">${cleanComment}</span></p>`;
+                }
             }
+            
+            commentsSectionHtml = `
+                <div class="px-3 mt-1">${commentsHtml}</div>
+                <div class="px-3 mt-2 flex items-center gap-2">
+                    <img src="${currentUserProfile?.profile_img_url || 'https://ui-avatars.com/api/?name=User'}" class="w-6 h-6 rounded-full object-cover border border-surface-variant/50 shrink-0">
+                    <p data-post-id="${post.id}" class="comment-btn flex-1 text-[13px] text-on-surface-variant dark:text-gray-500 cursor-text">Add a comment...</p>
+                </div>
+            `;
         }
+
         const verifiedBadge = typeof getTickHtmlLocal === 'function' ? getTickHtmlLocal(user.tick_type) : '';
         const rawAvatarUrl = user.profile_img_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&background=e1e3e4`;
         const optimizedAvatar = typeof optimizeImageUrl === 'function' ? optimizeImageUrl(rawAvatarUrl, 'avatar') : rawAvatarUrl;
@@ -725,109 +740,99 @@ function generatePostHTML(posts, currentUserId) {
         }
 
         let contentHtml = '';
-        
         if (post.post_type === 'text') {
-            if (cleanCaptionContent !== '') {
-                contentHtml = `
-                    <div class="px-4 py-8 mt-2 mb-2 bg-surface-variant/10 dark:bg-neutral-900/40 rounded-2xl mx-3 flex items-center justify-center border border-surface-variant/30 dark:border-neutral-800">
-                        <div class="text-[16px] sm:text-[18px] font-medium text-on-surface dark:text-gray-100 leading-relaxed whitespace-pre-wrap rich-text-content text-center w-full">${post.content}</div>
-                    </div>
-                `;
-            }
+            if (cleanCaptionContent !== '') contentHtml = `<div class="px-4 py-8 mt-2 mb-2 bg-surface-variant/10 dark:bg-neutral-900/40 rounded-2xl mx-3 flex items-center justify-center border border-surface-variant/30 dark:border-neutral-800"><div class="text-[16px] sm:text-[18px] font-medium text-on-surface dark:text-gray-100 leading-relaxed whitespace-pre-wrap rich-text-content text-center w-full">${post.content}</div></div>`;
             cleanCaptionContent = ''; 
         }
         else if (post.post_type === 'image') {
-            const optimizedMedia = typeof optimizeImageUrl === 'function' ? optimizeImageUrl(post.media_url, 'feed') : post.media_url;
-            contentHtml = `
-                <div class="w-full bg-surface-variant/20 dark:bg-neutral-900 flex items-center justify-center border-y border-surface-variant/40 dark:border-neutral-800 mt-2">
-                    <img loading="lazy" src="${optimizedMedia}" class="w-full h-auto max-h-[80vh] object-cover">
-                </div>
-            `;
+            contentHtml = `<div class="w-full bg-surface-variant/20 dark:bg-neutral-900 flex items-center justify-center border-y border-surface-variant/40 dark:border-neutral-800 mt-2"><img loading="lazy" src="${typeof optimizeImageUrl === 'function' ? optimizeImageUrl(post.media_url, 'feed') : post.media_url}" class="w-full h-auto max-h-[80vh] object-cover"></div>`;
         }
         else if (post.post_type === 'event') {
-            const optimizedEventMedia = typeof optimizeImageUrl === 'function' ? optimizeImageUrl(post.event_image_url, 'feed') : post.event_image_url;
-            const eventImgHtml = post.event_image_url ? `<img loading="lazy" src="${optimizedEventMedia}" class="w-full h-auto max-h-[60vh] object-cover border-y border-surface-variant/40 dark:border-neutral-800 mt-2">` : '';
-            const btnText = post.event_button_text || 'View Link';
-            const registerHtml = post.event_register_url ? `<a href="${post.event_register_url}" target="_blank" class="block w-full mt-3 bg-secondary text-white text-center py-2 rounded-xl text-[13px] font-bold active:scale-95 transition-transform">View Link</a>` : '';
-            const dateStr = post.event_date ? new Date(post.event_date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'TBA';
+            const event = post.post_events && post.post_events.length > 0 ? post.post_events[0] : null;
+            if (event) {
+                const optimizedEventMedia = typeof optimizeImageUrl === 'function' && event.event_image_url ? optimizeImageUrl(event.event_image_url, 'feed') : event.event_image_url;
+                const eventImgHtml = event.event_image_url ? `<img loading="lazy" src="${optimizedEventMedia}" class="w-full h-auto max-h-[80vh] object-cover border-y border-surface-variant/40 dark:border-neutral-800 mt-2">` : '';
+                const dateStr = event.event_date ? new Date(event.event_date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'TBA';
+                
+                let actionHtml = '';
+                if (event.show_register_btn && event.register_url) {
+                    actionHtml = `<a href="${event.register_url}" target="_blank" class="block w-full mt-3 bg-secondary text-white text-center py-2 rounded-xl text-[13px] font-bold active:scale-95 transition-transform">View Link</a>`;
+                } else if (event.enable_rsvp) {
+                    const rsvps = post.post_event_rsvps || [];
+                    const isAttending = !!rsvps.find(r => r.user_id === currentUserProfile.id);
+                    const btnClass = isAttending ? 'bg-surface-variant/50 text-on-surface dark:text-gray-100' : 'bg-primary text-white';
+                    const btnText = isAttending ? '✓ Attending' : 'RSVP Now';
+                    actionHtml = `<button onclick="window.handleRSVP('${post.id}', ${isAttending})" class="block w-full mt-3 ${btnClass} text-center py-2 rounded-xl text-[13px] font-bold active:scale-95 transition-all">${btnText}</button>`;
+                }
 
-            contentHtml = `
-                ${eventImgHtml}
-                <div class="px-3 py-3 bg-secondary/5 border-b border-secondary/20 dark:border-neutral-800">
-                    <div class="bg-secondary/10 text-secondary w-max px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest mb-2">Upcoming Event</div>
-                    <div class="space-y-1">
-                        <p class="text-[13px] text-on-surface-variant dark:text-gray-300 flex items-center gap-2 font-medium">
-                            <span class="material-symbols-outlined text-[16px]">calendar_today</span> ${dateStr}
-                        </p>
-                        ${post.event_location ? `<p class="text-[13px] text-on-surface-variant dark:text-gray-300 flex items-center gap-2 font-medium"><span class="material-symbols-outlined text-[16px]">location_on</span> ${post.event_location}</p>` : ''}
+                contentHtml = `
+                    ${eventImgHtml}
+                    <div class="px-3 py-3 bg-secondary/5 border-b border-secondary/20 dark:border-neutral-800">
+                        <div class="bg-secondary/10 text-secondary w-max px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest mb-2">Upcoming Event</div>
+                        <div class="space-y-1">
+                            <p class="text-[13px] text-on-surface-variant dark:text-gray-300 flex items-center gap-2 font-medium"><span class="material-symbols-outlined text-[16px]">calendar_today</span> ${dateStr}</p>
+                            ${event.event_location ? `<p class="text-[13px] text-on-surface-variant dark:text-gray-300 flex items-center gap-2 font-medium"><span class="material-symbols-outlined text-[16px]">location_on</span> ${event.event_location}</p>` : ''}
+                        </div>
+                        ${actionHtml}
                     </div>
-                    ${registerHtml}
-                </div>
-            `;
+                `;
+            }
         }
         else if (post.post_type === 'poll') {
-            const votes = post.post_poll_votes || [];
-            const totalVotes = votes.length;
-            const myVotes = votes.filter(v => v.user_id === currentUserId).map(v => v.option_index); 
-            const userHasVoted = myVotes.length > 0;
-            
-            const isExpired = post.poll_expires_at && new Date(post.poll_expires_at) < new Date();
-            const showResults = userHasVoted || isExpired || post.poll_is_anon;
+            const poll = post.post_polls && post.post_polls.length > 0 ? post.post_polls[0] : null;
+            if (poll) {
+                const votes = post.post_poll_votes || [];
+                const totalVotes = votes.length;
+                const myVotes = votes.filter(v => v.user_id === currentUserId).map(v => v.option_id);
+                const userHasVoted = myVotes.length > 0;
+                const isExpired = post.poll_expires_at && new Date(post.poll_expires_at) < new Date();
+                const showResults = userHasVoted || isExpired || post.poll_is_anon;
 
-            const optionsHtml = (post.poll_options || []).map((opt, index) => {
-                const optVotes = votes.filter(v => v.option_index === index).length;
-                const percentage = totalVotes === 0 ? 0 : Math.round((optVotes / totalVotes) * 100);
-                const iVotedForThis = myVotes.includes(index);
-                
-                return `
-                <div class="poll-option-btn cursor-default relative w-full bg-surface-variant/30 dark:bg-surface-variant/10 border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 overflow-hidden transition-all mb-2">
-                    <div class="poll-progress-bar absolute left-0 top-0 bottom-0 bg-primary/20 rounded-r-xl transition-all duration-700 ease-out" style="width: ${showResults ? percentage : 0}%"></div>
-                    <div class="relative flex justify-between items-center text-[13px] font-bold text-on-surface dark:text-gray-100 z-10">
-                        <span class="flex items-center gap-2">
-                            <span class="poll-check-circle w-4 h-4 rounded-full border-2 ${iVotedForThis ? 'border-primary flex items-center justify-center' : 'border-surface-variant/80'}">
-                                ${iVotedForThis ? '<span class="w-2 h-2 rounded-full bg-primary"></span>' : ''}
+                const optionsHtml = (poll.options || []).map((opt) => {
+                    const optVotes = votes.filter(v => v.option_id === opt.id).length;
+                    const percentage = totalVotes === 0 ? 0 : Math.round((optVotes / totalVotes) * 100);
+                    const iVotedForThis = myVotes.includes(opt.id);
+                    
+                    return `
+                    <div class="poll-option-btn cursor-default relative w-full bg-surface-variant/30 dark:bg-surface-variant/10 border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 overflow-hidden transition-all mb-2">
+                        <div class="poll-progress-bar absolute left-0 top-0 bottom-0 bg-primary/20 rounded-r-xl transition-all duration-700 ease-out" style="width: ${showResults ? percentage : 0}%"></div>
+                        <div class="relative flex justify-between items-center text-[13px] font-bold text-on-surface dark:text-gray-100 z-10">
+                            <span class="flex items-center gap-2">
+                                <span class="poll-check-circle w-4 h-4 rounded-full border-2 ${iVotedForThis ? 'border-primary flex items-center justify-center' : 'border-surface-variant/80'}">${iVotedForThis ? '<span class="w-2 h-2 rounded-full bg-primary"></span>' : ''}</span>
+                                ${opt.text}
                             </span>
-                            ${opt}
-                        </span>
-                        <span class="poll-percentage ${showResults ? 'opacity-100' : 'opacity-0'} transition-opacity">${percentage}%</span>
-                    </div>
-                </div>`;
-            }).join('');
+                            <span class="poll-percentage ${showResults ? 'opacity-100' : 'opacity-0'} transition-opacity">${percentage}%</span>
+                        </div>
+                    </div>`;
+                }).join('');
 
-            contentHtml = `
-                <div class="px-3 py-3 border-y border-surface-variant/40 dark:border-neutral-800 bg-surface-variant/5 dark:bg-neutral-900/30 mt-2">
-                    <div class="poll-options-wrapper space-y-2 mb-2">${optionsHtml}</div>
-                    <div class="flex justify-between text-[11px] font-medium text-on-surface-variant dark:text-gray-400">
-                        <span><span class="poll-total-votes">${totalVotes}</span> votes</span>
-                        <span>${isExpired ? 'Ended' : 'Ongoing'}</span>
+                contentHtml = `
+                    <div class="px-3 py-3 border-y border-surface-variant/40 dark:border-neutral-800 bg-surface-variant/5 dark:bg-neutral-900/30 mt-2">
+                        <div class="poll-options-wrapper space-y-2 mb-2">${optionsHtml}</div>
+                        <div class="flex justify-between text-[11px] font-medium text-on-surface-variant dark:text-gray-400">
+                            <span><span class="poll-total-votes">${totalVotes}</span> votes</span>
+                            <span>${isExpired ? 'Ended' : 'Ongoing'}</span>
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
+            }
         }
 
         let captionHtml = '';
         if (cleanCaptionContent !== '') {
-            captionHtml = `
-            <div class="px-3 text-[14px] text-on-surface dark:text-gray-100 leading-snug mt-1">
-                <span data-user-id="${user.id}" class="profile-link font-bold mr-1 cursor-pointer hover:underline">${user.full_name}</span>
-                <span class="rich-text-content inline">${cleanCaptionContent}</span>
-            </div>`;
+            captionHtml = `<div class="px-3 text-[14px] text-on-surface dark:text-gray-100 leading-snug mt-1"><span data-user-id="${user.id}" class="profile-link font-bold mr-1 cursor-pointer hover:underline">${user.full_name}</span><span class="rich-text-content inline">${cleanCaptionContent}</span></div>`;
         }
 
         return `
         <div data-post-id="${post.id}" class="bg-surface dark:bg-[#121212] mb-6 animate-fadeIn pb-4 border-b border-surface-variant/40 dark:border-neutral-800 relative">
-            
             ${post.is_verified ? '<div class="absolute top-3 right-3 bg-[#e8b339] text-white px-2 py-0.5 rounded text-[9px] font-extrabold uppercase shadow-sm z-10"><span class="material-symbols-outlined text-[12px] align-middle">stars</span> Verified</div>' : ''}
 
             <div class="flex items-center gap-3 px-3 py-2">
                 ${headerIcon}
                 <div class="flex-1 min-w-0">
-                    <h4 onclick="window.openPublicProfile('${user.id}')" class="font-bold text-[14px] cursor-pointer hover:text-primary transition-colors flex items-center gap-1 truncate">
-                        ${user.full_name} ${verifiedBadge}
-                    </h4>
-                    ${post.post_events && post.post_events.length > 0 && post.post_events[0].event_location ? `<p class="text-[11px] text-on-surface-variant dark:text-gray-400 mt-0.5 truncate">${post.post_events[0].event_location}</p>` : ''}
+                    <h4 onclick="window.openPublicProfile('${user.id}')" class="font-bold text-[14px] cursor-pointer hover:text-primary transition-colors flex items-center gap-1 truncate">${user.full_name} ${verifiedBadge}</h4>
                 </div>
-                <button data-post-id="${post.id}" data-user-id="${user.id}" data-is-verified="${post.is_verified}" class="post-options-btn text-on-surface dark:text-gray-100 p-1.5 active:opacity-60 transition-opacity">
+                <button data-post-id="${post.id}" data-user-id="${user.id}" data-is-verified="${post.is_verified}" data-hide-likes="${post.hide_likes}" data-disable-comments="${post.disable_comments}" class="post-options-btn text-on-surface dark:text-gray-100 p-1.5 active:opacity-60 transition-opacity">
                     <span class="material-symbols-outlined text-[20px]">more_vert</span>
                 </button>
             </div>
@@ -839,12 +844,10 @@ function generatePostHTML(posts, currentUserId) {
                     <button onclick="window.handleLike('${post.id}', this)" data-post-id="${post.id}" data-liked="${userHasLiked}" class="like-btn flex items-center justify-center transition-transform active:scale-90 ${userHasLiked ? 'text-red-500' : 'text-on-surface dark:text-gray-100 hover:text-on-surface-variant'}">
                         <span class="material-symbols-outlined text-[26px]" style="font-variation-settings: 'FILL' ${userHasLiked ? 1 : 0};">favorite</span> 
                     </button>
+                    ${!post.disable_comments ? `
                     <button data-post-id="${post.id}" class="comment-btn flex items-center justify-center text-on-surface dark:text-gray-100 transition-transform active:scale-90 hover:text-on-surface-variant">
                         <span class="material-symbols-outlined text-[24px]" style="transform: scaleX(-1);">chat_bubble_outline</span> 
-                    </button>
-                    <button class="flex items-center justify-center text-on-surface dark:text-gray-100 transition-transform active:scale-90 hover:text-on-surface-variant">
-                        <span class="material-symbols-outlined text-[24px] -rotate-45 -mt-1">send</span> 
-                    </button>
+                    </button>` : ''}
                 </div>
                 <button class="flex items-center justify-center text-on-surface dark:text-gray-100 transition-transform active:scale-90 hover:text-on-surface-variant">
                     <span class="material-symbols-outlined text-[26px]">bookmark_border</span>
@@ -853,16 +856,7 @@ function generatePostHTML(posts, currentUserId) {
             
             ${likeCount > 0 ? `<div class="px-3 mb-1 text-[14px] text-on-surface dark:text-gray-100">${likedByHtml}</div>` : ''}
             ${captionHtml}
-            
-            <div class="px-3 mt-1">
-                ${commentsHtml}
-            </div>
-
-            <div class="px-3 mt-2 flex items-center gap-2">
-                <img src="${currentUserProfile?.profile_img_url || 'https://ui-avatars.com/api/?name=User'}" class="w-6 h-6 rounded-full object-cover border border-surface-variant/50 shrink-0">
-                <p data-post-id="${post.id}" class="comment-btn flex-1 text-[13px] text-on-surface-variant dark:text-gray-500 cursor-text">Add a comment...</p>
-            </div>
-
+            ${commentsSectionHtml}
             <p class="px-3 text-[11px] text-on-surface-variant dark:text-gray-500 mt-2 uppercase tracking-wide">${timeAgo(post.created_at)}</p>
         </div>
         `;
