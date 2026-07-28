@@ -88,7 +88,7 @@ export function initFeed(user) {
         initQuillEditor();
     });
 
-    document.body.addEventListener('click', (e) => {
+   document.body.addEventListener('click', (e) => {
         const likeBtn = e.target.closest('.like-btn');
         const commentBtn = e.target.closest('.comment-btn');
         const pollOption = e.target.closest('.poll-option-btn');
@@ -97,12 +97,23 @@ export function initFeed(user) {
         const commentOptionsBtn = e.target.closest('.comment-options-btn');
         const mentionLink = e.target.closest('.mention');
 
-        if (likeBtn) handleLike(likeBtn.dataset.postId, likeBtn.dataset.liked === 'true');
-        if (commentBtn) openCommentsModal(commentBtn.dataset.postId);
-        if (pollOption) handlePollVote(pollOption.dataset.postId, parseInt(pollOption.dataset.optionIndex), pollOption.dataset.isMultiple === 'true');
+        if (likeBtn) window.handleLike(likeBtn.dataset.postId, likeBtn);
+        if (commentBtn) window.openCommentsModal(commentBtn.dataset.postId);
+        if (pollOption) window.handlePollVote(pollOption.dataset.postId, parseInt(pollOption.dataset.optionIndex), pollOption.dataset.isMultiple === 'true');
         if (profileLink) window.viewUserProfile(profileLink.dataset.userId);
-        if (optionsBtn) openPostOptions(optionsBtn.dataset.postId, optionsBtn.dataset.userId, optionsBtn.dataset.isVerified === 'true');
-        if (commentOptionsBtn) openCommentOptions(commentOptionsBtn.dataset.commentId, commentOptionsBtn.dataset.userId);
+        
+        // 🚀 FIX: Pass the new boolean settings to the Action Sheet
+        if (optionsBtn) {
+            window.openPostOptions(
+                optionsBtn.dataset.postId, 
+                optionsBtn.dataset.userId, 
+                optionsBtn.dataset.isVerified === 'true',
+                optionsBtn.dataset.hideLikes === 'true',
+                optionsBtn.dataset.disableComments === 'true'
+            );
+        }
+        
+        if (commentOptionsBtn) window.openCommentOptions(commentOptionsBtn.dataset.commentId, commentOptionsBtn.dataset.userId);
         if (mentionLink && mentionLink.dataset.id) {
             e.preventDefault(); 
             window.viewUserProfile(mentionLink.dataset.id);
@@ -222,13 +233,15 @@ async function submitPost() {
             }
         });
 
-        let basePayload = { 
+       let basePayload = { 
             user_id: currentUser.id, 
             post_type: postType, 
             content: contentHTML,
             expires_at: expiresAt.toISOString(),
             viewers_access: viewersAccess,
-            mentioned_user_ids: mentionedIds
+            mentioned_user_ids: mentionedIds,
+            hide_likes: document.getElementById('post-hide-likes')?.checked || false,
+            disable_comments: document.getElementById('post-disable-comments')?.checked || false
         };
 
         if (postType === 'image') {
@@ -393,7 +406,6 @@ function setupIntersectionObserver() {
 
 function renderPosts(posts, isRefresh = false) {
     const container = document.getElementById('feed-posts-container');
-    
     if (posts.length === 0 && isRefresh) {
         container.innerHTML = `<div class="py-12 flex flex-col items-center justify-center opacity-40"><span class="material-symbols-outlined text-[42px] mb-2">photo_camera</span><p class="text-sm font-medium text-on-surface-variant">The feed is empty.</p></div>`;
         return;
@@ -407,29 +419,43 @@ function renderPosts(posts, isRefresh = false) {
         const likeCount = likes.length;
         const userHasLiked = likes.some(like => like.user_id === currentUser.id);
         
+        // 🚀 NEW: EXACT LIKES BEHAVIOR
         let likedByHtml = '';
         if (likeCount > 0) {
-            const featuredLiker = likes.find(l => l.user_id !== currentUser.id)?.users?.full_name || likes[0]?.users?.full_name || 'Someone';
-            if (likeCount === 1) {
-                likedByHtml = `Liked by <span class="font-bold text-on-surface dark:text-gray-100">${featuredLiker}</span>`;
+            if (post.hide_likes) {
+                const featuredLiker = likes.find(l => l.user_id !== currentUser.id)?.users?.full_name || likes[0]?.users?.full_name || 'Someone';
+                likedByHtml = likeCount === 1 
+                    ? `Liked by <span class="font-bold text-on-surface dark:text-gray-100">${featuredLiker}</span>` 
+                    : `Liked by <span class="font-bold text-on-surface dark:text-gray-100">${featuredLiker}</span> and <span onclick="window.openLikesModal('${post.id}')" class="font-bold text-on-surface dark:text-gray-100 cursor-pointer">others</span>`;
             } else {
-                likedByHtml = `Liked by <span class="font-bold text-on-surface dark:text-gray-100">${featuredLiker}</span> and <span onclick="window.openLikesModal('${post.id}')" class="font-bold text-on-surface dark:text-gray-100 cursor-pointer">others</span>`;
+                likedByHtml = `<span onclick="window.openLikesModal('${post.id}')" class="font-bold text-on-surface dark:text-gray-100 cursor-pointer">${likeCount} ${likeCount === 1 ? 'like' : 'likes'}</span>`;
             }
         }
 
-        // 🚀 FIX: Ignore deleted comments!
-        const comments = (post.post_comments || []).filter(c => !c.is_deleted);
-        const commentCount = comments.length;
-        let commentsHtml = '';
-        if (commentCount > 0) {
-            const previewCount = commentCount > 1 ? `View all ${commentCount} comments` : 'View 1 comment';
-            commentsHtml = `<p data-post-id="${post.id}" class="comment-btn text-[14px] text-on-surface-variant dark:text-gray-400 mt-1 cursor-pointer active:opacity-70">${previewCount}</p>`;
-            
-            const latestComment = comments[comments.length - 1];
-            if (latestComment) {
-                const cleanComment = latestComment.content.replace(/<[^>]*>?/gm, '').replace(/\u00A0/g, ' ');
-                commentsHtml += `<p class="text-[14px] text-on-surface dark:text-gray-100 mt-1 leading-snug"><span class="font-bold mr-1 cursor-pointer">${latestComment.users?.full_name || 'User'}</span><span class="text-on-surface-variant dark:text-gray-300">${cleanComment}</span></p>`;
+        // 🚀 NEW: DISABLE COMMENTS BEHAVIOR
+        let commentsSectionHtml = '';
+        if (!post.disable_comments) {
+            const comments = (post.post_comments || []).filter(c => !c.is_deleted);
+            const commentCount = comments.length;
+            let commentsHtml = '';
+            if (commentCount > 0) {
+                const previewCount = commentCount > 1 ? `View all ${commentCount} comments` : 'View 1 comment';
+                commentsHtml = `<p data-post-id="${post.id}" class="comment-btn text-[14px] text-on-surface-variant dark:text-gray-400 mt-1 cursor-pointer active:opacity-70">${previewCount}</p>`;
+                
+                const latestComment = comments[comments.length - 1];
+                if (latestComment) {
+                    const cleanComment = latestComment.content.replace(/<[^>]*>?/gm, '').replace(/\u00A0/g, ' ');
+                    commentsHtml += `<p class="text-[14px] text-on-surface dark:text-gray-100 mt-1 leading-snug"><span class="font-bold mr-1 cursor-pointer">${latestComment.users?.full_name || 'User'}</span><span class="text-on-surface-variant dark:text-gray-300">${cleanComment}</span></p>`;
+                }
             }
+            
+            commentsSectionHtml = `
+                <div class="px-3 mt-1">${commentsHtml}</div>
+                <div class="px-3 mt-2 flex items-center gap-2">
+                    <img src="${currentUser?.profile_img_url || 'https://ui-avatars.com/api/?name=User'}" class="w-6 h-6 rounded-full object-cover border border-surface-variant/50 shrink-0">
+                    <p data-post-id="${post.id}" class="comment-btn flex-1 text-[13px] text-on-surface-variant dark:text-gray-500 cursor-text">Add a comment...</p>
+                </div>
+            `;
         }
 
         const verifiedBadge = typeof getTickHtml === 'function' ? getTickHtml(user.tick_type) : '';
@@ -444,27 +470,16 @@ function renderPosts(posts, isRefresh = false) {
 
         let contentHtml = '';
         if (post.post_type === 'text') {
-            if (cleanCaptionContent !== '') {
-                contentHtml = `
-                    <div class="px-4 py-8 mt-2 mb-2 bg-surface-variant/10 dark:bg-neutral-900/40 rounded-2xl mx-3 flex items-center justify-center border border-surface-variant/30 dark:border-neutral-800">
-                        <div class="text-[16px] sm:text-[18px] font-medium text-on-surface dark:text-gray-100 leading-relaxed whitespace-pre-wrap rich-text-content text-center w-full">${post.content}</div>
-                    </div>
-                `;
-            }
+            if (cleanCaptionContent !== '') contentHtml = `<div class="px-4 py-8 mt-2 mb-2 bg-surface-variant/10 dark:bg-neutral-900/40 rounded-2xl mx-3 flex items-center justify-center border border-surface-variant/30 dark:border-neutral-800"><div class="text-[16px] sm:text-[18px] font-medium text-on-surface dark:text-gray-100 leading-relaxed whitespace-pre-wrap rich-text-content text-center w-full">${post.content}</div></div>`;
             cleanCaptionContent = ''; 
         }
         else if (post.post_type === 'image') {
-            const optimizedMedia = typeof optimizeImageUrl === 'function' ? optimizeImageUrl(post.media_url, 'feed') : post.media_url;
-            contentHtml = `<div class="w-full bg-surface-variant/20 dark:bg-neutral-900 flex items-center justify-center border-y border-surface-variant/40 dark:border-neutral-800 mt-2"><img loading="lazy" src="${optimizedMedia}" class="w-full h-auto max-h-[80vh] object-cover"></div>`;
+            contentHtml = `<div class="w-full bg-surface-variant/20 dark:bg-neutral-900 flex items-center justify-center border-y border-surface-variant/40 dark:border-neutral-800 mt-2"><img loading="lazy" src="${typeof optimizeImageUrl === 'function' ? optimizeImageUrl(post.media_url, 'feed') : post.media_url}" class="w-full h-auto max-h-[80vh] object-cover"></div>`;
         }
 
         let captionHtml = '';
         if (cleanCaptionContent !== '') {
-            captionHtml = `
-            <div class="px-3 text-[14px] text-on-surface dark:text-gray-100 leading-snug mt-1">
-                <span data-user-id="${user.id}" class="profile-link font-bold mr-1 cursor-pointer hover:underline">${user.full_name}</span>
-                <span class="rich-text-content inline">${cleanCaptionContent}</span>
-            </div>`;
+            captionHtml = `<div class="px-3 text-[14px] text-on-surface dark:text-gray-100 leading-snug mt-1"><span data-user-id="${user.id}" class="profile-link font-bold mr-1 cursor-pointer hover:underline">${user.full_name}</span><span class="rich-text-content inline">${cleanCaptionContent}</span></div>`;
         }
 
         return `
@@ -474,11 +489,9 @@ function renderPosts(posts, isRefresh = false) {
             <div class="flex items-center gap-3 px-3 py-2">
                 ${headerIcon}
                 <div class="flex-1 min-w-0">
-                    <h4 data-user-id="${user.id}" class="profile-link font-bold text-[14px] text-on-surface dark:text-gray-100 leading-tight cursor-pointer hover:text-primary transition-colors flex items-center gap-1 truncate">
-                        ${user.full_name} ${verifiedBadge}
-                    </h4>
+                    <h4 data-user-id="${user.id}" class="profile-link font-bold text-[14px] text-on-surface dark:text-gray-100 leading-tight cursor-pointer hover:text-primary transition-colors flex items-center gap-1 truncate">${user.full_name} ${verifiedBadge}</h4>
                 </div>
-                <button data-post-id="${post.id}" data-user-id="${user.id}" data-is-verified="${post.is_verified}" class="post-options-btn text-on-surface dark:text-gray-100 p-1.5 active:opacity-60 transition-opacity">
+                <button data-post-id="${post.id}" data-user-id="${user.id}" data-is-verified="${post.is_verified}" data-hide-likes="${post.hide_likes}" data-disable-comments="${post.disable_comments}" class="post-options-btn text-on-surface dark:text-gray-100 p-1.5 active:opacity-60 transition-opacity">
                     <span class="material-symbols-outlined text-[20px]">more_vert</span>
                 </button>
             </div>
@@ -490,27 +503,19 @@ function renderPosts(posts, isRefresh = false) {
                     <button onclick="window.handleLike('${post.id}', this)" data-post-id="${post.id}" data-liked="${userHasLiked}" class="like-btn flex items-center justify-center transition-transform active:scale-90 ${userHasLiked ? 'text-red-500' : 'text-on-surface dark:text-gray-100 hover:text-on-surface-variant'}">
                         <span class="material-symbols-outlined text-[26px]" style="font-variation-settings: 'FILL' ${userHasLiked ? 1 : 0};">favorite</span> 
                     </button>
+                    ${!post.disable_comments ? `
                     <button data-post-id="${post.id}" class="comment-btn flex items-center justify-center text-on-surface dark:text-gray-100 transition-transform active:scale-90 hover:text-on-surface-variant">
                         <span class="material-symbols-outlined text-[24px]" style="transform: scaleX(-1);">chat_bubble_outline</span> 
-                    </button>
-                    <button class="flex items-center justify-center text-on-surface dark:text-gray-100 transition-transform active:scale-90 hover:text-on-surface-variant">
-                        <span class="material-symbols-outlined text-[24px] -rotate-45 -mt-1">send</span> 
-                    </button>
+                    </button>` : ''}
                 </div>
+                <button class="flex items-center justify-center text-on-surface dark:text-gray-100 transition-transform active:scale-90 hover:text-on-surface-variant">
+                    <span class="material-symbols-outlined text-[26px]">bookmark_border</span>
+                </button>
             </div>
             
             ${likeCount > 0 ? `<div class="px-3 mb-1 text-[14px] text-on-surface dark:text-gray-100">${likedByHtml}</div>` : ''}
             ${captionHtml}
-            
-            <div class="px-3 mt-1">
-                ${commentsHtml}
-            </div>
-
-            <div class="px-3 mt-2 flex items-center gap-2">
-                <img src="${currentUser?.profile_img_url || 'https://ui-avatars.com/api/?name=User'}" class="w-6 h-6 rounded-full object-cover border border-surface-variant/50 shrink-0">
-                <p data-post-id="${post.id}" class="comment-btn flex-1 text-[13px] text-on-surface-variant dark:text-gray-500 cursor-text">Add a comment...</p>
-            </div>
-
+            ${commentsSectionHtml}
             <p class="px-3 text-[11px] text-on-surface-variant dark:text-gray-500 mt-2 uppercase tracking-wide">${timeAgo(post.created_at)}</p>
         </div>
         `;
@@ -636,15 +641,23 @@ window.openPollVoters = async (postId, optionIndex) => {
     }
 };
 
-function openPostOptions(postId, postOwnerId, isVerified) {
+window.openPostOptions = function(postId, postOwnerId, isVerified, hideLikes, disableComments) {
     const isOwner = currentUser.id === postOwnerId;
     let buttonsHtml = '';
 
     if (isOwner) {
         buttonsHtml = `
-            <button onclick="window.deletePost('${postId}')" class="w-full flex items-center gap-3 p-4 bg-error/10 text-error rounded-2xl font-bold active:scale-95 transition-transform">
-                <span class="material-symbols-outlined">delete</span> Delete Post
-            </button>
+            <div class="flex flex-col">
+                <button onclick="window.togglePostSetting('${postId}', 'hide_likes', ${!hideLikes})" class="w-full flex items-center gap-4 p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-2xl font-bold transition-colors">
+                    <span class="material-symbols-outlined">${hideLikes ? 'visibility' : 'visibility_off'}</span> ${hideLikes ? 'Unhide like count' : 'Hide like count'}
+                </button>
+                <button onclick="window.togglePostSetting('${postId}', 'disable_comments', ${!disableComments})" class="w-full flex items-center gap-4 p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-2xl font-bold transition-colors">
+                    <span class="material-symbols-outlined">${disableComments ? 'chat_bubble' : 'comments_disabled'}</span> ${disableComments ? 'Turn on commenting' : 'Turn off commenting'}
+                </button>
+                <button onclick="window.deletePost('${postId}')" class="w-full flex items-center gap-4 p-4 bg-error/10 text-error rounded-2xl font-bold active:scale-95 transition-transform mt-2">
+                    <span class="material-symbols-outlined">delete</span> Delete Post
+                </button>
+            </div>
         `;
     } else {
         if (isVerified) {
@@ -657,9 +670,23 @@ function openPostOptions(postId, postOwnerId, isVerified) {
             `;
         }
     }
-
     window.openActionSheet(buttonsHtml);
-}
+};
+
+// 🚀 NEW: Engine to process post setting updates instantly
+window.togglePostSetting = async function(postId, column, value) {
+    window.closeActionSheet();
+    const updatePayload = {};
+    updatePayload[column] = value;
+    
+    const { error } = await supabase.from('posts').update(updatePayload).eq('id', postId);
+    if (error) {
+        showToast('Failed to update setting.', 'error');
+    } else {
+        showToast('Setting updated.', 'success');
+        if (typeof window.refreshMainFeed === 'function') window.refreshMainFeed();
+    }
+};
 
 function openCommentOptions(commentId, commentOwnerId) {
     const isOwner = currentUser.id === commentOwnerId;
@@ -942,7 +969,8 @@ function renderSingleComment(comment, isReply) {
     const paddingLeft = isReply ? 'ml-12' : ''; 
     const parentIdAttr = isReply ? `data-parent-id="${comment.parent_comment_id}"` : '';
     
-    let formattedContent = comment.content.replace(/@([\w\u00A0]+)/g, '<span class="text-primary font-bold">@$1</span>');
+   // 🚀 NEW: Interactive Comment Mentions
+    let formattedContent = comment.content.replace(/@([\w\u00A0]+)/g, '<span onclick="event.stopPropagation(); window.searchAndOpenProfile(\'$1\')" class="text-primary font-bold hover:underline cursor-pointer select-none">@$1</span>');
     formattedContent = formattedContent.replace(/\u00A0/g, ' ');
 
     const isLiked = comment.comment_likes && comment.comment_likes.some(like => like.user_id === currentUser.id);
@@ -1407,4 +1435,17 @@ window.handleRSVP = async function(postId, isCurrentlyAttending) {
         if (postEl) postEl.style.opacity = '1';
         window.isRsvping = false;
     }
+};
+
+window.searchAndOpenProfile = async function(fullName) {
+    const cleanName = fullName.replace(/\u00A0/g, ' ').trim();
+    try {
+        const { data, error } = await supabase.from('users').select('id').eq('full_name', cleanName).limit(1).maybeSingle();
+        if (data && data.id) {
+            window.closeCommentsModal();
+            setTimeout(() => window.viewUserProfile(data.id), 200);
+        } else {
+            showToast('User not found', 'error');
+        }
+    } catch(e) { console.error(e); }
 };
