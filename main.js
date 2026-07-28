@@ -1402,14 +1402,15 @@ async function viewUserProfile(userId) {
         renderSocialLinks(user.social_links, document.getElementById('public-profile-social-links'));
         renderProfileActions(user, connection, followRecord);
 
-        // Fetch their Posts Feed
+       // Fetch their Posts Feed
         try {
             const { data: posts, error: postsError } = await supabase
-                .from('posts').select(`*, users ( id, full_name, profile_img_url, role, tick_type ), post_likes ( user_id ), post_comments ( count ), post_poll_votes ( user_id, option_index )`)
+                .from('posts')
+                .select(`*, users ( id, full_name, profile_img_url, role, tick_type ), post_likes ( user_id ), post_comments ( id, content, created_at, is_deleted, parent_comment_id, users(id, full_name, profile_img_url, tick_type) ), post_poll_votes ( user_id, option_id )`)
                 .eq('user_id', userId).eq('is_deleted', false).order('created_at', { ascending: false }).limit(20);
 
             if (postsError) throw postsError;
-
+            
             if (posts.length === 0) {
                 document.getElementById('public-profile-feed').innerHTML = `<div class="py-12 flex flex-col items-center justify-center opacity-40 text-on-surface-variant"><span class="material-symbols-outlined text-[42px] mb-2">photo_camera</span><p class="text-sm font-semibold">No posts yet</p></div>`;
                 return;
@@ -1909,8 +1910,8 @@ window.openSinglePostView = async function(postId) {
                 *,
                 users ( id, full_name, profile_img_url, role, tick_type ),
                 post_likes ( user_id ),
-                post_comments ( count ),
-                post_poll_votes ( user_id, option_index )
+                post_comments ( id, content, created_at, is_deleted, parent_comment_id, users(id, full_name, profile_img_url, tick_type) ),
+                post_poll_votes ( user_id, option_id )
             `)
             .eq('id', postId)
             .eq('is_deleted', false);
