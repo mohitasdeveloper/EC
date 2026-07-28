@@ -498,4 +498,8 @@ input, textarea {
     padding-right: 20px;
     z-index: 1;
 }
-
+/* Prevent text highlighting when tapping mentions */
+.rich-text-content .mention {
+    -webkit-user-select: none !important;
+    user-select: none !important;
+}
