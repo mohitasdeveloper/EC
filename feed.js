@@ -884,10 +884,15 @@ function handleTouchMove(e) {
 
 window.closeCommentsModal = function() {
     const modal = document.getElementById('modal-post-comments');
-    const bottomNav = document.querySelector('nav'); // Use standard selector
+    const bottomNav = document.querySelector('nav'); // Grab generic nav tag
     
     if (modal) modal.classList.replace('flex', 'hidden');
-    if (bottomNav) bottomNav.classList.remove('hidden'); // Revert to classList
+    
+    // 🚀 FORCE RESTORE NAV VISIBILITY: Clear inline styles AND remove hidden class
+    if (bottomNav) {
+        bottomNav.style.display = ''; 
+        bottomNav.classList.remove('hidden'); 
+    }
     
     if (typeof window.cancelReply === 'function') window.cancelReply();
     const input = document.getElementById('post-comment-input');
@@ -898,6 +903,9 @@ window.closeCommentsModal = function() {
     if (typeof currentMentionIds !== 'undefined') currentMentionIds = [];
 };
 
+// ==========================================
+// NATIVE COMMENTS, REPLIES & MENTIONS
+// ==========================================
 let activeReplyCommentId = null;
 let currentMentionIds = [];
 
@@ -913,7 +921,7 @@ window.prepareReply = function(commentId, userName) {
     document.getElementById('replying-to-indicator').classList.remove('hidden');
     
     const input = document.getElementById('post-comment-input');
-    input.value = `@${userName} `; 
+    input.value = `@${userName} `; // Auto-tag the person
     input.focus();
     document.getElementById('send-comment-btn').disabled = false;
 };
@@ -969,56 +977,14 @@ window.insertMention = function(userId, fullName) {
     document.getElementById('comment-mention-list').classList.add('hidden');
     input.focus();
 };
-// --- 1. UPDATED LONG PRESS ENGINE ---
-function handleTouchStart(e) {
-    if (!e.target || typeof e.target.closest !== 'function') return;
 
-    const profileLink = e.target.closest('.profile-link');
-    const dpLink = e.target.closest('.dp-link');
-    const commentBody = e.target.closest('.comment-body'); // 🚀 NEW: Detect comments
-    
-    if (!profileLink && !dpLink && !commentBody) return;
-
-    if (e.touches && e.touches.length > 0) {
-        touchStartX = e.touches[0].clientX;
-        touchStartY = e.touches[0].clientY;
-    } else if (e.clientX !== undefined) {
-        touchStartX = e.clientX;
-        touchStartY = e.clientY;
-    }
-
-    clearTimeout(longPressTimer);
-    window.isLongPressing = false;
-    
-    longPressTimer = setTimeout(() => {
-        window.isLongPressing = true;
-        if (navigator.vibrate) navigator.vibrate(50);
-        
-        if (dpLink) {
-            const imgSrc = dpLink.src || '';
-            window.openDpViewer(imgSrc);
-        } else if (profileLink) {
-            const userId = profileLink.dataset.userId;
-            let imgEl = profileLink;
-            if (profileLink.tagName !== 'IMG') imgEl = profileLink.querySelector('img') || profileLink;
-            if (userId) window.openProfilePeek(userId, imgEl);
-        } else if (commentBody) {
-            // 🚀 NEW: Trigger Action Sheet on Long Press
-            const cId = commentBody.dataset.commentId;
-            const oId = commentBody.dataset.commentOwnerId;
-            if (cId && oId) window.openCommentActionSheet(cId, oId);
-        }
-    }, 400); 
-}
-
-// --- 2. UPDATED COMMENTS MODAL (Loads Profile Pic) ---
 async function openCommentsModal(postId) {
     const modal = document.getElementById('modal-post-comments');
     const list = document.getElementById('post-comments-list');
     const input = document.getElementById('post-comment-input');
-    const bottomNav = document.querySelector('nav.fixed.bottom-0'); 
+    const bottomNav = document.querySelector('nav'); 
     
-    // 🚀 NEW: Load current user profile pic instantly
+    // Load current user profile pic instantly
     const myAvatar = document.getElementById('current-user-comment-avatar');
     if (myAvatar && currentUser) {
         myAvatar.src = typeof optimizeImageUrl === 'function' ? optimizeImageUrl(currentUser.profile_img_url, 'avatar') : currentUser.profile_img_url;
@@ -1030,7 +996,9 @@ async function openCommentsModal(postId) {
     input.style.height = 'auto';
     currentMentionIds = [];
 
-    if (bottomNav) bottomNav.style.display = 'none'; 
+    // HIDE THE NAV
+    if (bottomNav) bottomNav.classList.add('hidden'); 
+    
     modal.classList.replace('hidden', 'flex');
     list.innerHTML = `<p class="text-sm italic text-center py-8 text-on-surface-variant dark:text-gray-400">Loading comments...</p>`;
 
@@ -1056,12 +1024,12 @@ async function openCommentsModal(postId) {
     }
 }
 
-// --- 3. UPDATED RENDER COMMENT (Removed onClick, Added class for Long Press) ---
 function renderSingleComment(comment, isReply) {
     const paddingLeft = isReply ? 'ml-12' : ''; 
     let formattedContent = comment.content.replace(/@([\w\s]+)(?=\s|$)/g, '<span class="text-primary font-bold">@$1</span>');
 
     const isLiked = comment.comment_likes && comment.comment_likes.some(like => like.user_id === currentUser.id);
+    const likeCount = comment.comment_likes ? comment.comment_likes.length : 0;
     const heartClass = isLiked ? 'text-red-500' : 'text-on-surface-variant dark:text-gray-500';
     const heartFill = isLiked ? '1' : '0';
 
@@ -1069,12 +1037,11 @@ function renderSingleComment(comment, isReply) {
         <div class="flex items-start gap-3 mb-4 ${paddingLeft}" data-comment-id="${comment.id}">
             <img onclick="window.viewUserProfile('${comment.users.id}')" src="${comment.users.profile_img_url}" class="w-8 h-8 rounded-full object-cover shrink-0 cursor-pointer mt-1 border border-surface-variant/50">
             
-            <!-- 🚀 FIX: select-none prevents text highlighting, oncontextmenu guarantees native long-press detection -->
             <div class="comment-body flex-1 min-w-0 flex flex-col cursor-pointer select-none active:opacity-60 transition-opacity" 
                  data-comment-id="${comment.id}" 
                  data-comment-owner-id="${comment.user_id}"
                  oncontextmenu="event.preventDefault(); window.openCommentActionSheet('${comment.id}', '${comment.user_id}'); return false;">
-                
+                 
                 <p class="text-[13px] text-on-surface dark:text-gray-100 leading-snug">
                     <span onclick="event.stopPropagation(); window.viewUserProfile('${comment.users.id}')" class="font-extrabold mr-1 hover:underline text-primary">${comment.users.full_name}</span>
                     ${formattedContent}
@@ -1085,16 +1052,19 @@ function renderSingleComment(comment, isReply) {
                 </div>
             </div>
 
-            <div class="flex flex-col items-center justify-start ml-2 mt-1">
-                <button onclick="window.handleCommentLike('${comment.id}', this)" class="${heartClass} hover:text-red-500 transition-colors active:scale-90 flex flex-col items-center p-1">
+            <!-- 🚀 UPDATED: Heart Button + Counter -->
+            <div class="flex flex-col items-center justify-start ml-2 mt-1 shrink-0">
+                <button onclick="window.handleCommentLike('${comment.id}', this)" class="${heartClass} hover:text-red-500 transition-colors active:scale-90 flex flex-col items-center px-2 pt-1 pb-0.5">
                     <span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' ${heartFill};">favorite</span>
                 </button>
+                ${likeCount > 0 ? `<span class="comment-like-count text-[10px] font-medium text-on-surface-variant dark:text-gray-500">${likeCount}</span>` : ''}
             </div>
         </div>
     `;
 }
+
+// 🚀 UPDATED: EXACT INSTAGRAM ACTION SHEET LAYOUT
 window.openCommentActionSheet = function(commentId, commentOwnerId) {
-    // 🚀 FIX: Prevent double-firing
     if (typeof longPressTimer !== 'undefined') clearTimeout(longPressTimer);
     window.isLongPressing = false;
 
@@ -1103,21 +1073,25 @@ window.openCommentActionSheet = function(commentId, commentOwnerId) {
 
     if (isOwner) {
         buttonsHtml = `
-            <div class="px-4 py-3 border-b border-surface-variant/40 dark:border-neutral-800 text-center">
-                <p class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Comment Options</p>
+            <div class="flex flex-col space-y-1">
+                <button class="w-full flex items-center gap-4 px-4 py-3.5 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-2xl font-semibold text-on-surface dark:text-gray-100 transition-colors text-[15px]">
+                    <span class="material-symbols-outlined text-[24px]">send</span> Share
+                </button>
+                <button onclick="window.deleteComment('${commentId}')" class="w-full flex items-center gap-4 px-4 py-3.5 hover:bg-error/10 rounded-2xl font-semibold text-error transition-colors text-[15px]">
+                    <span class="material-symbols-outlined text-[24px]">delete</span> Delete
+                </button>
             </div>
-            <button onclick="window.deleteComment('${commentId}')" class="w-full flex items-center justify-center gap-3 p-4 bg-error/10 text-error rounded-2xl font-bold active:scale-95 transition-transform mt-2">
-                <span class="material-symbols-outlined">delete</span> Delete Comment
-            </button>
         `;
     } else {
         buttonsHtml = `
-            <div class="px-4 py-3 border-b border-surface-variant/40 dark:border-neutral-800 text-center">
-                <p class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Comment Options</p>
+            <div class="flex flex-col space-y-1">
+                <button class="w-full flex items-center gap-4 px-4 py-3.5 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-2xl font-semibold text-on-surface dark:text-gray-100 transition-colors text-[15px]">
+                    <span class="material-symbols-outlined text-[24px]">send</span> Share
+                </button>
+                <button class="w-full flex items-center gap-4 px-4 py-3.5 hover:bg-orange-500/10 rounded-2xl font-semibold text-orange-500 transition-colors text-[15px]">
+                    <span class="material-symbols-outlined text-[24px]">flag</span> Report
+                </button>
             </div>
-            <button class="w-full flex items-center justify-center gap-3 p-4 bg-orange-500/10 text-orange-500 rounded-2xl font-bold active:scale-95 transition-transform mt-2">
-                <span class="material-symbols-outlined">flag</span> Report Comment
-            </button>
         `;
     }
 
@@ -1140,19 +1114,35 @@ window.deleteComment = async (commentId) => {
     }
 };
 
+// 🚀 UPDATED: INSTANT UI INCREMENT FOR COMMENT LIKES
 window.handleCommentLike = async function(commentId, btnElement) {
     const iconSpan = btnElement.querySelector('.material-symbols-outlined');
     const isLiked = btnElement.classList.contains('text-red-500');
+    
+    // Grab the existing count span, or prepare to create one
+    let countSpan = btnElement.parentElement.querySelector('.comment-like-count');
     
     if (isLiked) {
         btnElement.classList.remove('text-red-500');
         btnElement.classList.add('text-on-surface-variant', 'dark:text-gray-500');
         iconSpan.style.fontVariationSettings = "'FILL' 0";
+        
+        if (countSpan) {
+            let count = parseInt(countSpan.textContent) || 1;
+            if (count <= 1) countSpan.remove();
+            else countSpan.textContent = count - 1;
+        }
     } else {
         btnElement.classList.remove('text-on-surface-variant', 'dark:text-gray-500');
         btnElement.classList.add('text-red-500');
         iconSpan.style.fontVariationSettings = "'FILL' 1";
         iconSpan.classList.add('animate-[pulse_0.3s_ease-out]');
+        
+        if (countSpan) {
+            countSpan.textContent = (parseInt(countSpan.textContent) || 0) + 1;
+        } else {
+            btnElement.parentElement.insertAdjacentHTML('beforeend', `<span class="comment-like-count text-[10px] font-medium text-on-surface-variant dark:text-gray-500">1</span>`);
+        }
     }
 
     try {
