@@ -493,8 +493,60 @@
             </button>
             <h2 class="text-xl font-extrabold ml-2 text-on-surface dark:text-gray-100 tracking-tight">Push Notifications</h2>
         </div>
+        
         <div class="flex-1 overflow-y-auto px-5 py-6">
-            <p class="text-sm text-on-surface-variant dark:text-gray-400 mb-4">Manage alerts from Official Pages you follow.</p>
+            
+            <h4 class="text-[12px] font-bold text-primary uppercase tracking-wider mb-2">Global Settings</h4>
+            
+            <div class="space-y-2 mb-6">
+                <div class="flex items-center justify-between p-4 bg-surface-variant/10 dark:bg-neutral-900/30 rounded-2xl">
+                    <div class="flex items-center gap-3 text-on-surface dark:text-gray-200">
+                        <span class="material-symbols-outlined text-[24px]">favorite</span>
+                        <span class="text-[15px] font-bold">Likes</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="push-toggle-likes" onchange="window.toggleGlobalPushSetting('likes', this.checked)" class="sr-only peer">
+                        <div class="w-11 h-6 bg-surface-variant dark:bg-neutral-700 rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                    </label>
+                </div>
+                
+                <div class="flex items-center justify-between p-4 bg-surface-variant/10 dark:bg-neutral-900/30 rounded-2xl">
+                    <div class="flex items-center gap-3 text-on-surface dark:text-gray-200">
+                        <span class="material-symbols-outlined text-[24px]">chat_bubble</span>
+                        <span class="text-[15px] font-bold">Comments & Replies</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="push-toggle-comments" onchange="window.toggleGlobalPushSetting('comments', this.checked)" class="sr-only peer">
+                        <div class="w-11 h-6 bg-surface-variant dark:bg-neutral-700 rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                    </label>
+                </div>
+                
+                <div class="flex items-center justify-between p-4 bg-surface-variant/10 dark:bg-neutral-900/30 rounded-2xl">
+                    <div class="flex items-center gap-3 text-on-surface dark:text-gray-200">
+                        <span class="material-symbols-outlined text-[24px]">alternate_email</span>
+                        <span class="text-[15px] font-bold">Mentions</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="push-toggle-mentions" onchange="window.toggleGlobalPushSetting('mentions', this.checked)" class="sr-only peer">
+                        <div class="w-11 h-6 bg-surface-variant dark:bg-neutral-700 rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                    </label>
+                </div>
+
+                <div class="flex items-center justify-between p-4 bg-surface-variant/10 dark:bg-neutral-900/30 rounded-2xl">
+                    <div class="flex items-center gap-3 text-on-surface dark:text-gray-200">
+                        <span class="material-symbols-outlined text-[24px]">group_add</span>
+                        <span class="text-[15px] font-bold">Connections</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="push-toggle-connections" onchange="window.toggleGlobalPushSetting('connections', this.checked)" class="sr-only peer">
+                        <div class="w-11 h-6 bg-surface-variant dark:bg-neutral-700 rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                    </label>
+                </div>
+            </div>
+
+            <div class="my-6 border-t border-surface-variant/40 dark:border-neutral-800"></div>
+
+            <h4 class="text-[12px] font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider mb-2">Pages You Follow</h4>
             <div id="notification-settings-list" class="space-y-2">
                 <!-- Managed via JS -->
             </div>
