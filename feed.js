@@ -438,12 +438,12 @@ function renderPosts(posts, isRefresh = false) {
             const comments = (post.post_comments || []).filter(c => !c.is_deleted);
             const commentCount = comments.length;
             let commentsHtml = '';
-            if (commentCount > 0) {
+           if (commentCount > 0) {
                 const previewCount = commentCount > 1 ? `View all ${commentCount} comments` : 'View 1 comment';
                 commentsHtml = `<p data-post-id="${post.id}" class="comment-btn text-[14px] text-on-surface-variant dark:text-gray-400 mt-1 cursor-pointer active:opacity-70">${previewCount}</p>`;
                 
                 const latestComment = comments[comments.length - 1];
-                if (latestComment) {
+                if (latestComment && latestComment.content) {
                     const cleanComment = latestComment.content.replace(/<[^>]*>?/gm, '').replace(/\u00A0/g, ' ');
                     commentsHtml += `<p class="text-[14px] text-on-surface dark:text-gray-100 mt-1 leading-snug"><span class="font-bold mr-1 cursor-pointer">${latestComment.users?.full_name || 'User'}</span><span class="text-on-surface-variant dark:text-gray-300">${cleanComment}</span></p>`;
                 }
@@ -917,7 +917,7 @@ window.insertMention = function(userId, fullName) {
     input.focus();
 };
 
-async function openCommentsModal(postId) {
+window.openCommentsModal = async function(postId) {
     const modal = document.getElementById('modal-post-comments');
     const list = document.getElementById('post-comments-list');
     const input = document.getElementById('post-comment-input');
@@ -963,7 +963,7 @@ async function openCommentsModal(postId) {
     } catch (error) {
         list.innerHTML = `<p class="text-sm italic text-center py-8 text-error">Failed to load comments.</p>`;
     }
-}
+};
 
 function renderSingleComment(comment, isReply) {
     const paddingLeft = isReply ? 'ml-12' : ''; 
