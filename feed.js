@@ -1169,53 +1169,7 @@ window.handleCommentLike = async function(commentId, btnElement) {
     } catch(e) { console.error(e); }
 };
 
-async function submitComment(postId) {
-    const input = document.getElementById('post-comment-input');
-    const content = input.value.trim();
-    if (!content) return;
 
-    const btn = document.getElementById('send-comment-btn');
-    btn.disabled = true;
-    btn.innerHTML = `<span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>`;
-
-    const payload = {
-        post_id: postId,
-        user_id: currentUser.id,
-        content: content,
-        mentioned_user_ids: currentMentionIds
-    };
-    if (activeReplyCommentId) payload.parent_comment_id = activeReplyCommentId;
-
-    const { error } = await supabase.from('post_comments').insert(payload);
-
-    if (error) {
-        showToast('Failed to post comment.', 'error');
-    } else {
-        input.value = '';
-        input.style.height = 'auto';
-        window.cancelReply();
-        currentMentionIds = [];
-        
-        openCommentsModal(postId); 
-        
-        // 🚀 CRITICAL FIX: Safe Counter Update
-        const commentBtns = document.querySelectorAll(`.comment-btn[data-post-id="${postId}"]`);
-        commentBtns.forEach(commentBtn => {
-            const html = commentBtn.innerHTML;
-            if (html.includes('View')) {
-                const countMatch = html.match(/\d+/);
-                if (countMatch) {
-                    commentBtn.innerHTML = `View all ${parseInt(countMatch[0]) + 1} comments`;
-                } else if (html.includes('View 1 comment')) {
-                    commentBtn.innerHTML = `View all 2 comments`;
-                }
-            }
-        });
-    }
-    
-    btn.disabled = false;
-    btn.innerHTML = 'Post';
-}
 
 document.getElementById('send-comment-btn')?.addEventListener('click', () => {
     submitComment(document.getElementById('send-comment-btn').dataset.postId);
