@@ -127,8 +127,8 @@ async function setupPushNotifications() {
             setTimeout(() => {
                 if (data.type.startsWith('post_') && data.target_id) {
                     window.openSinglePostView(data.target_id);
-                    // Open comments automatically if it's a comment interaction
-                    if (['post_comment', 'comment_reply', 'comment_like', 'post_mention', 'comment_mention'].includes(data.type)) {
+                    // 🚀 FIX: Only open comments if it is a specific comment action (Removed 'post_mention')
+                    if (['post_comment', 'comment_reply', 'comment_like', 'comment_mention'].includes(data.type)) {
                         setTimeout(() => window.openCommentsModal(data.target_id), 500);
                     }
                 } 
@@ -329,8 +329,8 @@ async function handleNotificationClick(notif, element) {
             // Open the post immediately
             setTimeout(() => window.openSinglePostView(notif.target_id), 150);
 
-            // Open comments automatically if it's a comment interaction
-            if (['post_comment', 'comment_reply', 'comment_like', 'post_mention', 'comment_mention'].includes(notif.type)) {
+            // 🚀 FIX: Open comments automatically only if it's a comment interaction (Removed 'post_mention')
+            if (['post_comment', 'comment_reply', 'comment_like', 'comment_mention'].includes(notif.type)) {
                 setTimeout(() => window.openCommentsModal(notif.target_id), 500);
             }
 
