@@ -2498,7 +2498,40 @@ window.executeDeleteAccount = async function() {
 };
 
 // 4. Manage Notification Settings
+// 🚀 NEW: Update global push settings in JSONB
+window.toggleGlobalPushSetting = async function(category, isEnabled) {
+    // Treat undefined/null as empty object
+    const currentSettings = currentUserProfile.push_settings || {};
+    currentSettings[category] = isEnabled;
+
+    try {
+        const { error } = await supabase
+            .from('users')
+            .update({ push_settings: currentSettings })
+            .eq('id', currentUserProfile.id);
+
+        if (error) throw error;
+        currentUserProfile.push_settings = currentSettings;
+        
+        // No toast needed here, iOS/Instagram style is silent toggle success
+    } catch (err) {
+        console.error(err);
+        showToast('Failed to update setting', 'error');
+        // Revert UI if DB fails
+        document.getElementById(`push-toggle-${category}`).checked = !isEnabled;
+    }
+};
+
 window.fetchNotificationSettings = async function() {
+    // 1. Sync the state of the Global Toggles
+    const settings = currentUserProfile.push_settings || {};
+    // If setting is undefined, assume TRUE (default on)
+    document.getElementById('push-toggle-likes').checked = settings.likes !== false;
+    document.getElementById('push-toggle-comments').checked = settings.comments !== false;
+    document.getElementById('push-toggle-mentions').checked = settings.mentions !== false;
+    document.getElementById('push-toggle-connections').checked = settings.connections !== false;
+
+    // 2. Fetch specific Page Toggles (Existing Logic)
     const list = document.getElementById('notification-settings-list');
     list.innerHTML = `<p class="text-sm italic text-center py-4 text-on-surface-variant dark:text-gray-400">Loading...</p>`;
 
@@ -2522,7 +2555,7 @@ window.fetchNotificationSettings = async function() {
                     <p class="font-bold text-[14px] text-on-surface dark:text-gray-100">${item.users.full_name}</p>
                 </div>
                 <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" onchange="togglePageBell('${item.page_id}', this.checked)" class="sr-only peer" ${item.receive_notifications ? 'checked' : ''}>
+                    <input type="checkbox" onchange="window.togglePageBell('${item.page_id}', this.checked)" class="sr-only peer" ${item.receive_notifications ? 'checked' : ''}>
                     <div class="w-11 h-6 bg-surface-variant dark:bg-neutral-700 rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                 </label>
             </div>
@@ -2533,7 +2566,6 @@ window.fetchNotificationSettings = async function() {
         list.innerHTML = `<p class="text-sm text-center py-4 text-error">Failed to load settings.</p>`;
     }
 };
-
 window.togglePageBell = async function(pageId, notifyState) {
     try {
         await supabase.rpc('toggle_page_notifications', { p_page_id: pageId, p_follower_id: currentUserProfile.id, p_notify: notifyState });
