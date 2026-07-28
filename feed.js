@@ -524,40 +524,43 @@ function renderPosts(posts, isRefresh = false) {
     if (isRefresh) container.innerHTML = htmlString;
     else container.insertAdjacentHTML('beforeend', htmlString);
 }
-
-// 🚀 UPDATED: Removed manual notification logic (Database Triggers handle it now)
+// 🚀 INSTANT POST LIKE ENGINE
 window.handleLike = async function(postId, btnElement) {
     if (!currentUser) return; 
     
-    const isLiked = btnElement.dataset.liked === 'true';
+    // Check if the heart is currently red
+    const isLiked = btnElement.classList.contains('text-red-500');
     const nextLikedState = !isLiked;
 
+    // Update ALL instances of this post's like button instantly
     const likeBtns = document.querySelectorAll(`.like-btn[data-post-id="${postId}"]`);
     
     likeBtns.forEach(likeBtn => {
         likeBtn.dataset.liked = nextLikedState.toString();
-
-        const container = likeBtn.parentElement.parentElement.parentElement; 
-        const countSpan = container ? container.querySelector('.like-count-text') : null;
         const iconSpan = likeBtn.querySelector('.material-symbols-outlined');
-        
-        if (countSpan) {
-            let currentCount = parseInt(countSpan.textContent.trim()) || 0;
-            countSpan.textContent = nextLikedState ? currentCount + 1 : Math.max(0, currentCount - 1);
-        }
         
         if (iconSpan) {
             if (nextLikedState) {
-                likeBtn.className = "like-btn flex items-center justify-center transition-colors active:scale-90 text-red-500";
+                // Instantly turn red & fill
+                likeBtn.classList.remove('text-on-surface', 'dark:text-gray-100', 'hover:text-on-surface-variant');
+                likeBtn.classList.add('text-red-500');
+                iconSpan.style.fontVariationSettings = "'FILL' 1";
+                
+                // Force animation to play smoothly
+                iconSpan.classList.remove('animate-[pulse_0.3s_ease-out]');
+                void iconSpan.offsetWidth; // Trigger browser reflow
                 iconSpan.classList.add('animate-[pulse_0.3s_ease-out]');
             } else {
-                likeBtn.className = "like-btn flex items-center justify-center transition-colors active:scale-90 text-on-surface dark:text-gray-100 hover:text-on-surface-variant";
+                // Instantly revert to outline
+                likeBtn.classList.remove('text-red-500');
+                likeBtn.classList.add('text-on-surface', 'dark:text-gray-100', 'hover:text-on-surface-variant');
+                iconSpan.style.fontVariationSettings = "'FILL' 0";
                 iconSpan.classList.remove('animate-[pulse_0.3s_ease-out]');
             }
-            iconSpan.style.fontVariationSettings = `'FILL' ${nextLikedState ? 1 : 0}`;
         }
     });
 
+    // Sync with database silently in background
     try {
         if (!nextLikedState) {
             await supabase.from('post_likes').delete().match({ post_id: postId, user_id: currentUser.id });
@@ -1157,12 +1160,11 @@ window.deleteComment = async (commentId) => {
     }
 };
 
-// 🚀 UPDATED: INSTANT UI INCREMENT FOR COMMENT LIKES
+// 🚀 INSTANT COMMENT LIKE ENGINE
 window.handleCommentLike = async function(commentId, btnElement) {
     const iconSpan = btnElement.querySelector('.material-symbols-outlined');
     const isLiked = btnElement.classList.contains('text-red-500');
     
-    // Grab the existing count span, or prepare to create one
     let countSpan = btnElement.parentElement.querySelector('.comment-like-count');
     
     if (isLiked) {
@@ -1179,6 +1181,10 @@ window.handleCommentLike = async function(commentId, btnElement) {
         btnElement.classList.remove('text-on-surface-variant', 'dark:text-gray-500');
         btnElement.classList.add('text-red-500');
         iconSpan.style.fontVariationSettings = "'FILL' 1";
+        
+        // Force animation to play smoothly
+        iconSpan.classList.remove('animate-[pulse_0.3s_ease-out]');
+        void iconSpan.offsetWidth; // Trigger browser reflow
         iconSpan.classList.add('animate-[pulse_0.3s_ease-out]');
         
         if (countSpan) {
@@ -1189,12 +1195,10 @@ window.handleCommentLike = async function(commentId, btnElement) {
     }
 
     try {
-        if (!isLiked) await supabase.from('comment_likes').insert({ comment_id: commentId, user_id: currentUser.id });
-        else await supabase.from('comment_likes').delete().match({ comment_id: commentId, user_id: currentUser.id });
+        if (isLiked) await supabase.from('comment_likes').delete().match({ comment_id: commentId, user_id: currentUser.id });
+        else await supabase.from('comment_likes').insert({ comment_id: commentId, user_id: currentUser.id });
     } catch(e) { console.error(e); }
 };
-
-
 
 document.getElementById('send-comment-btn')?.addEventListener('click', () => {
     submitComment(document.getElementById('send-comment-btn').dataset.postId);
