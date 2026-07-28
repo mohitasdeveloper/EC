@@ -334,7 +334,7 @@ async function fetchPosts(isRefresh = false) {
                 *,
                 users!inner(id, full_name, profile_img_url, tick_type, role, is_deleted, is_deactivated),
                 post_likes(user_id, users(full_name)),
-                post_comments(id, content, created_at, users(full_name)),
+                post_comments(id, content, created_at, is_deleted, parent_comment_id, users(id, full_name, profile_img_url, tick_type)),
                 post_polls(*),
                 post_poll_votes(user_id, option_id),
                 post_events(*),
@@ -417,7 +417,8 @@ function renderPosts(posts, isRefresh = false) {
             }
         }
 
-        const comments = post.post_comments || [];
+        // 🚀 FIX: Ignore deleted comments!
+        const comments = (post.post_comments || []).filter(c => !c.is_deleted);
         const commentCount = comments.length;
         let commentsHtml = '';
         if (commentCount > 0) {
@@ -426,7 +427,7 @@ function renderPosts(posts, isRefresh = false) {
             
             const latestComment = comments[comments.length - 1];
             if (latestComment) {
-                const cleanComment = latestComment.content.replace(/<[^>]*>?/gm, '');
+                const cleanComment = latestComment.content.replace(/<[^>]*>?/gm, '').replace(/\u00A0/g, ' ');
                 commentsHtml += `<p class="text-[14px] text-on-surface dark:text-gray-100 mt-1 leading-snug"><span class="font-bold mr-1 cursor-pointer">${latestComment.users?.full_name || 'User'}</span><span class="text-on-surface-variant dark:text-gray-300">${cleanComment}</span></p>`;
             }
         }
@@ -436,14 +437,12 @@ function renderPosts(posts, isRefresh = false) {
         const optimizedAvatar = typeof optimizeImageUrl === 'function' ? optimizeImageUrl(rawAvatarUrl, 'avatar') : rawAvatarUrl;
         const headerIcon = `<img loading="lazy" src="${optimizedAvatar}" data-user-id="${user.id}" class="profile-link w-8 h-8 rounded-full border border-surface-variant shadow-sm object-cover cursor-pointer hover:opacity-80 transition-opacity shrink-0">`;
 
-        // 🚀 THE TEXT POST UI FIX
         let cleanCaptionContent = '';
         if (post.content && post.content.trim() !== '' && post.content !== '<p><br></p>') {
             cleanCaptionContent = post.content.replace(/^<p>/, '').replace(/<\/p>$/, '').trim();
         }
 
         let contentHtml = '';
-        
         if (post.post_type === 'text') {
             if (cleanCaptionContent !== '') {
                 contentHtml = `
@@ -452,93 +451,11 @@ function renderPosts(posts, isRefresh = false) {
                     </div>
                 `;
             }
-            cleanCaptionContent = ''; // Clear it so it doesn't render twice!
+            cleanCaptionContent = ''; 
         }
         else if (post.post_type === 'image') {
             const optimizedMedia = typeof optimizeImageUrl === 'function' ? optimizeImageUrl(post.media_url, 'feed') : post.media_url;
-            contentHtml = `
-                <div class="w-full bg-surface-variant/20 dark:bg-neutral-900 flex items-center justify-center border-y border-surface-variant/40 dark:border-neutral-800 mt-2">
-                    <img loading="lazy" src="${optimizedMedia}" class="w-full h-auto max-h-[80vh] object-cover">
-                </div>
-            `;
-        }
-        else if (post.post_type === 'event') {
-            const event = post.post_events && post.post_events.length > 0 ? post.post_events[0] : null;
-            if (event) {
-                const optimizedEventMedia = typeof optimizeImageUrl === 'function' && event.event_image_url ? optimizeImageUrl(event.event_image_url, 'feed') : event.event_image_url;
-                const eventImgHtml = event.event_image_url ? `<img loading="lazy" src="${optimizedEventMedia}" class="w-full h-auto max-h-[80vh] object-cover border-y border-surface-variant/40 dark:border-neutral-800 mt-2">` : '';
-                const dateStr = event.event_date ? new Date(event.event_date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'TBA';
-                
-                let actionHtml = '';
-                if (event.show_register_btn && event.register_url) {
-                    actionHtml = `<a href="${event.register_url}" target="_blank" class="block w-full mt-3 bg-secondary text-white text-center py-2 rounded-xl text-[13px] font-bold active:scale-95 transition-transform">View Link</a>`;
-                } else if (event.enable_rsvp) {
-                    const rsvps = post.post_event_rsvps || [];
-                    const isAttending = !!rsvps.find(r => r.user_id === currentUser.id);
-                    const btnClass = isAttending ? 'bg-surface-variant/50 text-on-surface dark:text-gray-100' : 'bg-primary text-white';
-                    const btnText = isAttending ? '✓ Attending' : 'RSVP Now';
-                    actionHtml = `<button onclick="window.handleRSVP('${post.id}', ${isAttending})" class="block w-full mt-3 ${btnClass} text-center py-2 rounded-xl text-[13px] font-bold active:scale-95 transition-all">${btnText}</button>`;
-                }
-
-                contentHtml = `
-                    ${eventImgHtml}
-                    <div class="px-3 py-3 bg-secondary/5 border-b border-secondary/20 dark:border-neutral-800">
-                        <div class="bg-secondary/10 text-secondary w-max px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest mb-2">Upcoming Event</div>
-                        <div class="space-y-1">
-                            <p class="text-[13px] text-on-surface-variant dark:text-gray-300 flex items-center gap-2 font-medium">
-                                <span class="material-symbols-outlined text-[16px]">calendar_today</span> ${dateStr}
-                            </p>
-                            ${event.event_location ? `<p class="text-[13px] text-on-surface-variant dark:text-gray-300 flex items-center gap-2 font-medium"><span class="material-symbols-outlined text-[16px]">location_on</span> ${event.event_location}</p>` : ''}
-                        </div>
-                        ${actionHtml}
-                    </div>
-                `;
-            }
-        }
-        else if (post.post_type === 'poll') {
-            const poll = post.post_polls && post.post_polls.length > 0 ? post.post_polls[0] : null;
-            if (poll) {
-                const votes = post.post_poll_votes || [];
-                const totalVotes = votes.length;
-                const myVotes = votes.filter(v => v.user_id === currentUser.id).map(v => v.option_id);
-                const userHasVoted = myVotes.length > 0;
-                
-                const postExpired = new Date(post.expires_at) < new Date();
-                const isEnded = postExpired || poll.is_ended_early;
-                const showResults = userHasVoted || isEnded || poll.voters_list_visibility === 'public';
-
-                const optionsHtml = (poll.options || []).map((opt) => {
-                    const optVotes = votes.filter(v => v.option_id === opt.id).length;
-                    const percentage = totalVotes === 0 ? 0 : Math.round((optVotes / totalVotes) * 100);
-                    const iVotedForThis = myVotes.includes(opt.id);
-                    const isClickable = !isEnded && (!userHasVoted || poll.can_undo_vote || poll.is_multiple_choice);
-                    
-                    return `
-                    <div onclick="${isClickable ? `window.handlePollVote('${post.id}', '${opt.id}', ${iVotedForThis})` : ''}" 
-                         class="poll-option-btn ${isClickable ? 'cursor-pointer active:scale-[0.98]' : 'cursor-default'} relative w-full bg-surface-variant/30 dark:bg-surface-variant/10 border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 overflow-hidden transition-all mb-2">
-                        <div class="poll-progress-bar absolute left-0 top-0 bottom-0 bg-primary/20 rounded-r-xl transition-all duration-700 ease-out" style="width: ${showResults ? percentage : 0}%"></div>
-                        <div class="relative flex justify-between items-center text-[13px] font-bold text-on-surface dark:text-gray-100 z-10">
-                            <span class="flex items-center gap-2">
-                                <span class="poll-check-circle w-4 h-4 rounded-full border-2 ${iVotedForThis ? 'border-primary flex items-center justify-center' : 'border-surface-variant/80'}">
-                                    ${iVotedForThis ? '<span class="w-2 h-2 rounded-full bg-primary"></span>' : ''}
-                                </span>
-                                ${opt.text}
-                            </span>
-                            <span class="poll-percentage ${showResults ? 'opacity-100' : 'opacity-0'} transition-opacity">${percentage}%</span>
-                        </div>
-                    </div>`;
-                }).join('');
-
-                contentHtml = `
-                    <div class="px-3 py-3 border-y border-surface-variant/40 dark:border-neutral-800 bg-surface-variant/5 dark:bg-neutral-900/30 mt-2">
-                        <div class="poll-options-wrapper space-y-2 mb-2">${optionsHtml}</div>
-                        <div class="flex justify-between text-[11px] font-medium text-on-surface-variant dark:text-gray-400">
-                            <span><span class="poll-total-votes">${totalVotes}</span> votes</span>
-                            <span>${isEnded ? 'Ended' : `Ends ${timeAgo(post.expires_at)}`}</span>
-                        </div>
-                    </div>
-                `;
-            }
+            contentHtml = `<div class="w-full bg-surface-variant/20 dark:bg-neutral-900 flex items-center justify-center border-y border-surface-variant/40 dark:border-neutral-800 mt-2"><img loading="lazy" src="${optimizedMedia}" class="w-full h-auto max-h-[80vh] object-cover"></div>`;
         }
 
         let captionHtml = '';
@@ -552,17 +469,14 @@ function renderPosts(posts, isRefresh = false) {
 
         return `
         <div data-post-id="${post.id}" class="bg-surface dark:bg-[#121212] mb-6 animate-fadeIn pb-4 border-b border-surface-variant/40 dark:border-neutral-800 relative">
-            
             ${post.is_verified ? '<div class="absolute top-3 right-3 bg-[#e8b339] text-white px-2 py-0.5 rounded text-[9px] font-extrabold uppercase shadow-sm z-10"><span class="material-symbols-outlined text-[12px] align-middle">stars</span> Verified</div>' : ''}
 
-            <!-- HEADER -->
             <div class="flex items-center gap-3 px-3 py-2">
                 ${headerIcon}
                 <div class="flex-1 min-w-0">
                     <h4 data-user-id="${user.id}" class="profile-link font-bold text-[14px] text-on-surface dark:text-gray-100 leading-tight cursor-pointer hover:text-primary transition-colors flex items-center gap-1 truncate">
                         ${user.full_name} ${verifiedBadge}
                     </h4>
-                    ${post.post_events && post.post_events.length > 0 && post.post_events[0].event_location ? `<p class="text-[11px] text-on-surface-variant dark:text-gray-400 mt-0.5 truncate">${post.post_events[0].event_location}</p>` : ''}
                 </div>
                 <button data-post-id="${post.id}" data-user-id="${user.id}" data-is-verified="${post.is_verified}" class="post-options-btn text-on-surface dark:text-gray-100 p-1.5 active:opacity-60 transition-opacity">
                     <span class="material-symbols-outlined text-[20px]">more_vert</span>
@@ -571,7 +485,6 @@ function renderPosts(posts, isRefresh = false) {
             
             ${contentHtml}
             
-            <!-- ACTION BAR -->
             <div class="flex items-center justify-between px-3 pt-2 pb-1 mt-1">
                 <div class="flex items-center gap-4">
                     <button onclick="window.handleLike('${post.id}', this)" data-post-id="${post.id}" data-liked="${userHasLiked}" class="like-btn flex items-center justify-center transition-transform active:scale-90 ${userHasLiked ? 'text-red-500' : 'text-on-surface dark:text-gray-100 hover:text-on-surface-variant'}">
@@ -584,9 +497,6 @@ function renderPosts(posts, isRefresh = false) {
                         <span class="material-symbols-outlined text-[24px] -rotate-45 -mt-1">send</span> 
                     </button>
                 </div>
-                <button class="flex items-center justify-center text-on-surface dark:text-gray-100 transition-transform active:scale-90 hover:text-on-surface-variant">
-                    <span class="material-symbols-outlined text-[26px]">bookmark_border</span>
-                </button>
             </div>
             
             ${likeCount > 0 ? `<div class="px-3 mb-1 text-[14px] text-on-surface dark:text-gray-100">${likedByHtml}</div>` : ''}
@@ -882,25 +792,25 @@ function handleTouchMove(e) {
 // COMMENTS 
 // ==========================================
 
+// 🚀 FULL SCREEN MODAL TRANSITIONS
 window.closeCommentsModal = function() {
     const modal = document.getElementById('modal-post-comments');
-    const bottomNav = document.querySelector('nav'); // Grab generic nav tag
+    const bottomNav = document.querySelector('nav');
     
-    if (modal) modal.classList.replace('flex', 'hidden');
+    if (modal) modal.classList.add('translate-x-full');
     
-    // 🚀 FORCE RESTORE NAV VISIBILITY: Clear inline styles AND remove hidden class
-    if (bottomNav) {
-        bottomNav.style.display = ''; 
-        bottomNav.classList.remove('hidden'); 
-    }
+    setTimeout(() => {
+        if (modal) modal.classList.replace('flex', 'hidden');
+        if (bottomNav) {
+            bottomNav.style.display = ''; 
+            bottomNav.classList.remove('hidden'); 
+        }
+    }, 300);
     
     if (typeof window.cancelReply === 'function') window.cancelReply();
     const input = document.getElementById('post-comment-input');
-    if (input) {
-        input.value = '';
-        input.style.height = 'auto';
-    }
-    if (typeof currentMentionIds !== 'undefined') currentMentionIds = [];
+    if (input) { input.value = ''; input.style.height = 'auto'; }
+    currentMentionIds = [];
 };
 
 // ==========================================
@@ -986,7 +896,6 @@ async function openCommentsModal(postId) {
     const input = document.getElementById('post-comment-input');
     const bottomNav = document.querySelector('nav'); 
     
-    // Load current user profile pic instantly
     const myAvatar = document.getElementById('current-user-comment-avatar');
     if (myAvatar && currentUser) {
         myAvatar.src = typeof optimizeImageUrl === 'function' ? optimizeImageUrl(currentUser.profile_img_url, 'avatar') : currentUser.profile_img_url;
@@ -998,14 +907,17 @@ async function openCommentsModal(postId) {
     input.style.height = 'auto';
     currentMentionIds = [];
 
-    // HIDE THE NAV
-    if (bottomNav) bottomNav.classList.add('hidden'); 
-    
+    if (bottomNav) bottomNav.style.display = 'none'; 
     modal.classList.replace('hidden', 'flex');
+    setTimeout(() => modal.classList.remove('translate-x-full'), 10);
+    
     list.innerHTML = `<p class="text-sm italic text-center py-8 text-on-surface-variant dark:text-gray-400">Loading comments...</p>`;
 
     try {
-        const { data, error } = await supabase.from('post_comments').select('*, users(id, full_name, profile_img_url, tick_type), comment_likes(user_id)').eq('post_id', postId).eq('is_deleted', false).order('created_at', { ascending: true });
+        const { data, error } = await supabase.from('post_comments')
+            .select('*, users(id, full_name, profile_img_url, tick_type), comment_likes(user_id)')
+            .eq('post_id', postId).eq('is_deleted', false).order('created_at', { ascending: true });
+            
         if (error) throw error;
 
         if (data.length === 0) {
@@ -1030,7 +942,6 @@ function renderSingleComment(comment, isReply) {
     const paddingLeft = isReply ? 'ml-12' : ''; 
     const parentIdAttr = isReply ? `data-parent-id="${comment.parent_comment_id}"` : '';
     
-    // 🚀 FIX: Only highlight the bound name, then convert the non-breaking space back to normal for display
     let formattedContent = comment.content.replace(/@([\w\u00A0]+)/g, '<span class="text-primary font-bold">@$1</span>');
     formattedContent = formattedContent.replace(/\u00A0/g, ' ');
 
@@ -1067,14 +978,27 @@ function renderSingleComment(comment, isReply) {
         </div>
     `;
 }
+// 🚀 HIGHLIGHTED ACTION SHEET
 window.openCommentActionSheet = function(commentId, commentOwnerId) {
     if (typeof longPressTimer !== 'undefined') clearTimeout(longPressTimer);
     window.isLongPressing = false;
 
     const isOwner = currentUser.id === commentOwnerId;
     const card = document.getElementById('comment-options-card');
-    let buttonsHtml = '';
+    const highlightContainer = document.getElementById('highlighted-comment-container');
+    
+    // Create Visual Highlight of the comment
+    const originalComment = document.querySelector(`div[data-comment-id="${commentId}"]`);
+    if (originalComment && highlightContainer) {
+        const clone = originalComment.cloneNode(true);
+        clone.className = "flex items-start gap-3"; 
+        const likeBtn = clone.querySelector('button');
+        if (likeBtn) likeBtn.parentElement.remove(); // Remove heart in the popup preview
+        highlightContainer.innerHTML = '';
+        highlightContainer.appendChild(clone);
+    }
 
+    let buttonsHtml = '';
     if (isOwner) {
         buttonsHtml = `
             <button class="w-full flex items-center gap-4 px-5 py-4 hover:bg-surface-variant/30 dark:hover:bg-white/5 font-semibold text-on-surface dark:text-gray-100 transition-colors border-b border-surface-variant/50 dark:border-white/10 text-[15px]">
@@ -1098,21 +1022,80 @@ window.openCommentActionSheet = function(commentId, commentOwnerId) {
     card.innerHTML = buttonsHtml;
 
     const modal = document.getElementById('modal-comment-options');
+    const wrapper = document.getElementById('comment-options-wrapper');
     modal.classList.replace('hidden', 'flex');
     modal.style.pointerEvents = 'auto';
     setTimeout(() => {
         modal.classList.remove('opacity-0');
-        card.classList.remove('scale-95');
+        wrapper.classList.remove('scale-95');
     }, 10);
 };
 
 window.closeCommentActionSheet = function() {
     const modal = document.getElementById('modal-comment-options');
-    const card = document.getElementById('comment-options-card');
+    const wrapper = document.getElementById('comment-options-wrapper');
     
     modal.style.pointerEvents = 'none';
     modal.classList.add('opacity-0');
-    card.classList.add('scale-95');
+    wrapper.classList.add('scale-95');
+    setTimeout(() => modal.classList.replace('flex', 'hidden'), 200);
+};
+
+// 🚀 FIX: Nan Bug Fix on Submit!
+async function submitComment(postId) {
+    const input = document.getElementById('post-comment-input');
+    const content = input.value.trim();
+    if (!content) return;
+
+    const btn = document.getElementById('send-comment-btn');
+    btn.disabled = true;
+    btn.innerHTML = `<span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>`;
+
+    const payload = {
+        post_id: postId,
+        user_id: currentUser.id,
+        content: content,
+        mentioned_user_ids: currentMentionIds
+    };
+    if (activeReplyCommentId) payload.parent_comment_id = activeReplyCommentId;
+
+    const { error } = await supabase.from('post_comments').insert(payload);
+
+    if (error) {
+        showToast('Failed to post comment.', 'error');
+    } else {
+        input.value = '';
+        input.style.height = 'auto';
+        window.cancelReply();
+        currentMentionIds = [];
+        
+        openCommentsModal(postId); 
+        
+        // 🚀 CRITICAL FIX: Safe Counter Update
+        const commentBtns = document.querySelectorAll(`.comment-btn[data-post-id="${postId}"]`);
+        commentBtns.forEach(commentBtn => {
+            const html = commentBtn.innerHTML;
+            if (html.includes('View')) {
+                const countMatch = html.match(/\d+/);
+                if (countMatch) {
+                    commentBtn.innerHTML = `View all ${parseInt(countMatch[0]) + 1} comments`;
+                } else if (html.includes('View 1 comment')) {
+                    commentBtn.innerHTML = `View all 2 comments`;
+                }
+            }
+        });
+    }
+    
+    btn.disabled = false;
+    btn.innerHTML = 'Post';
+}
+window.closeCommentActionSheet = function() {
+    const modal = document.getElementById('modal-comment-options');
+    const wrapper = document.getElementById('comment-options-wrapper');
+    
+    modal.style.pointerEvents = 'none';
+    modal.classList.add('opacity-0');
+    wrapper.classList.add('scale-95');
     setTimeout(() => modal.classList.replace('flex', 'hidden'), 200);
 };
 
@@ -1201,10 +1184,7 @@ async function submitComment(postId) {
         content: content,
         mentioned_user_ids: currentMentionIds
     };
-    
-    if (activeReplyCommentId) {
-        payload.parent_comment_id = activeReplyCommentId;
-    }
+    if (activeReplyCommentId) payload.parent_comment_id = activeReplyCommentId;
 
     const { error } = await supabase.from('post_comments').insert(payload);
 
@@ -1218,6 +1198,7 @@ async function submitComment(postId) {
         
         openCommentsModal(postId); 
         
+        // 🚀 CRITICAL FIX: Safe Counter Update
         const commentBtns = document.querySelectorAll(`.comment-btn[data-post-id="${postId}"]`);
         commentBtns.forEach(commentBtn => {
             const html = commentBtn.innerHTML;
@@ -1225,10 +1206,9 @@ async function submitComment(postId) {
                 const countMatch = html.match(/\d+/);
                 if (countMatch) {
                     commentBtn.innerHTML = `View all ${parseInt(countMatch[0]) + 1} comments`;
+                } else if (html.includes('View 1 comment')) {
+                    commentBtn.innerHTML = `View all 2 comments`;
                 }
-            } else {
-                const countSpan = commentBtn.nextElementSibling;
-                if(countSpan) countSpan.textContent = parseInt(countSpan.textContent || 0) + 1;
             }
         });
     }
