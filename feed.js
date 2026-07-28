@@ -859,6 +859,25 @@ async function submitPostReport() {
     }
 }
 
+function handleTouchMove(e) {
+    let moveX, moveY;
+
+    if (e.touches && e.touches.length > 0) {
+        moveX = e.touches[0].clientX;
+        moveY = e.touches[0].clientY;
+    } else if (e.clientX !== undefined) {
+        moveX = e.clientX;
+        moveY = e.clientY;
+    } else {
+        return; 
+    }
+    
+    // 🚀 FIX: Increased threshold to 20 to prevent accidental cancellation on shaky fingers
+    if (Math.abs(moveX - touchStartX) > 20 || Math.abs(moveY - touchStartY) > 20) {
+        clearTimeout(longPressTimer);
+    }
+}
+
 // ==========================================
 // COMMENTS 
 // ==========================================
@@ -1050,10 +1069,14 @@ function renderSingleComment(comment, isReply) {
         <div class="flex items-start gap-3 mb-4 ${paddingLeft}" data-comment-id="${comment.id}">
             <img onclick="window.viewUserProfile('${comment.users.id}')" src="${comment.users.profile_img_url}" class="w-8 h-8 rounded-full object-cover shrink-0 cursor-pointer mt-1 border border-surface-variant/50">
             
-            <!-- 🚀 FIX: Added comment-body class and data-attributes. Removed standard onclick. -->
-            <div class="comment-body flex-1 min-w-0 flex flex-col cursor-pointer active:opacity-60 transition-opacity" data-comment-id="${comment.id}" data-comment-owner-id="${comment.user_id}">
+            <!-- 🚀 FIX: select-none prevents text highlighting, oncontextmenu guarantees native long-press detection -->
+            <div class="comment-body flex-1 min-w-0 flex flex-col cursor-pointer select-none active:opacity-60 transition-opacity" 
+                 data-comment-id="${comment.id}" 
+                 data-comment-owner-id="${comment.user_id}"
+                 oncontextmenu="event.preventDefault(); window.openCommentActionSheet('${comment.id}', '${comment.user_id}'); return false;">
+                
                 <p class="text-[13px] text-on-surface dark:text-gray-100 leading-snug">
-                    <span onclick="event.stopPropagation(); window.viewUserProfile('${comment.users.id}')" class="font-extrabold mr-1 hover:underline">${comment.users.full_name}</span>
+                    <span onclick="event.stopPropagation(); window.viewUserProfile('${comment.users.id}')" class="font-extrabold mr-1 hover:underline text-primary">${comment.users.full_name}</span>
                     ${formattedContent}
                 </p>
                 <div class="flex items-center gap-4 mt-1">
@@ -1070,27 +1093,30 @@ function renderSingleComment(comment, isReply) {
         </div>
     `;
 }
-// 🚀 INSTAGRAM STYLE ACTION SHEET
 window.openCommentActionSheet = function(commentId, commentOwnerId) {
+    // 🚀 FIX: Prevent double-firing
+    if (typeof longPressTimer !== 'undefined') clearTimeout(longPressTimer);
+    window.isLongPressing = false;
+
     const isOwner = currentUser.id === commentOwnerId;
     let buttonsHtml = '';
 
     if (isOwner) {
         buttonsHtml = `
-            <button class="w-full flex items-center gap-4 p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-xl font-bold text-on-surface dark:text-gray-100 transition-colors">
-                <span class="material-symbols-outlined text-[26px]">send</span> Share
-            </button>
-            <button onclick="window.deleteComment('${commentId}')" class="w-full flex items-center gap-4 p-4 hover:bg-error/10 rounded-xl font-bold text-error transition-colors mt-1">
-                <span class="material-symbols-outlined text-[26px]">delete</span> Delete
+            <div class="px-4 py-3 border-b border-surface-variant/40 dark:border-neutral-800 text-center">
+                <p class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Comment Options</p>
+            </div>
+            <button onclick="window.deleteComment('${commentId}')" class="w-full flex items-center justify-center gap-3 p-4 bg-error/10 text-error rounded-2xl font-bold active:scale-95 transition-transform mt-2">
+                <span class="material-symbols-outlined">delete</span> Delete Comment
             </button>
         `;
     } else {
         buttonsHtml = `
-            <button class="w-full flex items-center gap-4 p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-xl font-bold text-on-surface dark:text-gray-100 transition-colors">
-                <span class="material-symbols-outlined text-[26px]">send</span> Share
-            </button>
-            <button class="w-full flex items-center gap-4 p-4 hover:bg-orange-500/10 rounded-xl font-bold text-orange-500 transition-colors mt-1">
-                <span class="material-symbols-outlined text-[26px]">flag</span> Report
+            <div class="px-4 py-3 border-b border-surface-variant/40 dark:border-neutral-800 text-center">
+                <p class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Comment Options</p>
+            </div>
+            <button class="w-full flex items-center justify-center gap-3 p-4 bg-orange-500/10 text-orange-500 rounded-2xl font-bold active:scale-95 transition-transform mt-2">
+                <span class="material-symbols-outlined">flag</span> Report Comment
             </button>
         `;
     }
