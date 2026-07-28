@@ -110,9 +110,6 @@ export function initFeed(user) {
     });
     
     document.getElementById('submit-post-btn')?.addEventListener('click', submitPost);
-    document.getElementById('send-comment-btn')?.addEventListener('click', () => {
-        submitComment(document.getElementById('send-comment-btn').dataset.postId);
-    });
     document.getElementById('submit-report-post-btn')?.addEventListener('click', submitPostReport);
     
     // 🚀 FIX: Delay evaluation of closeCommentsModal to prevent the ReferenceError Crash!
@@ -953,12 +950,60 @@ window.insertMention = function(userId, fullName) {
     document.getElementById('comment-mention-list').classList.add('hidden');
     input.focus();
 };
+// --- 1. UPDATED LONG PRESS ENGINE ---
+function handleTouchStart(e) {
+    if (!e.target || typeof e.target.closest !== 'function') return;
 
+    const profileLink = e.target.closest('.profile-link');
+    const dpLink = e.target.closest('.dp-link');
+    const commentBody = e.target.closest('.comment-body'); // 🚀 NEW: Detect comments
+    
+    if (!profileLink && !dpLink && !commentBody) return;
+
+    if (e.touches && e.touches.length > 0) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+    } else if (e.clientX !== undefined) {
+        touchStartX = e.clientX;
+        touchStartY = e.clientY;
+    }
+
+    clearTimeout(longPressTimer);
+    window.isLongPressing = false;
+    
+    longPressTimer = setTimeout(() => {
+        window.isLongPressing = true;
+        if (navigator.vibrate) navigator.vibrate(50);
+        
+        if (dpLink) {
+            const imgSrc = dpLink.src || '';
+            window.openDpViewer(imgSrc);
+        } else if (profileLink) {
+            const userId = profileLink.dataset.userId;
+            let imgEl = profileLink;
+            if (profileLink.tagName !== 'IMG') imgEl = profileLink.querySelector('img') || profileLink;
+            if (userId) window.openProfilePeek(userId, imgEl);
+        } else if (commentBody) {
+            // 🚀 NEW: Trigger Action Sheet on Long Press
+            const cId = commentBody.dataset.commentId;
+            const oId = commentBody.dataset.commentOwnerId;
+            if (cId && oId) window.openCommentActionSheet(cId, oId);
+        }
+    }, 400); 
+}
+
+// --- 2. UPDATED COMMENTS MODAL (Loads Profile Pic) ---
 async function openCommentsModal(postId) {
     const modal = document.getElementById('modal-post-comments');
     const list = document.getElementById('post-comments-list');
     const input = document.getElementById('post-comment-input');
     const bottomNav = document.querySelector('nav.fixed.bottom-0'); 
+    
+    // 🚀 NEW: Load current user profile pic instantly
+    const myAvatar = document.getElementById('current-user-comment-avatar');
+    if (myAvatar && currentUser) {
+        myAvatar.src = typeof optimizeImageUrl === 'function' ? optimizeImageUrl(currentUser.profile_img_url, 'avatar') : currentUser.profile_img_url;
+    }
     
     document.getElementById('send-comment-btn').dataset.postId = postId;
     window.cancelReply(); 
@@ -971,13 +1016,7 @@ async function openCommentsModal(postId) {
     list.innerHTML = `<p class="text-sm italic text-center py-8 text-on-surface-variant dark:text-gray-400">Loading comments...</p>`;
 
     try {
-        // 🚀 FIX: Added comment_likes(user_id) to the query
-        const { data, error } = await supabase.from('post_comments')
-            .select('*, users(id, full_name, profile_img_url, tick_type), comment_likes(user_id)')
-            .eq('post_id', postId)
-            .eq('is_deleted', false)
-            .order('created_at', { ascending: true });
-            
+        const { data, error } = await supabase.from('post_comments').select('*, users(id, full_name, profile_img_url, tick_type), comment_likes(user_id)').eq('post_id', postId).eq('is_deleted', false).order('created_at', { ascending: true });
         if (error) throw error;
 
         if (data.length === 0) {
@@ -998,11 +1037,11 @@ async function openCommentsModal(postId) {
     }
 }
 
+// --- 3. UPDATED RENDER COMMENT (Removed onClick, Added class for Long Press) ---
 function renderSingleComment(comment, isReply) {
     const paddingLeft = isReply ? 'ml-12' : ''; 
     let formattedContent = comment.content.replace(/@([\w\s]+)(?=\s|$)/g, '<span class="text-primary font-bold">@$1</span>');
 
-    // 🚀 NEW: Check if current user has liked this comment
     const isLiked = comment.comment_likes && comment.comment_likes.some(like => like.user_id === currentUser.id);
     const heartClass = isLiked ? 'text-red-500' : 'text-on-surface-variant dark:text-gray-500';
     const heartFill = isLiked ? '1' : '0';
@@ -1011,7 +1050,8 @@ function renderSingleComment(comment, isReply) {
         <div class="flex items-start gap-3 mb-4 ${paddingLeft}" data-comment-id="${comment.id}">
             <img onclick="window.viewUserProfile('${comment.users.id}')" src="${comment.users.profile_img_url}" class="w-8 h-8 rounded-full object-cover shrink-0 cursor-pointer mt-1 border border-surface-variant/50">
             
-            <div class="flex-1 min-w-0 flex flex-col cursor-pointer active:opacity-60 transition-opacity" onclick="window.openCommentActionSheet('${comment.id}', '${comment.user_id}')">
+            <!-- 🚀 FIX: Added comment-body class and data-attributes. Removed standard onclick. -->
+            <div class="comment-body flex-1 min-w-0 flex flex-col cursor-pointer active:opacity-60 transition-opacity" data-comment-id="${comment.id}" data-comment-owner-id="${comment.user_id}">
                 <p class="text-[13px] text-on-surface dark:text-gray-100 leading-snug">
                     <span onclick="event.stopPropagation(); window.viewUserProfile('${comment.users.id}')" class="font-extrabold mr-1 hover:underline">${comment.users.full_name}</span>
                     ${formattedContent}
@@ -1030,7 +1070,6 @@ function renderSingleComment(comment, isReply) {
         </div>
     `;
 }
-
 // 🚀 INSTAGRAM STYLE ACTION SHEET
 window.openCommentActionSheet = function(commentId, commentOwnerId) {
     const isOwner = currentUser.id === commentOwnerId;
