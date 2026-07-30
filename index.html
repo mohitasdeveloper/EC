@@ -313,28 +313,32 @@
             <button onclick="closeSettingsSidebar()" class="p-2 -ml-2 rounded-full hover:bg-surface-variant/50 text-on-surface dark:text-gray-100 transition-colors flex items-center justify-center">
                 <span class="material-symbols-outlined text-[28px]">close</span>
             </button>
-            <h2 class="text-xl font-extrabold ml-2 text-on-surface dark:text-gray-100 tracking-tight">Settings & Activity</h2>
+            <h2 class="text-xl font-extrabold ml-2 text-on-surface dark:text-gray-100 tracking-tight">Settings</h2>
         </div>
         
         <div class="flex-1 overflow-y-auto px-5 py-4 space-y-2 mt-2 hide-scrollbar">
             
-            <!-- SECTION 1: YOUR ACTIVITY -->
-            <h4 class="text-[12px] font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider mb-2 px-2 mt-2">Your Activity</h4>
-            
-            <button onclick="openSettingsSubPanel('panel-saved-posts'); window.fetchSavedPosts();" class="w-full flex items-center justify-between p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[15px]">
-                <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[24px]">bookmark</span> Saved</div>
-                <span class="material-symbols-outlined text-[20px] text-on-surface-variant">chevron_right</span>
-            </button>
-
-            <button onclick="openSettingsSubPanel('panel-liked-posts'); window.fetchLikedPosts();" class="w-full flex items-center justify-between p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[15px]">
-                <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[24px]">favorite</span> Liked</div>
-                <span class="material-symbols-outlined text-[20px] text-on-surface-variant">chevron_right</span>
-            </button>
-
-            <button onclick="openSettingsSubPanel('panel-archived-posts'); window.fetchArchivedPosts();" class="w-full flex items-center justify-between p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[15px]">
-                <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[24px]">archive</span> Archived</div>
-                <span class="material-symbols-outlined text-[20px] text-on-surface-variant">chevron_right</span>
-            </button>
+            <!-- SECTION 1: YOUR ACTIVITY (Collapsible Accordion) -->
+            <details class="group mb-2">
+                <summary class="flex items-center justify-between p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl cursor-pointer list-none transition-colors">
+                    <div class="flex items-center gap-3 text-on-surface dark:text-gray-200">
+                        <span class="material-symbols-outlined text-[24px]">local_activity</span>
+                        <span class="text-[15px] font-bold">Your Activity</span>
+                    </div>
+                    <span class="material-symbols-outlined text-[20px] text-on-surface-variant transition-transform duration-300 group-open:rotate-180">expand_more</span>
+                </summary>
+                <div class="pl-12 pr-4 py-2 space-y-1 animate-fadeIn">
+                    <button onclick="openSettingsSubPanel('panel-saved-posts'); window.fetchSavedPosts();" class="w-full flex items-center justify-between py-3 text-on-surface-variant dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors text-left font-bold text-[14px]">
+                        Saved <span class="material-symbols-outlined text-[18px]">bookmark</span>
+                    </button>
+                    <button onclick="openSettingsSubPanel('panel-liked-posts'); window.fetchLikedPosts();" class="w-full flex items-center justify-between py-3 text-on-surface-variant dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors text-left font-bold text-[14px]">
+                        Liked <span class="material-symbols-outlined text-[18px]">favorite</span>
+                    </button>
+                    <button onclick="openSettingsSubPanel('panel-archived-posts'); window.fetchArchivedPosts();" class="w-full flex items-center justify-between py-3 text-on-surface-variant dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors text-left font-bold text-[14px]">
+                        Archived <span class="material-symbols-outlined text-[18px]">archive</span>
+                    </button>
+                </div>
+            </details>
 
             <div class="my-4 border-t border-surface-variant/40 dark:border-neutral-800"></div>
 
@@ -363,15 +367,16 @@
                 <span class="material-symbols-outlined text-[20px] text-on-surface-variant">chevron_right</span>
             </button>
 
-            <div class="flex items-center justify-between p-4 bg-surface-variant/10 dark:bg-neutral-900/30 rounded-2xl mb-2">
+            <!-- 🚀 NEW: NATIVE UI MENTIONS SELECTOR -->
+            <div onclick="window.openMentionPrivacySelector()" class="flex items-center justify-between p-4 bg-surface-variant/10 hover:bg-surface-variant/20 dark:bg-neutral-900/30 dark:hover:bg-neutral-900/50 rounded-2xl mb-2 cursor-pointer transition-colors">
                 <div class="flex items-center gap-3 text-on-surface dark:text-gray-200">
                     <span class="material-symbols-outlined text-[24px]">alternate_email</span>
                     <span class="text-[15px] font-bold">Allow Mentions</span>
                 </div>
-                <select id="mention-privacy-select" onchange="updateMentionPrivacy(this.value)" class="bg-surface-variant/20 dark:bg-neutral-800 border border-surface-variant/50 dark:border-neutral-700 rounded-lg px-2 py-1 text-xs font-bold text-on-surface dark:text-gray-200 outline-none cursor-pointer">
-                    <option value="connections">Connections</option>
-                    <option value="none">No One</option>
-                </select>
+                <div class="flex items-center gap-1 text-on-surface-variant">
+                    <span id="mention-privacy-label" class="text-[13px] font-bold">Connections</span>
+                    <span class="material-symbols-outlined text-[18px]">expand_more</span>
+                </div>
             </div>
             
             <div class="flex items-center justify-between p-4 bg-surface-variant/10 dark:bg-neutral-900/30 rounded-2xl">
@@ -403,42 +408,42 @@
         </div>
     </div>
 
-    <!-- NEW: SAVED POSTS PANEL -->
+    <!-- NEW: SAVED POSTS PANEL (Fixed Feed UI styling) -->
     <div id="panel-saved-posts" class="absolute inset-y-0 right-0 w-full max-w-screen-md mx-auto flex flex-col transition-transform duration-300 translate-x-full bg-surface dark:bg-[#121212] z-20">
-        <div class="pt-[max(1rem,env(safe-area-inset-top))] pb-4 border-b border-surface-variant/40 dark:border-neutral-800 flex items-center px-5 shrink-0 bg-surface/90 dark:bg-[#121212]/90 backdrop-blur-xl">
+        <div class="pt-[max(1rem,env(safe-area-inset-top))] pb-4 border-b border-surface-variant/40 dark:border-neutral-800 flex items-center px-5 shrink-0 bg-surface/90 dark:bg-[#121212]/90 backdrop-blur-xl z-10">
             <button onclick="closeSettingsSubPanel('panel-saved-posts')" class="p-2 -ml-2 rounded-full hover:bg-surface-variant/50 text-on-surface dark:text-gray-100 transition-colors flex items-center justify-center">
                 <span class="material-symbols-outlined text-[28px]">arrow_back</span>
             </button>
             <h2 class="text-xl font-extrabold ml-2 text-on-surface dark:text-gray-100 tracking-tight">Saved</h2>
         </div>
-        <div class="flex-1 overflow-y-auto bg-surface-container-lowest dark:bg-[#121212]">
-            <div id="saved-posts-container" class="max-w-screen-md mx-auto space-y-5 pt-4 pb-20"></div>
+        <div class="flex-1 overflow-y-auto bg-surface dark:bg-[#121212]">
+            <div id="saved-posts-container" class="max-w-screen-md mx-auto mt-2"></div>
         </div>
     </div>
 
-    <!-- NEW: LIKED POSTS PANEL -->
+    <!-- NEW: LIKED POSTS PANEL (Fixed Feed UI styling) -->
     <div id="panel-liked-posts" class="absolute inset-y-0 right-0 w-full max-w-screen-md mx-auto flex flex-col transition-transform duration-300 translate-x-full bg-surface dark:bg-[#121212] z-20">
-        <div class="pt-[max(1rem,env(safe-area-inset-top))] pb-4 border-b border-surface-variant/40 dark:border-neutral-800 flex items-center px-5 shrink-0 bg-surface/90 dark:bg-[#121212]/90 backdrop-blur-xl">
+        <div class="pt-[max(1rem,env(safe-area-inset-top))] pb-4 border-b border-surface-variant/40 dark:border-neutral-800 flex items-center px-5 shrink-0 bg-surface/90 dark:bg-[#121212]/90 backdrop-blur-xl z-10">
             <button onclick="closeSettingsSubPanel('panel-liked-posts')" class="p-2 -ml-2 rounded-full hover:bg-surface-variant/50 text-on-surface dark:text-gray-100 transition-colors flex items-center justify-center">
                 <span class="material-symbols-outlined text-[28px]">arrow_back</span>
             </button>
             <h2 class="text-xl font-extrabold ml-2 text-on-surface dark:text-gray-100 tracking-tight">Liked</h2>
         </div>
-        <div class="flex-1 overflow-y-auto bg-surface-container-lowest dark:bg-[#121212]">
-            <div id="liked-posts-container" class="max-w-screen-md mx-auto space-y-5 pt-4 pb-20"></div>
+        <div class="flex-1 overflow-y-auto bg-surface dark:bg-[#121212]">
+            <div id="liked-posts-container" class="max-w-screen-md mx-auto mt-2"></div>
         </div>
     </div>
 
-    <!-- NEW: ARCHIVED POSTS PANEL -->
+    <!-- NEW: ARCHIVED POSTS PANEL (Fixed Feed UI styling) -->
     <div id="panel-archived-posts" class="absolute inset-y-0 right-0 w-full max-w-screen-md mx-auto flex flex-col transition-transform duration-300 translate-x-full bg-surface dark:bg-[#121212] z-20">
-        <div class="pt-[max(1rem,env(safe-area-inset-top))] pb-4 border-b border-surface-variant/40 dark:border-neutral-800 flex items-center px-5 shrink-0 bg-surface/90 dark:bg-[#121212]/90 backdrop-blur-xl">
+        <div class="pt-[max(1rem,env(safe-area-inset-top))] pb-4 border-b border-surface-variant/40 dark:border-neutral-800 flex items-center px-5 shrink-0 bg-surface/90 dark:bg-[#121212]/90 backdrop-blur-xl z-10">
             <button onclick="closeSettingsSubPanel('panel-archived-posts')" class="p-2 -ml-2 rounded-full hover:bg-surface-variant/50 text-on-surface dark:text-gray-100 transition-colors flex items-center justify-center">
                 <span class="material-symbols-outlined text-[28px]">arrow_back</span>
             </button>
             <h2 class="text-xl font-extrabold ml-2 text-on-surface dark:text-gray-100 tracking-tight">Archived</h2>
         </div>
-        <div class="flex-1 overflow-y-auto bg-surface-container-lowest dark:bg-[#121212]">
-            <div id="archived-posts-container" class="max-w-screen-md mx-auto space-y-5 pt-4 pb-20"></div>
+        <div class="flex-1 overflow-y-auto bg-surface dark:bg-[#121212]">
+            <div id="archived-posts-container" class="max-w-screen-md mx-auto mt-2"></div>
         </div>
     </div>
 
