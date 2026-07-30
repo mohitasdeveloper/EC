@@ -2648,6 +2648,34 @@ window.closeUserConnectionsModal = function() {
     setTimeout(() => modal.classList.replace('flex', 'hidden'), 300);
 };
 
+function renderViewConnectionsList(users, isSearch = false) {
+    const list = document.getElementById('view-connections-list');
+
+    if (users.length === 0) {
+        list.innerHTML = `<div class="py-16 flex flex-col items-center justify-center opacity-40 text-on-surface-variant"><span class="material-symbols-outlined text-[42px] mb-2">group_off</span><p class="text-sm font-semibold">${isSearch ? 'No users found.' : 'No connections yet.'}</p></div>`;
+        return;
+    }
+
+    list.innerHTML = users.map(user => {
+        const optimizedAvatar = typeof window.optimizeImageUrl === 'function' ? window.optimizeImageUrl(user.profile_img_url, 'avatar') : user.profile_img_url;
+        const fallback = `this.onerror=null; this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&background=e1e3e4';`;
+        const tickHtml = window.getTickHtml ? window.getTickHtml(user.tick_type) : '';
+
+        return `
+        <div onclick="window.closeUserConnectionsModal(); setTimeout(() => window.viewUserProfile('${user.id}'), 150);" class="flex items-center gap-3.5 p-3 hover:bg-surface-variant/20 dark:hover:bg-neutral-800/50 rounded-2xl cursor-pointer active:scale-[0.98] transition-all">
+            <img loading="lazy" src="${optimizedAvatar || fallback}" onerror="${fallback}" class="w-12 h-12 rounded-full object-cover border border-surface-variant/50 shrink-0">
+            <div class="flex-1 min-w-0">
+                <p class="font-bold text-[14.5px] text-on-surface dark:text-gray-100 truncate flex items-center gap-1">${user.full_name} ${tickHtml}</p>
+                <p class="text-[12px] font-medium text-on-surface-variant dark:text-gray-500 mt-0.5 truncate">${user.course || 'Student'}</p>
+            </div>
+            <button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-variant/50 transition-colors shrink-0">
+                <span class="material-symbols-outlined text-[20px]">chevron_right</span>
+            </button>
+        </div>
+        `;
+    }).join('');
+}
+
 // ========================================================
 // PREFERENCES & PRIVACY UPDATES
 // ========================================================
@@ -2772,97 +2800,6 @@ window.fetchArchivedPosts = async function() {
         container.innerHTML = `<p class="text-sm text-center py-4 text-error">Failed to load archive.</p>`;
     }
 };
-// ========================================================
-// PUBLIC CONNECTIONS VIEWER (Instagram Style List)
-// ========================================================
-let currentViewedConnections = []; // Stores list for live search
-
-window.openUserConnectionsModal = async function(userId, role, userName) {
-    const modal = document.getElementById('modal-view-connections');
-    const title = document.getElementById('view-connections-title');
-    const list = document.getElementById('view-connections-list');
-    const searchInput = document.getElementById('view-connections-search');
-
-    modal.classList.replace('hidden', 'flex');
-    setTimeout(() => modal.classList.remove('translate-x-full'), 10);
-
-    title.textContent = userName;
-    searchInput.value = '';
-    list.innerHTML = LIST_SKELETON; // Show loading shimmer
-    currentViewedConnections = [];
-
-    try {
-        let users = [];
-
-        if (role === 'page') {
-            const { data, error } = await supabase
-                .from('page_followers')
-                .select('users!page_followers_follower_id_fkey(id, full_name, profile_img_url, course, tick_type)')
-                .eq('page_id', userId);
-            if (error) throw error;
-            users = data.map(f => f.users).filter(Boolean);
-        } else {
-            const { data, error } = await supabase
-                .from('connections')
-                .select('user_one:user_one_id(id, full_name, profile_img_url, course, tick_type), user_two:user_two_id(id, full_name, profile_img_url, course, tick_type)')
-                .or(`user_one_id.eq.${userId},user_two_id.eq.${userId}`)
-                .eq('status', 'accepted');
-            if (error) throw error;
-            users = data.map(conn => conn.user_one.id === userId ? conn.user_two : conn.user_one).filter(Boolean);
-        }
-
-        currentViewedConnections = users;
-        renderViewConnectionsList(users);
-
-        // 🚀 LIVE SEARCH FILTER
-        searchInput.oninput = (e) => {
-            const q = e.target.value.toLowerCase().trim();
-            const filtered = currentViewedConnections.filter(u => 
-                u.full_name.toLowerCase().includes(q) || 
-                (u.course && u.course.toLowerCase().includes(q))
-            );
-            renderViewConnectionsList(filtered, q !== '');
-        };
-
-    } catch (error) {
-        console.error('Error fetching user connections:', error);
-        list.innerHTML = `<p class="text-sm italic text-center py-8 text-error">Failed to load list.</p>`;
-    }
-};
-
-window.closeUserConnectionsModal = function() {
-    const modal = document.getElementById('modal-view-connections');
-    modal.classList.add('translate-x-full');
-    setTimeout(() => modal.classList.replace('flex', 'hidden'), 300);
-};
-
-function renderViewConnectionsList(users, isSearch = false) {
-    const list = document.getElementById('view-connections-list');
-
-    if (users.length === 0) {
-        list.innerHTML = `<div class="py-16 flex flex-col items-center justify-center opacity-40 text-on-surface-variant"><span class="material-symbols-outlined text-[42px] mb-2">group_off</span><p class="text-sm font-semibold">${isSearch ? 'No users found.' : 'No connections yet.'}</p></div>`;
-        return;
-    }
-
-    list.innerHTML = users.map(user => {
-        const optimizedAvatar = typeof window.optimizeImageUrl === 'function' ? window.optimizeImageUrl(user.profile_img_url, 'avatar') : user.profile_img_url;
-        const fallback = `this.onerror=null; this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&background=e1e3e4';`;
-        const tickHtml = window.getTickHtml ? window.getTickHtml(user.tick_type) : '';
-
-        return `
-        <div onclick="window.closeUserConnectionsModal(); setTimeout(() => window.viewUserProfile('${user.id}'), 150);" class="flex items-center gap-3.5 p-3 hover:bg-surface-variant/20 dark:hover:bg-neutral-800/50 rounded-2xl cursor-pointer active:scale-[0.98] transition-all">
-            <img loading="lazy" src="${optimizedAvatar || fallback}" onerror="${fallback}" class="w-12 h-12 rounded-full object-cover border border-surface-variant/50 shrink-0">
-            <div class="flex-1 min-w-0">
-                <p class="font-bold text-[14.5px] text-on-surface dark:text-gray-100 truncate flex items-center gap-1">${user.full_name} ${tickHtml}</p>
-                <p class="text-[12px] font-medium text-on-surface-variant dark:text-gray-500 mt-0.5 truncate">${user.course || 'Student'}</p>
-            </div>
-            <button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-variant/50 transition-colors shrink-0">
-                <span class="material-symbols-outlined text-[20px]">chevron_right</span>
-            </button>
-        </div>
-        `;
-    }).join('');
-}
 
 // ========================================================
 // SINGLE POST VIEWER ENGINE
@@ -2909,7 +2846,7 @@ window.openSinglePostView = async function(postId) {
         console.error('Error fetching single post:', error);
         container.innerHTML = `<p class="text-sm text-center py-10 text-error">Failed to load post.</p>`;
     }
-}
+};
 
 window.closeSinglePostView = function() {
     const modal = document.getElementById('modal-single-post');
