@@ -637,7 +637,7 @@ function populateProfileUI(profile) {
     if (mentionPrivacyLabel) {
         mentionPrivacyLabel.textContent = profile.mention_privacy === 'none' ? 'No One' : 'Connections';
     }
-
+}
 // ========================================================
 // PROFILE FEED RENDER ENGINE
 // ========================================================
