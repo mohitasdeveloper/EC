@@ -2772,3 +2772,231 @@ window.fetchArchivedPosts = async function() {
         container.innerHTML = `<p class="text-sm text-center py-4 text-error">Failed to load archive.</p>`;
     }
 };
+// ========================================================
+// PUBLIC CONNECTIONS VIEWER (Instagram Style List)
+// ========================================================
+let currentViewedConnections = []; // Stores list for live search
+
+window.openUserConnectionsModal = async function(userId, role, userName) {
+    const modal = document.getElementById('modal-view-connections');
+    const title = document.getElementById('view-connections-title');
+    const list = document.getElementById('view-connections-list');
+    const searchInput = document.getElementById('view-connections-search');
+
+    modal.classList.replace('hidden', 'flex');
+    setTimeout(() => modal.classList.remove('translate-x-full'), 10);
+
+    title.textContent = userName;
+    searchInput.value = '';
+    list.innerHTML = LIST_SKELETON; // Show loading shimmer
+    currentViewedConnections = [];
+
+    try {
+        let users = [];
+
+        if (role === 'page') {
+            const { data, error } = await supabase
+                .from('page_followers')
+                .select('users!page_followers_follower_id_fkey(id, full_name, profile_img_url, course, tick_type)')
+                .eq('page_id', userId);
+            if (error) throw error;
+            users = data.map(f => f.users).filter(Boolean);
+        } else {
+            const { data, error } = await supabase
+                .from('connections')
+                .select('user_one:user_one_id(id, full_name, profile_img_url, course, tick_type), user_two:user_two_id(id, full_name, profile_img_url, course, tick_type)')
+                .or(`user_one_id.eq.${userId},user_two_id.eq.${userId}`)
+                .eq('status', 'accepted');
+            if (error) throw error;
+            users = data.map(conn => conn.user_one.id === userId ? conn.user_two : conn.user_one).filter(Boolean);
+        }
+
+        currentViewedConnections = users;
+        renderViewConnectionsList(users);
+
+        // 🚀 LIVE SEARCH FILTER
+        searchInput.oninput = (e) => {
+            const q = e.target.value.toLowerCase().trim();
+            const filtered = currentViewedConnections.filter(u => 
+                u.full_name.toLowerCase().includes(q) || 
+                (u.course && u.course.toLowerCase().includes(q))
+            );
+            renderViewConnectionsList(filtered, q !== '');
+        };
+
+    } catch (error) {
+        console.error('Error fetching user connections:', error);
+        list.innerHTML = `<p class="text-sm italic text-center py-8 text-error">Failed to load list.</p>`;
+    }
+};
+
+window.closeUserConnectionsModal = function() {
+    const modal = document.getElementById('modal-view-connections');
+    modal.classList.add('translate-x-full');
+    setTimeout(() => modal.classList.replace('flex', 'hidden'), 300);
+};
+
+function renderViewConnectionsList(users, isSearch = false) {
+    const list = document.getElementById('view-connections-list');
+
+    if (users.length === 0) {
+        list.innerHTML = `<div class="py-16 flex flex-col items-center justify-center opacity-40 text-on-surface-variant"><span class="material-symbols-outlined text-[42px] mb-2">group_off</span><p class="text-sm font-semibold">${isSearch ? 'No users found.' : 'No connections yet.'}</p></div>`;
+        return;
+    }
+
+    list.innerHTML = users.map(user => {
+        const optimizedAvatar = typeof window.optimizeImageUrl === 'function' ? window.optimizeImageUrl(user.profile_img_url, 'avatar') : user.profile_img_url;
+        const fallback = `this.onerror=null; this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&background=e1e3e4';`;
+        const tickHtml = window.getTickHtml ? window.getTickHtml(user.tick_type) : '';
+
+        return `
+        <div onclick="window.closeUserConnectionsModal(); setTimeout(() => window.viewUserProfile('${user.id}'), 150);" class="flex items-center gap-3.5 p-3 hover:bg-surface-variant/20 dark:hover:bg-neutral-800/50 rounded-2xl cursor-pointer active:scale-[0.98] transition-all">
+            <img loading="lazy" src="${optimizedAvatar || fallback}" onerror="${fallback}" class="w-12 h-12 rounded-full object-cover border border-surface-variant/50 shrink-0">
+            <div class="flex-1 min-w-0">
+                <p class="font-bold text-[14.5px] text-on-surface dark:text-gray-100 truncate flex items-center gap-1">${user.full_name} ${tickHtml}</p>
+                <p class="text-[12px] font-medium text-on-surface-variant dark:text-gray-500 mt-0.5 truncate">${user.course || 'Student'}</p>
+            </div>
+            <button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-variant/50 transition-colors shrink-0">
+                <span class="material-symbols-outlined text-[20px]">chevron_right</span>
+            </button>
+        </div>
+        `;
+    }).join('');
+}
+
+// ========================================================
+// SINGLE POST VIEWER ENGINE
+// ========================================================
+window.openSinglePostView = async function(postId) {
+    const modal = document.getElementById('modal-single-post');
+    const container = document.getElementById('single-post-container');
+    const bottomNav = document.querySelector('nav');
+    
+    modal.classList.replace('hidden', 'flex');
+    if (bottomNav) bottomNav.classList.add('hidden');
+    setTimeout(() => modal.classList.remove('translate-x-full'), 10);
+    
+    container.innerHTML = FEED_SKELETON; 
+    
+    try {
+        const { data: posts, error } = await supabase
+            .from('posts')
+            .select(`
+                *,
+                users ( id, full_name, profile_img_url, role, tick_type ),
+                post_likes ( user_id ),
+                post_comments ( id, content, created_at, is_deleted, parent_comment_id, users(id, full_name, profile_img_url, tick_type) ),
+                post_poll_votes ( user_id, option_id ),
+                saved_posts ( user_id )
+            `)
+            .eq('id', postId)
+            .eq('is_deleted', false);
+            
+        if (error) throw error;
+        
+        if (!posts || posts.length === 0) {
+            container.innerHTML = `
+                <div class="py-16 flex flex-col items-center justify-center opacity-40 text-on-surface-variant">
+                    <span class="material-symbols-outlined text-[48px] mb-2">delete</span>
+                    <p class="text-sm font-semibold">Post no longer available</p>
+                </div>`;
+            return;
+        }
+        
+        container.innerHTML = generatePostHTML(posts, currentUserProfile.id);
+
+    } catch (error) {
+        console.error('Error fetching single post:', error);
+        container.innerHTML = `<p class="text-sm text-center py-10 text-error">Failed to load post.</p>`;
+    }
+}
+
+window.closeSinglePostView = function() {
+    const modal = document.getElementById('modal-single-post');
+    modal.classList.add('translate-x-full');
+    
+    const notifModal = document.getElementById('modal-notifications');
+    if (notifModal && notifModal.classList.contains('hidden')) {
+        const bottomNav = document.querySelector('nav');
+        if (bottomNav) bottomNav.classList.remove('hidden');
+    }
+    
+    setTimeout(() => modal.classList.replace('flex', 'hidden'), 300);
+};
+
+// ========================================================
+// NATIVE ANDROID BACK BUTTON ROUTER
+// ========================================================
+function setupAppBackButton() {
+    const checkAndCloseTopLayer = () => {
+     const modalHierarchy = [
+            { id: 'modal-dp-viewer', close: () => window.closeDpViewer() },
+            { id: 'modal-profile-peek', close: () => window.closeProfilePeek() },
+            { id: 'modal-confirm-action', close: () => document.getElementById('confirm-action-no')?.click() },
+            { id: 'modal-action-sheet', close: () => window.closeActionSheet() },
+            { id: 'modal-story-details', close: () => document.getElementById('activity-backdrop-close')?.click() },
+            { id: 'modal-post-comments', close: () => { if(typeof window.closeCommentsModal === 'function') window.closeCommentsModal(); } },
+            { id: 'modal-poll-voters', close: () => document.getElementById('modal-poll-voters').classList.replace('flex','hidden') },
+            { id: 'modal-report-post', close: () => window.closeReportPostModal() },
+            { id: 'modal-report-user', close: () => window.closeReportModal() },
+            { id: 'modal-edit-socials', close: () => window.closeSocialsModal() },
+            { id: 'modal-edit-profile', close: () => window.closeEditProfileModal() },
+            { id: 'modal-connections', close: () => window.closeConnectionsModal() },
+            { id: 'modal-followers', close: () => window.closeFollowersModal() },
+            { id: 'modal-blocked-users', close: () => window.closeBlockedUsersModal() },
+            { id: 'modal-single-post', close: () => window.closeSinglePostView() },
+            { id: 'modal-notifications', close: () => window.closeNotifications() },
+            { id: 'modal-view-connections', close: () => window.closeUserConnectionsModal() },
+            { id: 'settings-password-panel', close: () => window.closeSettingsSubPanel('settings-password-panel') },
+            { id: 'settings-deactivate-panel', close: () => window.closeSettingsSubPanel('settings-deactivate-panel') },
+            { id: 'settings-delete-panel', close: () => window.closeSettingsSubPanel('settings-delete-panel') },
+            { id: 'settings-notifications-panel', close: () => window.closeSettingsSubPanel('settings-notifications-panel') },
+            { id: 'settings-account-panel', close: () => window.closeSettingsSubPanel('settings-account-panel') },
+            { id: 'panel-saved-posts', close: () => window.closeSettingsSubPanel('panel-saved-posts') },
+            { id: 'panel-liked-posts', close: () => window.closeSettingsSubPanel('panel-liked-posts') },
+            { id: 'panel-archived-posts', close: () => window.closeSettingsSubPanel('panel-archived-posts') },
+            { id: 'settings-sidebar', close: () => window.closeSettingsSidebar() },
+            { id: 'view-create-post', close: () => window.closeCreatePostView() },
+            { id: 'modal-profile-public', close: () => window.closeProfileModals() },
+            { id: 'modal-profile-private', close: () => window.closeProfileModals() },
+            { id: 'modal-hotpost-camera', close: () => document.getElementById('close-hotpost-camera-btn')?.click() },
+            { id: 'modal-view-hotpost', close: () => document.getElementById('close-hotpost-viewer-btn')?.click() },
+            { id: 'modal-course-picker', close: () => window.closeCoursePicker() }
+        ];
+
+        for (const modal of modalHierarchy) {
+            const el = document.getElementById(modal.id);
+            if (el && (!el.classList.contains('hidden') && !el.classList.contains('translate-x-full'))) {
+                modal.close(); 
+                return true; 
+            }
+        }
+
+        const dashboardView = document.getElementById('view-dashboard');
+        if (dashboardView && dashboardView.classList.contains('hidden')) {
+            if (window.switchTab) window.switchTab('dashboard'); 
+            return true; 
+        }
+        return false; 
+    };
+
+    if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+        try {
+            const App = window.Capacitor.Plugins.App;
+            if (App) {
+                App.addListener('backButton', () => {
+                    const handled = checkAndCloseTopLayer();
+                    if (!handled) {
+                        App.exitApp(); 
+                    }
+                });
+            }
+        } catch (err) { console.warn('Capacitor App plugin bypassed.', err); }
+    } 
+    
+    window.history.pushState({ app_active: true }, "");
+    window.addEventListener('popstate', () => {
+        const handled = checkAndCloseTopLayer();
+        if (handled) window.history.pushState({ app_active: true }, "");
+    });
+}
