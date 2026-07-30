@@ -520,8 +520,8 @@ function renderPosts(posts, isRefresh = false) {
                         <span class="material-symbols-outlined text-[24px]" style="transform: scaleX(-1);">chat_bubble_outline</span> 
                     </button>` : ''}
                 </div>
-              <button data-post-id="${post.id}" data-user-id="${user.id}" data-is-verified="${post.is_verified}" data-hide-likes="${post.hide_likes}" data-disable-comments="${post.disable_comments}" data-is-archived="${post.is_archived || false}" class="post-options-btn text-on-surface dark:text-gray-100 p-1.5 active:opacity-60 transition-opacity">
-                    <span class="material-symbols-outlined text-[20px]">more_vert</span>
+                <button onclick="window.handleSavePost('${post.id}', this)" data-post-id="${post.id}" data-saved="${isSaved}" class="save-btn flex items-center justify-center transition-transform active:scale-90 ${isSaved ? 'text-primary' : 'text-on-surface dark:text-gray-100 hover:text-on-surface-variant'}">
+                    <span class="material-symbols-outlined text-[26px]" style="font-variation-settings: 'FILL' ${isSaved ? 1 : 0};">bookmark</span>
                 </button>
             </div>
             
