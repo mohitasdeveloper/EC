@@ -1915,10 +1915,13 @@ window.openSinglePostView = async function(postId) {
                 users ( id, full_name, profile_img_url, role, tick_type ),
                 post_likes ( user_id ),
                 post_comments ( id, content, created_at, is_deleted, parent_comment_id, users(id, full_name, profile_img_url, tick_type) ),
-                post_poll_votes ( user_id, option_id )
+                post_poll_votes ( user_id, option_id ),
+                saved_posts ( user_id )
             `)
             .eq('id', postId)
             .eq('is_deleted', false);
+            // Note: We deliberately do NOT filter by 'is_archived' or 'expires_at' here. 
+            // This ensures that if you click a post from your Archive or Saved panels, it still opens properly!
             
         if (error) throw error;
         
