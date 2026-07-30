@@ -318,24 +318,27 @@
         
         <div class="flex-1 overflow-y-auto px-5 py-4 space-y-2 mt-2 hide-scrollbar">
             
-            <!-- SECTION 1: YOUR ACTIVITY (Collapsible Accordion) -->
-            <details class="group mb-2">
-                <summary class="flex items-center justify-between p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl cursor-pointer list-none transition-colors">
+            <!-- SECTION 1: YOUR ACTIVITY (Minimalist Accordion) -->
+            <details class="group mb-2 bg-surface-variant/10 dark:bg-neutral-900/30 rounded-2xl border border-surface-variant/30 dark:border-neutral-800 overflow-hidden">
+                <summary class="flex items-center justify-between p-4 cursor-pointer list-none transition-colors hover:bg-surface-variant/20 dark:hover:bg-neutral-800/50">
                     <div class="flex items-center gap-3 text-on-surface dark:text-gray-200">
                         <span class="material-symbols-outlined text-[24px]">local_activity</span>
                         <span class="text-[15px] font-bold">Your Activity</span>
                     </div>
                     <span class="material-symbols-outlined text-[20px] text-on-surface-variant transition-transform duration-300 group-open:rotate-180">expand_more</span>
                 </summary>
-                <div class="pl-12 pr-4 py-2 space-y-1 animate-fadeIn">
-                    <button onclick="openSettingsSubPanel('panel-saved-posts'); window.fetchSavedPosts();" class="w-full flex items-center justify-between py-3 text-on-surface-variant dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors text-left font-bold text-[14px]">
-                        Saved <span class="material-symbols-outlined text-[18px]">bookmark</span>
+                <div class="px-2 pb-2 bg-surface-variant/5 dark:bg-black/20 space-y-1 animate-fadeIn">
+                    <button onclick="openSettingsSubPanel('panel-saved-posts'); window.fetchSavedPosts();" class="w-full flex items-center justify-between p-3 rounded-xl hover:bg-surface-variant/30 dark:hover:bg-neutral-800 text-on-surface dark:text-gray-200 transition-colors font-bold text-[14px]">
+                        <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[20px] text-primary">bookmark</span> Saved</div>
+                        <span class="material-symbols-outlined text-[18px] text-on-surface-variant">chevron_right</span>
                     </button>
-                    <button onclick="openSettingsSubPanel('panel-liked-posts'); window.fetchLikedPosts();" class="w-full flex items-center justify-between py-3 text-on-surface-variant dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors text-left font-bold text-[14px]">
-                        Liked <span class="material-symbols-outlined text-[18px]">favorite</span>
+                    <button onclick="openSettingsSubPanel('panel-liked-posts'); window.fetchLikedPosts();" class="w-full flex items-center justify-between p-3 rounded-xl hover:bg-surface-variant/30 dark:hover:bg-neutral-800 text-on-surface dark:text-gray-200 transition-colors font-bold text-[14px]">
+                        <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[20px] text-red-500">favorite</span> Liked</div>
+                        <span class="material-symbols-outlined text-[18px] text-on-surface-variant">chevron_right</span>
                     </button>
-                    <button onclick="openSettingsSubPanel('panel-archived-posts'); window.fetchArchivedPosts();" class="w-full flex items-center justify-between py-3 text-on-surface-variant dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors text-left font-bold text-[14px]">
-                        Archived <span class="material-symbols-outlined text-[18px]">archive</span>
+                    <button onclick="openSettingsSubPanel('panel-archived-posts'); window.fetchArchivedPosts();" class="w-full flex items-center justify-between p-3 rounded-xl hover:bg-surface-variant/30 dark:hover:bg-neutral-800 text-on-surface dark:text-gray-200 transition-colors font-bold text-[14px]">
+                        <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[20px] text-orange-500">archive</span> Archived</div>
+                        <span class="material-symbols-outlined text-[18px] text-on-surface-variant">chevron_right</span>
                     </button>
                 </div>
             </details>
@@ -344,7 +347,7 @@
 
             <!-- SECTION 2: CONNECTIONS -->
             <h4 class="text-[12px] font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider mb-2 px-2">Connections</h4>
-
+            
             <button onclick="handleProfileStatsClick(); closeSettingsSidebar();" class="w-full flex items-center gap-3 p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[15px]">
                 <span class="material-symbols-outlined text-[24px]">group</span> <span id="sidebar-stats-text">Connections</span>
             </button>
@@ -367,7 +370,7 @@
                 <span class="material-symbols-outlined text-[20px] text-on-surface-variant">chevron_right</span>
             </button>
 
-            <!-- 🚀 NEW: NATIVE UI MENTIONS SELECTOR -->
+            <!-- 🚀 NATIVE MENTIONS SELECTOR -->
             <div onclick="window.openMentionPrivacySelector()" class="flex items-center justify-between p-4 bg-surface-variant/10 hover:bg-surface-variant/20 dark:bg-neutral-900/30 dark:hover:bg-neutral-900/50 rounded-2xl mb-2 cursor-pointer transition-colors">
                 <div class="flex items-center gap-3 text-on-surface dark:text-gray-200">
                     <span class="material-symbols-outlined text-[24px]">alternate_email</span>
@@ -408,7 +411,9 @@
         </div>
     </div>
 
-    <!-- NEW: SAVED POSTS PANEL (Fixed Feed UI styling) -->
+    <!-- 🚀 PROPER FEED UI PANELS (SAVED, LIKED, ARCHIVED) -->
+    
+    <!-- SAVED POSTS PANEL -->
     <div id="panel-saved-posts" class="absolute inset-y-0 right-0 w-full max-w-screen-md mx-auto flex flex-col transition-transform duration-300 translate-x-full bg-surface dark:bg-[#121212] z-20">
         <div class="pt-[max(1rem,env(safe-area-inset-top))] pb-4 border-b border-surface-variant/40 dark:border-neutral-800 flex items-center px-5 shrink-0 bg-surface/90 dark:bg-[#121212]/90 backdrop-blur-xl z-10">
             <button onclick="closeSettingsSubPanel('panel-saved-posts')" class="p-2 -ml-2 rounded-full hover:bg-surface-variant/50 text-on-surface dark:text-gray-100 transition-colors flex items-center justify-center">
@@ -416,12 +421,12 @@
             </button>
             <h2 class="text-xl font-extrabold ml-2 text-on-surface dark:text-gray-100 tracking-tight">Saved</h2>
         </div>
-        <div class="flex-1 overflow-y-auto bg-surface dark:bg-[#121212]">
-            <div id="saved-posts-container" class="max-w-screen-md mx-auto mt-2"></div>
+        <div class="flex-1 overflow-y-auto px-5 bg-surface dark:bg-[#121212] hide-scrollbar pb-20">
+            <div id="saved-posts-container" class="w-full space-y-5 pt-4"></div>
         </div>
     </div>
 
-    <!-- NEW: LIKED POSTS PANEL (Fixed Feed UI styling) -->
+    <!-- LIKED POSTS PANEL -->
     <div id="panel-liked-posts" class="absolute inset-y-0 right-0 w-full max-w-screen-md mx-auto flex flex-col transition-transform duration-300 translate-x-full bg-surface dark:bg-[#121212] z-20">
         <div class="pt-[max(1rem,env(safe-area-inset-top))] pb-4 border-b border-surface-variant/40 dark:border-neutral-800 flex items-center px-5 shrink-0 bg-surface/90 dark:bg-[#121212]/90 backdrop-blur-xl z-10">
             <button onclick="closeSettingsSubPanel('panel-liked-posts')" class="p-2 -ml-2 rounded-full hover:bg-surface-variant/50 text-on-surface dark:text-gray-100 transition-colors flex items-center justify-center">
@@ -429,12 +434,12 @@
             </button>
             <h2 class="text-xl font-extrabold ml-2 text-on-surface dark:text-gray-100 tracking-tight">Liked</h2>
         </div>
-        <div class="flex-1 overflow-y-auto bg-surface dark:bg-[#121212]">
-            <div id="liked-posts-container" class="max-w-screen-md mx-auto mt-2"></div>
+        <div class="flex-1 overflow-y-auto px-5 bg-surface dark:bg-[#121212] hide-scrollbar pb-20">
+            <div id="liked-posts-container" class="w-full space-y-5 pt-4"></div>
         </div>
     </div>
 
-    <!-- NEW: ARCHIVED POSTS PANEL (Fixed Feed UI styling) -->
+    <!-- ARCHIVED POSTS PANEL -->
     <div id="panel-archived-posts" class="absolute inset-y-0 right-0 w-full max-w-screen-md mx-auto flex flex-col transition-transform duration-300 translate-x-full bg-surface dark:bg-[#121212] z-20">
         <div class="pt-[max(1rem,env(safe-area-inset-top))] pb-4 border-b border-surface-variant/40 dark:border-neutral-800 flex items-center px-5 shrink-0 bg-surface/90 dark:bg-[#121212]/90 backdrop-blur-xl z-10">
             <button onclick="closeSettingsSubPanel('panel-archived-posts')" class="p-2 -ml-2 rounded-full hover:bg-surface-variant/50 text-on-surface dark:text-gray-100 transition-colors flex items-center justify-center">
@@ -442,8 +447,8 @@
             </button>
             <h2 class="text-xl font-extrabold ml-2 text-on-surface dark:text-gray-100 tracking-tight">Archived</h2>
         </div>
-        <div class="flex-1 overflow-y-auto bg-surface dark:bg-[#121212]">
-            <div id="archived-posts-container" class="max-w-screen-md mx-auto mt-2"></div>
+        <div class="flex-1 overflow-y-auto px-5 bg-surface dark:bg-[#121212] hide-scrollbar pb-20">
+            <div id="archived-posts-container" class="w-full space-y-5 pt-4"></div>
         </div>
     </div>
 
