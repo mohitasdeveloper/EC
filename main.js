@@ -1665,13 +1665,20 @@ function switchTab(tabId) {
     const bottomNav = document.querySelector('nav');
     if (bottomNav) bottomNav.classList.remove('hidden');
 
-    // 🚀 INSTAGRAM STYLE NAV RESET
+    // 🚀 RESET ALL NAV ITEMS
     document.querySelectorAll(".nav-item").forEach(btn => {
         btn.classList.remove("text-on-surface", "dark:text-white");
         btn.classList.add("text-on-surface-variant", "dark:text-gray-500");
         
+        // Handle Material Icons
         const icon = btn.querySelector(".material-symbols-outlined");
         if (icon) icon.style.fontVariationSettings = "'FILL' 0";
+
+        // Handle SVG Icons
+        const svgIcon = btn.querySelector("svg");
+        if (svgIcon) {
+            svgIcon.setAttribute("stroke-width", "2");
+        }
 
         // Reset Profile Avatar border
         const avatar = btn.querySelector("img");
@@ -1687,8 +1694,15 @@ function switchTab(tabId) {
         activeBtn.classList.remove("text-on-surface-variant", "dark:text-gray-500");
         activeBtn.classList.add("text-on-surface", "dark:text-white");
         
+        // Handle Material Icons
         const icon = activeBtn.querySelector(".material-symbols-outlined");
         if (icon) icon.style.fontVariationSettings = "'FILL' 1";
+
+        // Handle SVG Icons (Make outline thicker)
+        const svgIcon = activeBtn.querySelector("svg");
+        if (svgIcon) {
+            svgIcon.setAttribute("stroke-width", "2.5");
+        }
 
         // Add Active border to Profile Avatar
         const avatar = activeBtn.querySelector("img");
