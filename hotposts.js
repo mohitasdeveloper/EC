@@ -1020,7 +1020,7 @@ function showFilterToast(name) {
 }
 
 // ==========================================
-// BACKGROUND UPLOADING ENGINE 
+// BACKGROUND UPLOADING ENGINE (Image & Video)
 // ==========================================
 async function submitHotpost() {
     if (!currentPhotoBlob) return;
@@ -1028,7 +1028,7 @@ async function submitHotpost() {
     const visibilityBtn = document.getElementById('hotpost-send-visibility');
     const rewatchBtn = document.getElementById('hotpost-rewatch-toggle');
     const visibility = visibilityBtn ? visibilityBtn.dataset.val : 'everyone';
-    const allowRewatch = rewatchBtn ? rewatchBtn.dataset.val === 'true' : true; // 🚀 Failsafe Defaults to True
+    const allowRewatch = rewatchBtn ? rewatchBtn.dataset.val === 'true' : true; 
 
     const previewContainer = document.getElementById('hotpost-preview-container');
     const screenW = previewContainer.clientWidth;
@@ -1039,164 +1039,214 @@ async function submitHotpost() {
     closeCameraModal(true);
     
     try {
-        const getCompiledBlob = () => new Promise((resolve, reject) => {
-            try {
-                const bakeCanvas = document.createElement('canvas');
+        let finalMediaUrl = '';
+        
+        // --- HELPER: DRAWS TEXT & DOODLES ---
+        const drawOverlaysToCanvas = (ctx, finalWidth, finalHeight, scaleFactor) => {
+            const doodleCanvas = document.getElementById('hotpost-doodle-canvas');
+            if (doodlePaths.length > 0) ctx.drawImage(doodleCanvas, 0, 0, finalWidth, finalHeight);
+
+            textElements.forEach(tObj => {
+                ctx.save(); 
+                const baseFontSize = 24; 
+                ctx.font = `800 ${baseFontSize}px ${tObj.font}`;
+                ctx.textBaseline = "middle";
                 
-                const MAX_HEIGHT = 1280;
-                const scaleFactor = MAX_HEIGHT / screenH;
-                const finalWidth = screenW * scaleFactor;
-                const finalHeight = MAX_HEIGHT;
-
-                bakeCanvas.width = finalWidth;
-                bakeCanvas.height = finalHeight;
-                const ctx = bakeCanvas.getContext('2d');
-
-                ctx.save();
-                ctx.translate(finalWidth / 2, finalHeight / 2);
-                ctx.scale(imgTransform.scale, imgTransform.scale);
-                ctx.translate(imgTransform.x * scaleFactor, imgTransform.y * scaleFactor);
+                const paragraphs = tObj.content.split('\n');
+                let wrappedLines = [];
+                const uiMaxWidth = screenW * 0.85;
                 
-                if (FILTER_LIST[currentFilterIndex].css !== 'none') {
-                    ctx.filter = FILTER_LIST[currentFilterIndex].css;
-                }
-                
-                const imgAspect = baseImageObj.width / baseImageObj.height;
-                const screenAspect = finalWidth / finalHeight;
-                let drawW, drawH;
-                
-                if (imgAspect > screenAspect) {
-                    drawH = finalHeight;
-                    drawW = finalHeight * imgAspect;
-                } else {
-                    drawW = finalWidth;
-                    drawH = finalWidth / imgAspect;
-                }
-                
-                ctx.drawImage(baseImageObj, -drawW / 2, -drawH / 2, drawW, drawH);
-                ctx.restore();
-
-                const doodleCanvas = document.getElementById('hotpost-doodle-canvas');
-                if (doodlePaths.length > 0) {
-                    ctx.drawImage(doodleCanvas, 0, 0, finalWidth, finalHeight);
-                }
-// 🚀 TEXT BACKGROUND, FONT, AND ALIGNMENT COMPILER
-                textElements.forEach(tObj => {
-                    ctx.save(); 
-
-                    const baseFontSize = 24; 
-                    ctx.font = `800 ${baseFontSize}px ${tObj.font}`;
-                    ctx.textBaseline = "middle";
-                    
-                    const paragraphs = tObj.content.split('\n');
-                    let wrappedLines = [];
-                    
-                    // 🚀 PERFECT MATCH: Use exactly 85% of the device screen width, identical to CSS 'max-width: 85vw'
-                    const uiMaxWidth = screenW * 0.85;
-                    
-                    paragraphs.forEach(paragraph => {
-                        if (!paragraph) { wrappedLines.push(''); return; }
-                        const words = paragraph.split(' ');
-                        let currentLine = '';
-                        for (let i = 0; i < words.length; i++) {
-                            const testLine = currentLine + words[i] + ' ';
-                            const metrics = ctx.measureText(testLine);
-                            if (metrics.width > uiMaxWidth && currentLine.length > 0) {
-                                wrappedLines.push(currentLine.trimEnd());
-                                currentLine = words[i] + ' ';
-                            } else {
-                                currentLine = testLine;
-                            }
-                        }
-                        wrappedLines.push(currentLine.trimEnd());
-                    });
-
-                    // Measure longest line dynamically for the compiler background sizing
-                    let longestLineW = 0;
-                    wrappedLines.forEach(l => {
-                        const w = ctx.measureText(l).width;
-                        if (w > longestLineW) longestLineW = w;
-                    });
-
-                    const finalX = finalWidth * tObj.x;
-                    const finalY = finalHeight * tObj.y;
-
-                    ctx.translate(finalX, finalY);
-                    ctx.scale(scaleFactor * tObj.scale, scaleFactor * tObj.scale);
-
-                    const isNeon = tObj.font === TEXT_FONTS[2].value;
-                    const lineHeight = baseFontSize * 1.3; 
-                    const totalHeight = wrappedLines.length * lineHeight;
-                    const startY = -(totalHeight / 2) + (lineHeight / 2);
-
-                    ctx.textAlign = tObj.align || 'center';
-                    let textDrawX = 0;
-                    if (tObj.align === 'left') textDrawX = -(longestLineW / 2);
-                    if (tObj.align === 'right') textDrawX = (longestLineW / 2);
-
-                    if (tObj.hasBg) {
-                        ctx.fillStyle = tObj.color;
-                        ctx.shadowColor = "transparent";
-                        ctx.shadowBlur = 0;
-                        
-                        wrappedLines.forEach((line, index) => {
-                            if(!line) return; 
-                            const lineW = ctx.measureText(line).width;
-                            const lineY = startY + (index * lineHeight);
-                            const px = 12; 
-                            const py = 6;  
-                            
-                            let bgStartX = 0;
-                            if (tObj.align === 'center') bgStartX = -lineW/2 - px;
-                            if (tObj.align === 'left') bgStartX = textDrawX - px;
-                            if (tObj.align === 'right') bgStartX = textDrawX - lineW - px;
-                            
-                            ctx.beginPath();
-                            ctx.roundRect(bgStartX, lineY - (lineHeight/2) - py, lineW + (px*2), lineHeight + (py*2), 8);
-                            ctx.fill();
-                        });
-
-                        ctx.fillStyle = getContrastYIQ(tObj.color);
-                    } else {
-                        ctx.fillStyle = tObj.color;
-                        if (isNeon) {
-                            ctx.shadowColor = tObj.color;
-                            ctx.shadowBlur = 10;
+                paragraphs.forEach(paragraph => {
+                    if (!paragraph) { wrappedLines.push(''); return; }
+                    const words = paragraph.split(' ');
+                    let currentLine = '';
+                    for (let i = 0; i < words.length; i++) {
+                        const testLine = currentLine + words[i] + ' ';
+                        const metrics = ctx.measureText(testLine);
+                        if (metrics.width > uiMaxWidth && currentLine.length > 0) {
+                            wrappedLines.push(currentLine.trimEnd());
+                            currentLine = words[i] + ' ';
                         } else {
-                            ctx.shadowColor = "rgba(0,0,0,0.9)";
-                            ctx.shadowBlur = 10; 
+                            currentLine = testLine;
                         }
                     }
-
-                    wrappedLines.forEach((line, index) => {
-                        const lineY = startY + (index * lineHeight);
-                        if (!tObj.hasBg && isNeon) ctx.fillText(line, textDrawX, lineY); 
-                        ctx.fillText(line, textDrawX, lineY); 
-                    });
-
-                    ctx.restore(); 
+                    wrappedLines.push(currentLine.trimEnd());
                 });
+
+                let longestLineW = 0;
+                wrappedLines.forEach(l => {
+                    const w = ctx.measureText(l).width;
+                    if (w > longestLineW) longestLineW = w;
+                });
+
+                const finalX = finalWidth * tObj.x;
+                const finalY = finalHeight * tObj.y;
+
+                ctx.translate(finalX, finalY);
+                ctx.scale(scaleFactor * tObj.scale, scaleFactor * tObj.scale);
+
+                const isNeon = tObj.font === TEXT_FONTS[2].value;
+                const lineHeight = baseFontSize * 1.3; 
+                const totalHeight = wrappedLines.length * lineHeight;
+                const startY = -(totalHeight / 2) + (lineHeight / 2);
+
+                ctx.textAlign = tObj.align || 'center';
+                let textDrawX = 0;
+                if (tObj.align === 'left') textDrawX = -(longestLineW / 2);
+                if (tObj.align === 'right') textDrawX = (longestLineW / 2);
+
+                if (tObj.hasBg) {
+                    ctx.fillStyle = tObj.color;
+                    ctx.shadowColor = "transparent";
+                    ctx.shadowBlur = 0;
+                    wrappedLines.forEach((line, index) => {
+                        if(!line) return; 
+                        const lineW = ctx.measureText(line).width;
+                        const lineY = startY + (index * lineHeight);
+                        const px = 12; 
+                        const py = 6;  
+                        let bgStartX = 0;
+                        if (tObj.align === 'center') bgStartX = -lineW/2 - px;
+                        if (tObj.align === 'left') bgStartX = textDrawX - px;
+                        if (tObj.align === 'right') bgStartX = textDrawX - lineW - px;
+                        ctx.beginPath();
+                        ctx.roundRect(bgStartX, lineY - (lineHeight/2) - py, lineW + (px*2), lineHeight + (py*2), 8);
+                        ctx.fill();
+                    });
+                    ctx.fillStyle = getContrastYIQ(tObj.color);
+                } else {
+                    ctx.fillStyle = tObj.color;
+                    if (isNeon) {
+                        ctx.shadowColor = tObj.color;
+                        ctx.shadowBlur = 10;
+                    } else {
+                        ctx.shadowColor = "rgba(0,0,0,0.9)";
+                        ctx.shadowBlur = 10; 
+                    }
+                }
+
+                wrappedLines.forEach((line, index) => {
+                    const lineY = startY + (index * lineHeight);
+                    if (!tObj.hasBg && isNeon) ctx.fillText(line, textDrawX, lineY); 
+                    ctx.fillText(line, textDrawX, lineY); 
+                });
+
+                ctx.restore(); 
+            });
+        };
+
+        // --- MEDIA PROCESSING PIPELINE ---
+        if (currentMediaType === 'video') {
+            
+            // 1. Bake Text & Doodles into a Transparent PNG
+            let overlayPublicId = null;
+            const hasOverlays = textElements.length > 0 || doodlePaths.length > 0;
+
+            if (hasOverlays) {
+                const overlayBlob = await new Promise((resolve) => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_HEIGHT = 1280;
+                    const scaleFactor = MAX_HEIGHT / screenH;
+                    canvas.width = screenW * scaleFactor;
+                    canvas.height = MAX_HEIGHT;
+                    const ctx = canvas.getContext('2d');
+                    
+                    drawOverlaysToCanvas(ctx, canvas.width, canvas.height, scaleFactor);
+                    canvas.toBlob(resolve, 'image/png'); // MUST be PNG for transparency
+                });
+
+                const overlayForm = new FormData();
+                overlayForm.append('file', overlayBlob, 'overlay.png');
+                overlayForm.append('upload_preset', CLOUDINARY_HOTPOSTS_PRESET);
+
+                const overRes = await fetch(CLOUDINARY_URL, { method: 'POST', body: overlayForm });
+                const overData = await overRes.json();
+                if (overData.error) throw new Error(overData.error.message);
                 
-                bakeCanvas.toBlob(resolve, 'image/webp', 0.65); 
-            } catch (err) {
-                reject(err);
+                // Cloudinary requires slashes in public_id to be replaced with colons for layer transformations
+                overlayPublicId = overData.public_id.replace(/\//g, ':');
             }
-        });
 
-        const finalBlob = await getCompiledBlob();
+            // 2. Upload Video
+            const vidForm = new FormData();
+            vidForm.append('file', currentPhotoBlob, 'hotpost.mp4');
+            vidForm.append('upload_preset', CLOUDINARY_HOTPOSTS_PRESET);
+            
+            // Video uploads need the /video/upload endpoint instead of /image/upload
+            const videoUploadUrl = CLOUDINARY_URL.replace('/image/', '/video/');
+            const vidRes = await fetch(videoUploadUrl, { method: 'POST', body: vidForm });
+            const vidData = await vidRes.json();
+            if (vidData.error) throw new Error(vidData.error.message);
 
-        const formData = new FormData();
-        formData.append('file', finalBlob, 'hotpost.webp');
-        formData.append('upload_preset', CLOUDINARY_HOTPOSTS_PRESET);
+            finalMediaUrl = vidData.secure_url;
 
-        const res = await fetch(CLOUDINARY_URL, { method: 'POST', body: formData });
-        const data = await res.json();
-        if (data.error) throw new Error(data.error.message);
+            // 3. Cloudinary Magic: Merge the video and overlay dynamically!
+            if (overlayPublicId) {
+                finalMediaUrl = finalMediaUrl.replace('/upload/', `/upload/l_${overlayPublicId},w_1.0,h_1.0,fl_relative/fl_layer_apply/`);
+            }
 
+        } else {
+            
+            // ORIGINAL IMAGE BAKE LOGIC
+            const finalBlob = await new Promise((resolve, reject) => {
+                try {
+                    const bakeCanvas = document.createElement('canvas');
+                    const MAX_HEIGHT = 1280;
+                    const scaleFactor = MAX_HEIGHT / screenH;
+                    const finalWidth = screenW * scaleFactor;
+                    const finalHeight = MAX_HEIGHT;
+
+                    bakeCanvas.width = finalWidth;
+                    bakeCanvas.height = finalHeight;
+                    const ctx = bakeCanvas.getContext('2d');
+
+                    ctx.save();
+                    ctx.translate(finalWidth / 2, finalHeight / 2);
+                    ctx.scale(imgTransform.scale, imgTransform.scale);
+                    ctx.translate(imgTransform.x * scaleFactor, imgTransform.y * scaleFactor);
+                    
+                    if (FILTER_LIST[currentFilterIndex].css !== 'none') {
+                        ctx.filter = FILTER_LIST[currentFilterIndex].css;
+                    }
+                    
+                    const imgAspect = baseImageObj.width / baseImageObj.height;
+                    const screenAspect = finalWidth / finalHeight;
+                    let drawW, drawH;
+                    
+                    if (imgAspect > screenAspect) {
+                        drawH = finalHeight;
+                        drawW = finalHeight * imgAspect;
+                    } else {
+                        drawW = finalWidth;
+                        drawH = finalWidth / imgAspect;
+                    }
+                    
+                    ctx.drawImage(baseImageObj, -drawW / 2, -drawH / 2, drawW, drawH);
+                    ctx.restore();
+
+                    drawOverlaysToCanvas(ctx, finalWidth, finalHeight, scaleFactor);
+                    
+                    bakeCanvas.toBlob(resolve, 'image/webp', 0.65); 
+                } catch (err) {
+                    reject(err);
+                }
+            });
+
+            const formData = new FormData();
+            formData.append('file', finalBlob, 'hotpost.webp');
+            formData.append('upload_preset', CLOUDINARY_HOTPOSTS_PRESET);
+
+            const res = await fetch(CLOUDINARY_URL, { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error.message);
+            finalMediaUrl = data.secure_url;
+        }
+
+        // --- SAVE TO SUPABASE ---
         const { data: newHotpost, error } = await supabase.from('hotposts').insert({
             user_id: currentUser.id,
-            media_url: data.secure_url,
-            media_type: 'image',
+            media_url: finalMediaUrl,
+            media_type: currentMediaType, // 'image' or 'video'
             visibility: visibility,
             allow_rewatch: allowRewatch
         }).select('id').single();
