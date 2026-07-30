@@ -637,6 +637,9 @@ function populateProfileUI(profile) {
     if (mentionPrivacyLabel) {
         mentionPrivacyLabel.textContent = profile.mention_privacy === 'none' ? 'No One' : 'Connections';
     }
+    // Sync Bottom Nav Avatar
+    const navAvatar = document.getElementById('nav-profile-avatar');
+    if (navAvatar) navAvatar.src = typeof optimizeImageUrl === 'function' ? optimizeImageUrl(profile.profile_img_url, 'avatar') : profile.profile_img_url;
 }
 // ========================================================
 // PROFILE FEED RENDER ENGINE
@@ -1647,7 +1650,7 @@ async function submitReport() {
 window.viewUserProfile = viewUserProfile;
 
 // ==========================================
-// LAZY-LOADING TAB ROUTER (Anti-Crash Fix)
+// LAZY-LOADING TAB ROUTER (Instagram Style)
 // ==========================================
 function switchTab(tabId) {
     document.querySelectorAll(".tab-content").forEach(tab => tab.classList.add("hidden"));
@@ -1662,19 +1665,37 @@ function switchTab(tabId) {
     const bottomNav = document.querySelector('nav');
     if (bottomNav) bottomNav.classList.remove('hidden');
 
+    // 🚀 INSTAGRAM STYLE NAV RESET
     document.querySelectorAll(".nav-item").forEach(btn => {
-        btn.classList.remove("bg-primary", "text-white");
-        btn.classList.add("text-on-surface-variant", "dark:text-gray-400");
+        btn.classList.remove("text-on-surface", "dark:text-white");
+        btn.classList.add("text-on-surface-variant", "dark:text-gray-500");
+        
         const icon = btn.querySelector(".material-symbols-outlined");
         if (icon) icon.style.fontVariationSettings = "'FILL' 0";
+
+        // Reset Profile Avatar border
+        const avatar = btn.querySelector("img");
+        if (avatar) {
+            avatar.classList.remove("border-on-surface", "dark:border-white");
+            avatar.classList.add("border-transparent");
+        }
     });
 
+    // 🚀 ACTIVATE CURRENT TAB
     const activeBtn = document.getElementById(`nav-${tabId}`);
     if (activeBtn) {
-        activeBtn.classList.remove("text-on-surface-variant", "dark:text-gray-400");
-        activeBtn.classList.add("bg-primary", "text-white");
+        activeBtn.classList.remove("text-on-surface-variant", "dark:text-gray-500");
+        activeBtn.classList.add("text-on-surface", "dark:text-white");
+        
         const icon = activeBtn.querySelector(".material-symbols-outlined");
         if (icon) icon.style.fontVariationSettings = "'FILL' 1";
+
+        // Add Active border to Profile Avatar
+        const avatar = activeBtn.querySelector("img");
+        if (avatar) {
+            avatar.classList.remove("border-transparent");
+            avatar.classList.add("border-on-surface", "dark:border-white");
+        }
     }
 
     window.scrollTo({ top: 0, behavior: "instant" });
