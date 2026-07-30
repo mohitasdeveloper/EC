@@ -313,38 +313,66 @@
             <button onclick="closeSettingsSidebar()" class="p-2 -ml-2 rounded-full hover:bg-surface-variant/50 text-on-surface dark:text-gray-100 transition-colors flex items-center justify-center">
                 <span class="material-symbols-outlined text-[28px]">close</span>
             </button>
-            <h2 class="text-xl font-extrabold ml-2 text-on-surface dark:text-gray-100 tracking-tight">Settings</h2>
+            <h2 class="text-xl font-extrabold ml-2 text-on-surface dark:text-gray-100 tracking-tight">Settings & Activity</h2>
         </div>
         
-        <div class="flex-1 overflow-y-auto px-5 py-4 space-y-2 mt-2">
-            <!-- Account Center -->
-            <button onclick="openSettingsSubPanel('settings-account-panel')" class="w-full flex items-center justify-between p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[15px]">
-                <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[24px]">manage_accounts</span> Account Center</div>
+        <div class="flex-1 overflow-y-auto px-5 py-4 space-y-2 mt-2 hide-scrollbar">
+            
+            <!-- SECTION 1: YOUR ACTIVITY -->
+            <h4 class="text-[12px] font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider mb-2 px-2 mt-2">Your Activity</h4>
+            
+            <button onclick="openSettingsSubPanel('panel-saved-posts'); window.fetchSavedPosts();" class="w-full flex items-center justify-between p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[15px]">
+                <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[24px]">bookmark</span> Saved</div>
                 <span class="material-symbols-outlined text-[20px] text-on-surface-variant">chevron_right</span>
             </button>
-            
-            <!-- Notifications -->
-            <button onclick="openSettingsSubPanel('settings-notifications-panel'); fetchNotificationSettings();" class="w-full flex items-center justify-between p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[15px]">
-                <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[24px]">notifications</span> Push Notifications</div>
+
+            <button onclick="openSettingsSubPanel('panel-liked-posts'); window.fetchLikedPosts();" class="w-full flex items-center justify-between p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[15px]">
+                <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[24px]">favorite</span> Liked</div>
+                <span class="material-symbols-outlined text-[20px] text-on-surface-variant">chevron_right</span>
+            </button>
+
+            <button onclick="openSettingsSubPanel('panel-archived-posts'); window.fetchArchivedPosts();" class="w-full flex items-center justify-between p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[15px]">
+                <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[24px]">archive</span> Archived</div>
                 <span class="material-symbols-outlined text-[20px] text-on-surface-variant">chevron_right</span>
             </button>
 
             <div class="my-4 border-t border-surface-variant/40 dark:border-neutral-800"></div>
 
-            <h4 class="text-[12px] font-bold text-primary uppercase tracking-wider mb-2 px-2">Preferences</h4>
+            <!-- SECTION 2: CONNECTIONS -->
+            <h4 class="text-[12px] font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider mb-2 px-2">Connections</h4>
 
-            <!-- 🚀 NEW: Mention Privacy Setting -->
+            <button onclick="handleProfileStatsClick(); closeSettingsSidebar();" class="w-full flex items-center gap-3 p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[15px]">
+                <span class="material-symbols-outlined text-[24px]">group</span> <span id="sidebar-stats-text">Connections</span>
+            </button>
+            <button onclick="openBlockedUsersModal(); closeSettingsSidebar();" class="w-full flex items-center gap-3 p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[15px]">
+                <span class="material-symbols-outlined text-[24px]">block</span> Blocked Users
+            </button>
+
+            <div class="my-4 border-t border-surface-variant/40 dark:border-neutral-800"></div>
+
+            <!-- SECTION 3: SETTINGS & PRIVACY -->
+            <h4 class="text-[12px] font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider mb-2 px-2">Settings & Privacy</h4>
+
+            <button onclick="openSettingsSubPanel('settings-account-panel')" class="w-full flex items-center justify-between p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[15px]">
+                <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[24px]">manage_accounts</span> Account Center</div>
+                <span class="material-symbols-outlined text-[20px] text-on-surface-variant">chevron_right</span>
+            </button>
+            
+            <button onclick="openSettingsSubPanel('settings-notifications-panel'); fetchNotificationSettings();" class="w-full flex items-center justify-between p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[15px]">
+                <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[24px]">notifications_active</span> Notifications</div>
+                <span class="material-symbols-outlined text-[20px] text-on-surface-variant">chevron_right</span>
+            </button>
+
             <div class="flex items-center justify-between p-4 bg-surface-variant/10 dark:bg-neutral-900/30 rounded-2xl mb-2">
                 <div class="flex items-center gap-3 text-on-surface dark:text-gray-200">
                     <span class="material-symbols-outlined text-[24px]">alternate_email</span>
-                    <span class="text-[15px] font-bold">Allow Mentions From</span>
+                    <span class="text-[15px] font-bold">Allow Mentions</span>
                 </div>
                 <select id="mention-privacy-select" onchange="updateMentionPrivacy(this.value)" class="bg-surface-variant/20 dark:bg-neutral-800 border border-surface-variant/50 dark:border-neutral-700 rounded-lg px-2 py-1 text-xs font-bold text-on-surface dark:text-gray-200 outline-none cursor-pointer">
-                    <option value="connections">My Connections</option>
+                    <option value="connections">Connections</option>
                     <option value="none">No One</option>
                 </select>
             </div>
-
             
             <div class="flex items-center justify-between p-4 bg-surface-variant/10 dark:bg-neutral-900/30 rounded-2xl">
                 <div class="flex items-center gap-3 text-on-surface dark:text-gray-200"><span class="material-symbols-outlined text-[24px]">lock</span><span class="text-[15px] font-bold">Private Account</span></div>
@@ -353,6 +381,7 @@
                     <div class="w-11 h-6 bg-surface-variant dark:bg-neutral-700 rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                 </label>
             </div>
+
             <div class="flex items-center justify-between p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl transition-colors">
                 <div class="flex items-center gap-3 text-on-surface dark:text-gray-200"><span class="material-symbols-outlined text-[24px]">dark_mode</span><span class="text-[15px] font-bold">Dark Theme</span></div>
                 <label class="relative inline-flex items-center cursor-pointer">
@@ -361,9 +390,9 @@
                 </label>
             </div>
 
-            <button onclick="handleProfileStatsClick(); closeSettingsSidebar();" class="w-full flex items-center gap-3 p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[15px]"><span class="material-symbols-outlined text-[24px]">group</span> <span id="sidebar-stats-text">Connections</span></button>
-            <button onclick="openEditSocialsModal(); closeSettingsSidebar();" class="w-full flex items-center gap-3 p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[15px]"><span class="material-symbols-outlined text-[24px]">link</span> Manage Socials</button>
-            <button onclick="openBlockedUsersModal(); closeSettingsSidebar();" class="w-full flex items-center gap-3 p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[15px]"><span class="material-symbols-outlined text-[24px]">block</span> Blocked Users</button>
+            <button onclick="openEditSocialsModal(); closeSettingsSidebar();" class="w-full flex items-center gap-3 p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[15px]">
+                <span class="material-symbols-outlined text-[24px]">link</span> Manage Socials
+            </button>
 
             <div class="my-4 border-t border-surface-variant/40 dark:border-neutral-800"></div>
             
@@ -371,6 +400,45 @@
             <a href="https://ecampus.mohitmali.in/terms.html" target="_blank" class="w-full flex items-center gap-3 p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[15px]"><span class="material-symbols-outlined text-[24px]">description</span> Terms of Service</a>
 
             <button id="sign-out-btn" class="w-full flex items-center gap-3 p-4 rounded-2xl bg-error/10 text-error transition-colors text-left mt-6 shadow-sm"><span class="material-symbols-outlined text-[24px]">logout</span><span class="text-[15px] font-extrabold">Sign Out</span></button>
+        </div>
+    </div>
+
+    <!-- NEW: SAVED POSTS PANEL -->
+    <div id="panel-saved-posts" class="absolute inset-y-0 right-0 w-full max-w-screen-md mx-auto flex flex-col transition-transform duration-300 translate-x-full bg-surface dark:bg-[#121212] z-20">
+        <div class="pt-[max(1rem,env(safe-area-inset-top))] pb-4 border-b border-surface-variant/40 dark:border-neutral-800 flex items-center px-5 shrink-0 bg-surface/90 dark:bg-[#121212]/90 backdrop-blur-xl">
+            <button onclick="closeSettingsSubPanel('panel-saved-posts')" class="p-2 -ml-2 rounded-full hover:bg-surface-variant/50 text-on-surface dark:text-gray-100 transition-colors flex items-center justify-center">
+                <span class="material-symbols-outlined text-[28px]">arrow_back</span>
+            </button>
+            <h2 class="text-xl font-extrabold ml-2 text-on-surface dark:text-gray-100 tracking-tight">Saved</h2>
+        </div>
+        <div class="flex-1 overflow-y-auto bg-surface-container-lowest dark:bg-[#121212]">
+            <div id="saved-posts-container" class="max-w-screen-md mx-auto space-y-5 pt-4 pb-20"></div>
+        </div>
+    </div>
+
+    <!-- NEW: LIKED POSTS PANEL -->
+    <div id="panel-liked-posts" class="absolute inset-y-0 right-0 w-full max-w-screen-md mx-auto flex flex-col transition-transform duration-300 translate-x-full bg-surface dark:bg-[#121212] z-20">
+        <div class="pt-[max(1rem,env(safe-area-inset-top))] pb-4 border-b border-surface-variant/40 dark:border-neutral-800 flex items-center px-5 shrink-0 bg-surface/90 dark:bg-[#121212]/90 backdrop-blur-xl">
+            <button onclick="closeSettingsSubPanel('panel-liked-posts')" class="p-2 -ml-2 rounded-full hover:bg-surface-variant/50 text-on-surface dark:text-gray-100 transition-colors flex items-center justify-center">
+                <span class="material-symbols-outlined text-[28px]">arrow_back</span>
+            </button>
+            <h2 class="text-xl font-extrabold ml-2 text-on-surface dark:text-gray-100 tracking-tight">Liked</h2>
+        </div>
+        <div class="flex-1 overflow-y-auto bg-surface-container-lowest dark:bg-[#121212]">
+            <div id="liked-posts-container" class="max-w-screen-md mx-auto space-y-5 pt-4 pb-20"></div>
+        </div>
+    </div>
+
+    <!-- NEW: ARCHIVED POSTS PANEL -->
+    <div id="panel-archived-posts" class="absolute inset-y-0 right-0 w-full max-w-screen-md mx-auto flex flex-col transition-transform duration-300 translate-x-full bg-surface dark:bg-[#121212] z-20">
+        <div class="pt-[max(1rem,env(safe-area-inset-top))] pb-4 border-b border-surface-variant/40 dark:border-neutral-800 flex items-center px-5 shrink-0 bg-surface/90 dark:bg-[#121212]/90 backdrop-blur-xl">
+            <button onclick="closeSettingsSubPanel('panel-archived-posts')" class="p-2 -ml-2 rounded-full hover:bg-surface-variant/50 text-on-surface dark:text-gray-100 transition-colors flex items-center justify-center">
+                <span class="material-symbols-outlined text-[28px]">arrow_back</span>
+            </button>
+            <h2 class="text-xl font-extrabold ml-2 text-on-surface dark:text-gray-100 tracking-tight">Archived</h2>
+        </div>
+        <div class="flex-1 overflow-y-auto bg-surface-container-lowest dark:bg-[#121212]">
+            <div id="archived-posts-container" class="max-w-screen-md mx-auto space-y-5 pt-4 pb-20"></div>
         </div>
     </div>
 
@@ -409,7 +477,6 @@
             <h2 class="text-xl font-extrabold ml-2 text-on-surface dark:text-gray-100 tracking-tight">Change Password</h2>
         </div>
         <div class="flex-1 overflow-y-auto px-5 py-6">
-            <!-- INLINE ERROR MESSAGE -->
             <div id="cp-error-msg" class="hidden mb-4 p-3 rounded-xl bg-error/10 text-error text-sm font-bold text-center border border-error/20"></div>
             
             <div class="space-y-3">
@@ -442,13 +509,10 @@
                     <li><strong>Reactivation is easy:</strong> Simply log back in anytime to restore your account.</li>
                 </ul>
             </div>
-
-            <!-- Warning Checkbox -->
             <label class="flex items-start gap-3 mb-6 cursor-pointer group">
                 <input type="checkbox" id="deactivate-confirm-checkbox" onchange="document.getElementById('btn-deactivate-final').disabled = !this.checked;" class="mt-1 w-5 h-5 rounded border-surface-variant text-orange-500 focus:ring-orange-500 dark:bg-neutral-800 dark:border-neutral-700">
                 <span class="text-[14px] text-on-surface-variant dark:text-gray-400 group-hover:text-on-surface dark:group-hover:text-gray-200 transition-colors">I understand the effects of deactivating my account.</span>
             </label>
-
             <button id="btn-deactivate-final" disabled onclick="executeDeactivateAccount()" class="w-full bg-orange-500 text-white font-bold py-3.5 rounded-xl active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">Deactivate Now</button>
         </div>
     </div>
@@ -471,16 +535,13 @@
                     <li>Your profile, posts, and hotposts will be permanently deleted.</li>
                     <li>All your connections, likes, and comments will be erased.</li>
                     <li>Your user ID and email will be permanently blocked.</li>
-                    <li><strong>This action cannot be undone.</strong> You will never be able to log in to this account again.</li>
+                    <li><strong>This action cannot be undone.</strong></li>
                 </ul>
             </div>
-
-            <!-- Extra Warning Text Input -->
             <div class="mb-6">
                 <label class="text-[13px] font-bold text-on-surface-variant dark:text-gray-400 mb-2 block">To verify, type <strong>DELETE</strong> below:</label>
                 <input type="text" id="delete-confirm-input" oninput="document.getElementById('btn-delete-final').disabled = (this.value !== 'DELETE');" placeholder="Type DELETE" class="w-full bg-surface-variant/30 dark:bg-neutral-900/50 border border-error/50 rounded-xl p-3.5 text-[14px] outline-none focus:border-error text-error font-bold placeholder-error/50">
             </div>
-
             <button id="btn-delete-final" disabled onclick="executeDeleteAccount()" class="w-full bg-error text-white font-bold py-3.5 rounded-xl active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">Permanently Delete Account</button>
         </div>
     </div>
@@ -493,11 +554,8 @@
             </button>
             <h2 class="text-xl font-extrabold ml-2 text-on-surface dark:text-gray-100 tracking-tight">Push Notifications</h2>
         </div>
-        
         <div class="flex-1 overflow-y-auto px-5 py-6">
-            
             <h4 class="text-[12px] font-bold text-primary uppercase tracking-wider mb-2">Global Settings</h4>
-            
             <div class="space-y-2 mb-6">
                 <div class="flex items-center justify-between p-4 bg-surface-variant/10 dark:bg-neutral-900/30 rounded-2xl">
                     <div class="flex items-center gap-3 text-on-surface dark:text-gray-200">
@@ -509,7 +567,6 @@
                         <div class="w-11 h-6 bg-surface-variant dark:bg-neutral-700 rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                     </label>
                 </div>
-                
                 <div class="flex items-center justify-between p-4 bg-surface-variant/10 dark:bg-neutral-900/30 rounded-2xl">
                     <div class="flex items-center gap-3 text-on-surface dark:text-gray-200">
                         <span class="material-symbols-outlined text-[24px]">chat_bubble</span>
@@ -520,7 +577,6 @@
                         <div class="w-11 h-6 bg-surface-variant dark:bg-neutral-700 rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                     </label>
                 </div>
-                
                 <div class="flex items-center justify-between p-4 bg-surface-variant/10 dark:bg-neutral-900/30 rounded-2xl">
                     <div class="flex items-center gap-3 text-on-surface dark:text-gray-200">
                         <span class="material-symbols-outlined text-[24px]">alternate_email</span>
@@ -531,7 +587,6 @@
                         <div class="w-11 h-6 bg-surface-variant dark:bg-neutral-700 rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                     </label>
                 </div>
-
                 <div class="flex items-center justify-between p-4 bg-surface-variant/10 dark:bg-neutral-900/30 rounded-2xl">
                     <div class="flex items-center gap-3 text-on-surface dark:text-gray-200">
                         <span class="material-symbols-outlined text-[24px]">group_add</span>
@@ -543,15 +598,12 @@
                     </label>
                 </div>
             </div>
-
             <div class="my-6 border-t border-surface-variant/40 dark:border-neutral-800"></div>
-
             <h4 class="text-[12px] font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider mb-2">Pages You Follow</h4>
-            <div id="notification-settings-list" class="space-y-2">
-                <!-- Managed via JS -->
-            </div>
+            <div id="notification-settings-list" class="space-y-2"></div>
         </div>
     </div>
+</div>
 </div>
         </div>
     </main>
