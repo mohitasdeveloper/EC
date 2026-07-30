@@ -2648,33 +2648,6 @@ window.closeUserConnectionsModal = function() {
     setTimeout(() => modal.classList.replace('flex', 'hidden'), 300);
 };
 
-function renderViewConnectionsList(users, isSearch = false) {
-    const list = document.getElementById('view-connections-list');
-
-    if (users.length === 0) {
-        list.innerHTML = `<div class="py-16 flex flex-col items-center justify-center opacity-40 text-on-surface-variant"><span class="material-symbols-outlined text-[42px] mb-2">group_off</span><p class="text-sm font-semibold">${isSearch ? 'No users found.' : 'No connections yet.'}</p></div>`;
-        return;
-    }
-
-    list.innerHTML = users.map(user => {
-        const optimizedAvatar = typeof window.optimizeImageUrl === 'function' ? window.optimizeImageUrl(user.profile_img_url, 'avatar') : user.profile_img_url;
-        const fallback = `this.onerror=null; this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&background=e1e3e4';`;
-        const tickHtml = window.getTickHtml ? window.getTickHtml(user.tick_type) : '';
-
-        return `
-        <div onclick="window.closeUserConnectionsModal(); setTimeout(() => window.viewUserProfile('${user.id}'), 150);" class="flex items-center gap-3.5 p-3 hover:bg-surface-variant/20 dark:hover:bg-neutral-800/50 rounded-2xl cursor-pointer active:scale-[0.98] transition-all">
-            <img loading="lazy" src="${optimizedAvatar || fallback}" onerror="${fallback}" class="w-12 h-12 rounded-full object-cover border border-surface-variant/50 shrink-0">
-            <div class="flex-1 min-w-0">
-                <p class="font-bold text-[14.5px] text-on-surface dark:text-gray-100 truncate flex items-center gap-1">${user.full_name} ${tickHtml}</p>
-                <p class="text-[12px] font-medium text-on-surface-variant dark:text-gray-500 mt-0.5 truncate">${user.course || 'Student'}</p>
-            </div>
-            <button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-variant/50 transition-colors shrink-0">
-                <span class="material-symbols-outlined text-[20px]">chevron_right</span>
-            </button>
-        </div>
-        `;
-    }).join('');
-}
 // ========================================================
 // PREFERENCES & PRIVACY UPDATES
 // ========================================================
@@ -2691,41 +2664,33 @@ window.openMentionPrivacySelector = function() {
 
 window.updateMentionPrivacy = async function(val) {
     window.closeActionSheet();
-    
     try {
-        const { error } = await supabase
-            .from('users')
-            .update({ mention_privacy: val })
-            .eq('id', currentUserProfile.id);
-            
+        const { error } = await supabase.from('users').update({ mention_privacy: val }).eq('id', currentUserProfile.id);
         if (error) throw error;
         
         currentUserProfile.mention_privacy = val;
         
-        // Update the UI Label natively
         const labelEl = document.getElementById('mention-privacy-label');
         if (labelEl) labelEl.textContent = val === 'connections' ? 'Connections' : 'No One';
         
         showToast(`Mentions allowed from: ${val === 'connections' ? 'My Connections' : 'No One'}`, 'success');
-        
     } catch (err) {
         console.error("Mention privacy error:", err);
         showToast('Failed to update settings', 'error');
     }
 };
+
 // ========================================================
 // ACTIVITY PANELS LOGIC (Saved, Liked, Archived)
 // ========================================================
 window.fetchSavedPosts = async function() {
     const container = document.getElementById('saved-posts-container');
     if (!container) return;
-    container.innerHTML = FEED_SKELETON; // Show shimmer
+    container.innerHTML = FEED_SKELETON; 
 
     try {
-        // !inner forces the join to only return posts if they exist in saved_posts for this user
         const { data, error } = await supabase.from('posts').select(`
-            *,
-            users ( id, full_name, profile_img_url, role, tick_type ),
+            *, users ( id, full_name, profile_img_url, role, tick_type ),
             post_likes ( user_id ),
             post_comments ( id, content, created_at, is_deleted, parent_comment_id, users(id, full_name, profile_img_url, tick_type) ),
             post_poll_votes ( user_id, option_id ),
@@ -2733,7 +2698,7 @@ window.fetchSavedPosts = async function() {
         `)
         .eq('saved_posts.user_id', currentUserProfile.id)
         .eq('is_deleted', false)
-        .eq('is_archived', false) // Instantly hides if the author archived it
+        .eq('is_archived', false)
         .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -2755,8 +2720,7 @@ window.fetchLikedPosts = async function() {
 
     try {
         const { data, error } = await supabase.from('posts').select(`
-            *,
-            users ( id, full_name, profile_img_url, role, tick_type ),
+            *, users ( id, full_name, profile_img_url, role, tick_type ),
             post_likes!inner ( user_id ),
             post_comments ( id, content, created_at, is_deleted, parent_comment_id, users(id, full_name, profile_img_url, tick_type) ),
             post_poll_votes ( user_id, option_id ),
@@ -2786,8 +2750,7 @@ window.fetchArchivedPosts = async function() {
 
     try {
         const { data, error } = await supabase.from('posts').select(`
-            *,
-            users ( id, full_name, profile_img_url, role, tick_type ),
+            *, users ( id, full_name, profile_img_url, role, tick_type ),
             post_likes ( user_id ),
             post_comments ( id, content, created_at, is_deleted, parent_comment_id, users(id, full_name, profile_img_url, tick_type) ),
             post_poll_votes ( user_id, option_id ),
@@ -2807,5 +2770,93 @@ window.fetchArchivedPosts = async function() {
     } catch (e) {
         console.error(e);
         container.innerHTML = `<p class="text-sm text-center py-4 text-error">Failed to load archive.</p>`;
+    }
+};
+
+// ==========================================
+// SAVING & ARCHIVING LOGIC
+// ==========================================
+window._saveLocks = window._saveLocks || {};
+
+window.handleSavePost = async function(postId, btnElement) {
+    if (!currentUserProfile || window._saveLocks[postId]) return;
+    window._saveLocks[postId] = true;
+
+    const isSaved = btnElement.classList.contains('text-primary');
+    const nextSavedState = !isSaved;
+
+    document.querySelectorAll(`.save-btn[data-post-id="${postId}"]`).forEach(btn => {
+        btn.dataset.saved = nextSavedState.toString();
+        const iconSpan = btn.querySelector('.material-symbols-outlined');
+        
+        if (nextSavedState) {
+            btn.classList.remove('text-on-surface', 'dark:text-gray-100', 'hover:text-on-surface-variant');
+            btn.classList.add('text-primary');
+            iconSpan.style.fontVariationSettings = "'FILL' 1";
+            iconSpan.classList.remove('animate-[pulse_0.3s_ease-out]');
+            void iconSpan.offsetWidth;
+            iconSpan.classList.add('animate-[pulse_0.3s_ease-out]');
+        } else {
+            btn.classList.remove('text-primary');
+            btn.classList.add('text-on-surface', 'dark:text-gray-100', 'hover:text-on-surface-variant');
+            iconSpan.style.fontVariationSettings = "'FILL' 0";
+            iconSpan.classList.remove('animate-[pulse_0.3s_ease-out]');
+        }
+    });
+
+    const savedPanel = document.getElementById('panel-saved-posts');
+    if (!nextSavedState && savedPanel && !savedPanel.classList.contains('translate-x-full')) {
+        const postCard = btnElement.closest(`div[data-post-id="${postId}"]`);
+        if (postCard) {
+            postCard.style.transition = 'all 0.3s ease';
+            postCard.style.transform = 'scale(0.9)';
+            postCard.style.opacity = '0';
+            setTimeout(() => postCard.remove(), 300);
+        }
+    }
+
+    try {
+        if (!nextSavedState) {
+            await supabase.from('saved_posts').delete().match({ post_id: postId, user_id: currentUserProfile.id });
+        } else {
+            await supabase.from('saved_posts').insert({ post_id: postId, user_id: currentUserProfile.id });
+        }
+    } catch(e) { console.error("Save error:", e); }
+    finally { setTimeout(() => { window._saveLocks[postId] = false; }, 300); }
+};
+
+window.archivePost = async function(postId) {
+    window.closeActionSheet();
+    
+    document.querySelectorAll(`div[data-post-id="${postId}"]`).forEach(el => {
+        el.style.transition = 'all 0.3s ease';
+        el.style.transform = 'scale(0.9)';
+        el.style.opacity = '0';
+        setTimeout(() => el.remove(), 300);
+    });
+
+    const { error } = await supabase.from('posts').update({ is_archived: true }).eq('id', postId);
+    if (error) showToast('Failed to archive.', 'error');
+    else showToast('Post archived.', 'success');
+};
+
+window.unarchivePost = async function(postId) {
+    window.closeActionSheet();
+    
+    const archivedPanel = document.getElementById('panel-archived-posts');
+    if (archivedPanel && !archivedPanel.classList.contains('translate-x-full')) {
+        document.querySelectorAll(`div[data-post-id="${postId}"]`).forEach(el => {
+            el.style.transition = 'all 0.3s ease';
+            el.style.transform = 'scale(0.9)';
+            el.style.opacity = '0';
+            setTimeout(() => el.remove(), 300);
+        });
+    }
+
+    const { error } = await supabase.from('posts').update({ is_archived: false }).eq('id', postId);
+    if (error) showToast('Failed to unarchive.', 'error');
+    else {
+        showToast('Post restored.', 'success');
+        if (typeof window.refreshMyProfile === 'function') window.refreshMyProfile();
     }
 };
