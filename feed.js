@@ -1488,13 +1488,15 @@ window.searchAndOpenProfile = async function(fullName) {
 window._saveLocks = window._saveLocks || {};
 
 window.handleSavePost = async function(postId, btnElement) {
-    if (!currentUser || window._saveLocks[postId]) return;
+    // Safety check: Use currentUser from feed, or fallback to currentUserProfile from main
+    const activeUser = currentUser || (typeof currentUserProfile !== 'undefined' ? currentUserProfile : null);
+    if (!activeUser || window._saveLocks[postId]) return;
     window._saveLocks[postId] = true;
 
     const isSaved = btnElement.classList.contains('text-primary');
     const nextSavedState = !isSaved;
 
-    // Optimistic Update across feed/profile
+    // Optimistic UI Update across feed/profile
     document.querySelectorAll(`.save-btn[data-post-id="${postId}"]`).forEach(btn => {
         btn.dataset.saved = nextSavedState.toString();
         const iconSpan = btn.querySelector('.material-symbols-outlined');
@@ -1514,7 +1516,7 @@ window.handleSavePost = async function(postId, btnElement) {
         }
     });
 
-    // Zero-Refresh removal for the "Saved" panel
+    // Zero-Refresh Removal from Saved Panel
     const savedPanel = document.getElementById('panel-saved-posts');
     if (!nextSavedState && savedPanel && !savedPanel.classList.contains('translate-x-full')) {
         const postCard = btnElement.closest(`div[data-post-id="${postId}"]`);
@@ -1528,9 +1530,9 @@ window.handleSavePost = async function(postId, btnElement) {
 
     try {
         if (!nextSavedState) {
-            await supabase.from('saved_posts').delete().match({ post_id: postId, user_id: currentUser.id });
+            await supabase.from('saved_posts').delete().match({ post_id: postId, user_id: activeUser.id });
         } else {
-            await supabase.from('saved_posts').insert({ post_id: postId, user_id: currentUser.id });
+            await supabase.from('saved_posts').insert({ post_id: postId, user_id: activeUser.id });
         }
     } catch(e) { console.error("Save error:", e); }
     finally { setTimeout(() => { window._saveLocks[postId] = false; }, 300); }
