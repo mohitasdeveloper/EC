@@ -1624,23 +1624,30 @@
                 </div>
         </div>
     </div>
-    <!-- BOTTOM NAV -->
- <nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-2 pt-3 bg-surface/80 dark:bg-[#121212]/90 backdrop-blur-2xl rounded-t-[32px] border-t border-surface-variant/40 dark:border-neutral-800 shadow-[0_-8px_30px_rgba(0,0,0,0.04)] dark:shadow-[0_-8px_30px_rgba(0,0,0,0.2)] z-[40] safe-pb">
+    <!-- BOTTOM NAV (Instagram Style) -->
+    <nav class="fixed bottom-0 left-0 w-full flex justify-around items-center h-[54px] bg-surface dark:bg-[#121212] border-t border-surface-variant/60 dark:border-neutral-800 z-[40] safe-pb">
         
-        <button id="nav-dashboard" onclick="switchTab('dashboard')" class="nav-item flex flex-col items-center gap-1 p-2 rounded-2xl transition-all duration-300 w-16 bg-primary text-white">
-            <span class="material-symbols-outlined text-[26px] transition-transform" style="font-variation-settings: 'FILL' 1;">home</span>
+        <button id="nav-dashboard" onclick="switchTab('dashboard')" class="nav-item flex items-center justify-center w-full h-full text-on-surface dark:text-white transition-colors">
+            <span class="material-symbols-outlined text-[28px] transition-transform active:scale-90" style="font-variation-settings: 'FILL' 1;">home</span>
         </button>
         
-        <button id="nav-search" onclick="switchTab('search')" class="nav-item flex flex-col items-center gap-1 p-2 rounded-2xl transition-all duration-300 w-16 text-on-surface-variant dark:text-gray-400 hover:text-on-surface dark:hover:text-gray-200">
-            <span class="material-symbols-outlined text-[26px] transition-transform" style="font-variation-settings: 'FILL' 0;">search</span>
+        <button id="nav-search" onclick="switchTab('search')" class="nav-item flex items-center justify-center w-full h-full text-on-surface-variant dark:text-gray-500 hover:text-on-surface dark:hover:text-gray-300 transition-colors">
+            <span class="material-symbols-outlined text-[28px] transition-transform active:scale-90" style="font-variation-settings: 'FILL' 0;">search</span>
+        </button>
+
+        <button onclick="openCreatePostView()" class="flex items-center justify-center w-full h-full text-on-surface dark:text-gray-100 transition-colors">
+            <span class="material-symbols-outlined text-[28px] transition-transform active:scale-90" style="font-variation-settings: 'FILL' 0;">add_box</span>
         </button>
         
-        <button id="nav-updates" onclick="switchTab('updates')" class="nav-item flex flex-col items-center gap-1 p-2 rounded-2xl transition-all duration-300 w-16 text-on-surface-variant dark:text-gray-400 hover:text-on-surface dark:hover:text-gray-200">
-            <span class="material-symbols-outlined text-[26px] transition-transform" style="font-variation-settings: 'FILL' 0;">campaign</span>
+        <button id="nav-updates" onclick="switchTab('updates')" class="nav-item flex items-center justify-center w-full h-full text-on-surface-variant dark:text-gray-500 hover:text-on-surface dark:hover:text-gray-300 transition-colors">
+            <!-- 🚀 Exact Instagram Messenger Icon -->
+            <svg aria-label="Messenger" class="w-[24px] h-[24px] fill-current transition-transform active:scale-90" viewBox="0 0 24 24">
+                <path d="M12.003 2.032C6.262 2.032 1.637 6.463 1.637 11.937c0 3.12 1.49 5.92 3.844 7.747v3.29l3.52-1.936c.96.266 1.968.41 3.002.41 5.74 0 10.366-4.431 10.366-9.905 0-5.474-4.626-9.905-10.366-9.905zm.743 13.565l-2.45-2.617-4.78 2.617 5.253-5.568 2.502 2.618 4.728-2.618-5.253 5.568z"/>
+            </svg>
         </button>
         
-        <button id="nav-profile" onclick="switchTab('profile')" class="nav-item flex flex-col items-center gap-1 p-2 rounded-2xl transition-all duration-300 w-16 text-on-surface-variant dark:text-gray-400 hover:text-on-surface dark:hover:text-gray-200">
-            <span class="material-symbols-outlined text-[26px] transition-transform" style="font-variation-settings: 'FILL' 0;">person</span>
+        <button id="nav-profile" onclick="switchTab('profile')" class="nav-item flex items-center justify-center w-full h-full text-on-surface-variant dark:text-gray-500 hover:text-on-surface dark:hover:text-gray-300 transition-colors">
+            <img id="nav-profile-avatar" src="https://ui-avatars.com/api/?name=User&background=e1e3e4" class="w-7 h-7 rounded-full object-cover border-[2px] border-transparent transition-all active:scale-90 shadow-sm">
         </button>
         
     </nav>
