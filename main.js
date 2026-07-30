@@ -654,10 +654,12 @@ window.fetchMyProfileFeed = async function(userId) {
                 users ( id, full_name, profile_img_url, role, tick_type ),
                 post_likes ( user_id ),
                 post_comments ( id, content, created_at, is_deleted, parent_comment_id, users(id, full_name, profile_img_url, tick_type) ),
-                post_poll_votes ( user_id, option_id )
+                post_poll_votes ( user_id, option_id ),
+                saved_posts ( user_id )
             `)
             .eq('user_id', userId)
             .eq('is_deleted', false)
+            .eq('is_archived', false)
             .order('created_at', { ascending: false });
         
         if (error) throw error;
@@ -689,6 +691,8 @@ function generatePostHTML(posts, currentUserId) {
         const likes = post.post_likes || [];
         const likeCount = likes.length;
         const userHasLiked = likes.some(like => like.user_id === currentUserId);
+        const savedPosts = post.saved_posts || [];
+        const isSaved = savedPosts.some(s => s.user_id === currentUserId);
         
         let likedByHtml = '';
         if (likeCount > 0) {
@@ -849,8 +853,8 @@ function generatePostHTML(posts, currentUserId) {
                         <span class="material-symbols-outlined text-[24px]" style="transform: scaleX(-1);">chat_bubble_outline</span> 
                     </button>` : ''}
                 </div>
-                <button class="flex items-center justify-center text-on-surface dark:text-gray-100 transition-transform active:scale-90 hover:text-on-surface-variant">
-                    <span class="material-symbols-outlined text-[26px]">bookmark_border</span>
+               <button data-post-id="${post.id}" data-user-id="${user.id}" data-is-verified="${post.is_verified}" data-hide-likes="${post.hide_likes}" data-disable-comments="${post.disable_comments}" data-is-archived="${post.is_archived || false}" class="post-options-btn text-on-surface dark:text-gray-100 p-1.5 active:opacity-60 transition-opacity">
+                    <span class="material-symbols-outlined text-[20px]">more_vert</span>
                 </button>
             </div>
             
@@ -2687,5 +2691,101 @@ window.updateMentionPrivacy = async function(val) {
         showToast('Failed to update settings', 'error');
         // Revert UI if DB fails
         document.getElementById('mention-privacy-select').value = currentUserProfile.mention_privacy || 'connections';
+    }
+};
+// ========================================================
+// ACTIVITY PANELS LOGIC (Saved, Liked, Archived)
+// ========================================================
+window.fetchSavedPosts = async function() {
+    const container = document.getElementById('saved-posts-container');
+    if (!container) return;
+    container.innerHTML = FEED_SKELETON; // Show shimmer
+
+    try {
+        // !inner forces the join to only return posts if they exist in saved_posts for this user
+        const { data, error } = await supabase.from('posts').select(`
+            *,
+            users ( id, full_name, profile_img_url, role, tick_type ),
+            post_likes ( user_id ),
+            post_comments ( id, content, created_at, is_deleted, parent_comment_id, users(id, full_name, profile_img_url, tick_type) ),
+            post_poll_votes ( user_id, option_id ),
+            saved_posts!inner ( user_id )
+        `)
+        .eq('saved_posts.user_id', currentUserProfile.id)
+        .eq('is_deleted', false)
+        .eq('is_archived', false) // Instantly hides if the author archived it
+        .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        if (data.length === 0) {
+            container.innerHTML = `<div class="py-16 flex flex-col items-center justify-center opacity-40 text-on-surface-variant"><span class="material-symbols-outlined text-[42px] mb-2">bookmark</span><p class="text-sm font-semibold">No saved posts.</p></div>`;
+            return;
+        }
+        container.innerHTML = generatePostHTML(data, currentUserProfile.id);
+    } catch (e) {
+        console.error(e);
+        container.innerHTML = `<p class="text-sm text-center py-4 text-error">Failed to load saved posts.</p>`;
+    }
+};
+
+window.fetchLikedPosts = async function() {
+    const container = document.getElementById('liked-posts-container');
+    if (!container) return;
+    container.innerHTML = FEED_SKELETON;
+
+    try {
+        const { data, error } = await supabase.from('posts').select(`
+            *,
+            users ( id, full_name, profile_img_url, role, tick_type ),
+            post_likes!inner ( user_id ),
+            post_comments ( id, content, created_at, is_deleted, parent_comment_id, users(id, full_name, profile_img_url, tick_type) ),
+            post_poll_votes ( user_id, option_id ),
+            saved_posts ( user_id )
+        `)
+        .eq('post_likes.user_id', currentUserProfile.id)
+        .eq('is_deleted', false)
+        .eq('is_archived', false)
+        .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        if (data.length === 0) {
+            container.innerHTML = `<div class="py-16 flex flex-col items-center justify-center opacity-40 text-on-surface-variant"><span class="material-symbols-outlined text-[42px] mb-2">favorite</span><p class="text-sm font-semibold">You haven't liked any posts.</p></div>`;
+            return;
+        }
+        container.innerHTML = generatePostHTML(data, currentUserProfile.id);
+    } catch (e) {
+        console.error(e);
+        container.innerHTML = `<p class="text-sm text-center py-4 text-error">Failed to load liked posts.</p>`;
+    }
+};
+
+window.fetchArchivedPosts = async function() {
+    const container = document.getElementById('archived-posts-container');
+    if (!container) return;
+    container.innerHTML = FEED_SKELETON;
+
+    try {
+        const { data, error } = await supabase.from('posts').select(`
+            *,
+            users ( id, full_name, profile_img_url, role, tick_type ),
+            post_likes ( user_id ),
+            post_comments ( id, content, created_at, is_deleted, parent_comment_id, users(id, full_name, profile_img_url, tick_type) ),
+            post_poll_votes ( user_id, option_id ),
+            saved_posts ( user_id )
+        `)
+        .eq('user_id', currentUserProfile.id)
+        .eq('is_deleted', false)
+        .eq('is_archived', true)
+        .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        if (data.length === 0) {
+            container.innerHTML = `<div class="py-16 flex flex-col items-center justify-center opacity-40 text-on-surface-variant"><span class="material-symbols-outlined text-[42px] mb-2">archive</span><p class="text-sm font-semibold">Your archive is empty.</p></div>`;
+            return;
+        }
+        container.innerHTML = generatePostHTML(data, currentUserProfile.id);
+    } catch (e) {
+        console.error(e);
+        container.innerHTML = `<p class="text-sm text-center py-4 text-error">Failed to load archive.</p>`;
     }
 };
