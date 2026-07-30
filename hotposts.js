@@ -1313,10 +1313,11 @@ async function fetchHotposts() {
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const blockedIds = await window.getBlockedUserIds(currentUser.id);
 
+    // 🚀 FIX: Added media_type to the select string!
     let query = supabase
         .from('hotposts')
         .select(`
-            id, created_at, media_url, visibility, user_id, allow_rewatch,
+            id, created_at, media_url, visibility, user_id, allow_rewatch, media_type,
             users!inner ( id, full_name, profile_img_url, tick_type, is_deleted, is_deactivated ),
             hotpost_views ( viewer_id )
         `)
@@ -1359,7 +1360,6 @@ async function fetchHotposts() {
 
     renderHotpostCircles();
 }
-
 function renderHotpostCircles() {
     const container = document.querySelector('#view-dashboard .flex.gap-4.overflow-x-auto');
     if (!container) return;
@@ -1446,10 +1446,16 @@ function renderHotpostCircles() {
 function preloadHotpostImages() {
     hotpostsByUser.forEach((data) => {
         if (data.posts && data.posts.length > 0) {
-            const firstPostUrl = data.posts[0].media_url;
+            const firstPost = data.posts[0];
+            
+            // 🚀 FIX: Skip preloading if it's a video to save bandwidth and prevent browser errors
+            if (firstPost.media_type === 'video' || firstPost.media_url.includes('.mp4') || firstPost.media_url.includes('.webm')) {
+                return;
+            }
+
             const optimizedUrl = typeof window.optimizeImageUrl === 'function' 
-                ? window.optimizeImageUrl(firstPostUrl, 'hotpost') 
-                : firstPostUrl;
+                ? window.optimizeImageUrl(firstPost.media_url, 'hotpost') 
+                : firstPost.media_url;
             
             const img = new Image();
             img.src = optimizedUrl;
