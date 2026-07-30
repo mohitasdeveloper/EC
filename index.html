@@ -1274,9 +1274,10 @@
    <div id="modal-hotpost-camera" class="fixed inset-0 z-[200] bg-black hidden flex-col justify-center items-center">
         <video id="hotpost-camera-feed" class="absolute w-full h-full object-cover origin-center transition-transform duration-75" playsinline autoplay></video>
         
-        <div id="hotpost-preview-container" class="absolute w-full h-full hidden overflow-hidden bg-black">
+      <div id="hotpost-preview-container" class="absolute w-full h-full hidden overflow-hidden bg-black">
             <div id="hotpost-bg-wrapper" class="absolute w-full h-full flex items-center justify-center pointer-events-none">
-                <img id="hotpost-preview-img" class="w-full h-full object-cover pointer-events-none" />
+                <img id="hotpost-preview-img" class="w-full h-full object-cover pointer-events-none hidden" />
+                <video id="hotpost-preview-video" class="w-full h-full object-cover pointer-events-none hidden" loop muted playsinline></video>
             </div>
             <canvas id="hotpost-doodle-canvas" class="absolute top-0 left-0 w-full h-full pointer-events-none z-40"></canvas>
             <div id="filter-name-toast" class="filter-name-toast hidden"></div>
@@ -1337,14 +1338,18 @@
         </div>
 
         <div class="absolute bottom-[max(2.5rem,env(safe-area-inset-bottom))] z-50 w-full px-6 pointer-events-none">
-            <!-- Capture State -->
+           <!-- Capture State -->
             <div id="capture-ui" class="flex items-center justify-between pointer-events-auto">
                 <button onclick="document.getElementById('hotpost-gallery-input').click()" class="w-12 h-12 bg-black/40 backdrop-blur-md border border-white/20 rounded-full flex items-center justify-center text-white active:scale-95 transition-transform shadow-lg">
                     <span class="material-symbols-outlined text-[24px]">photo_library</span>
                 </button>
-                <input type="file" id="hotpost-gallery-input" accept="image/*" class="hidden">
-                <button id="capture-hotpost-btn" class="w-[84px] h-[84px] rounded-full bg-transparent border-[4px] border-white backdrop-blur-sm flex items-center justify-center active:scale-95 transition-all shadow-[0_0_20px_rgba(0,0,0,0.3)]">
-                    <div class="w-[68px] h-[68px] bg-white rounded-full transition-transform"></div>
+                <input type="file" id="hotpost-gallery-input" accept="image/*,video/mp4,video/quicktime,video/webm" class="hidden">
+                <button id="capture-hotpost-btn" class="w-[84px] h-[84px] rounded-full bg-transparent border-[4px] border-white backdrop-blur-sm flex items-center justify-center active:scale-95 transition-all shadow-[0_0_20px_rgba(0,0,0,0.3)] relative">
+                    <div id="capture-inner-circle" class="w-[68px] h-[68px] bg-white rounded-full transition-all duration-300"></div>
+                    <!-- 🚀 NEW: 15s Progress Ring -->
+                    <svg id="capture-progress-ring" class="absolute inset-0 w-full h-full -rotate-90 hidden pointer-events-none">
+                        <circle cx="42" cy="42" r="39" stroke="#FF3B30" stroke-width="4" fill="none" stroke-dasharray="245" stroke-dashoffset="245" class="transition-all duration-100 ease-linear"></circle>
+                    </svg>
                 </button>
                 <div class="w-12 h-12"></div> 
             </div>
@@ -1386,8 +1391,9 @@
             
             <button id="close-hotpost-viewer-btn" class="absolute top-[max(1.5rem,calc(env(safe-area-inset-top)+1rem))] right-4 text-white p-2 bg-black/20 backdrop-blur-md rounded-full z-30 active:scale-95 transition-transform"><span class="material-symbols-outlined text-[20px]">close</span></button>
             
-            <div class="flex-1 flex items-center justify-center overflow-hidden relative bg-[#121212]">
-                <img id="hotpost-viewer-image" src="" class="w-full h-full object-contain pointer-events-none">
+           <div class="flex-1 flex items-center justify-center overflow-hidden relative bg-[#121212]">
+                <img id="hotpost-viewer-image" src="" class="w-full h-full object-contain pointer-events-none hidden">
+                <video id="hotpost-viewer-video" class="w-full h-full object-contain pointer-events-none hidden" playsinline></video>
             </div>
             
             <div id="hotpost-viewer-bottom-gradient" class="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-black/80 to-transparent z-20 flex items-end p-4 pointer-events-none">
