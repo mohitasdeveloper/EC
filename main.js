@@ -2772,7 +2772,6 @@ window.fetchArchivedPosts = async function() {
         container.innerHTML = `<p class="text-sm text-center py-4 text-error">Failed to load archive.</p>`;
     }
 };
-
 // ==========================================
 // SAVING & ARCHIVING LOGIC
 // ==========================================
