@@ -14,11 +14,9 @@ function initQuillEditor() {
         theme: 'snow',
         placeholder: 'What\'s on your mind? (@ to mention)',
         modules: {
+            // 🚀 Simplified Toolbar: Only basic text formatting
             toolbar: [
-                ['bold', 'italic', 'underline', 'strike'],
-                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                ['link'],
-                ['clean']
+                ['bold', 'italic', 'underline', 'strike']
             ],
             mention: {
                 allowedChars: /^[A-Za-z\sÅÄÖåäö]*$/,
@@ -165,10 +163,17 @@ function getTickHtml(tickType) {
 }
 
 function setupCreatePostPermissions() {
+    // 🚀 Allow everyone to use Text and Image posts. Restrict Polls/Events to special users.
     if (currentUser?.special_post) {
         document.querySelectorAll('.post-type-tab').forEach(tab => tab.classList.remove('hidden'));
     } else {
-        document.querySelectorAll('.post-type-tab:not([data-type="text"])').forEach(tab => tab.classList.add('hidden'));
+        document.querySelectorAll('.post-type-tab').forEach(tab => {
+            if (tab.dataset.type === 'text' || tab.dataset.type === 'image') {
+                tab.classList.remove('hidden');
+            } else {
+                tab.classList.add('hidden');
+            }
+        });
     }
 }
 
@@ -510,18 +515,18 @@ function renderPosts(posts, isRefresh = false) {
             
             ${contentHtml}
             
-            <div class="flex items-center justify-between px-3 pt-2 pb-1 mt-1">
-                <div class="flex items-center gap-4">
-                    <button onclick="window.handleLike('${post.id}', this)" data-post-id="${post.id}" data-liked="${userHasLiked}" class="like-btn flex items-center justify-center transition-transform active:scale-90 ${userHasLiked ? 'text-red-500' : 'text-on-surface dark:text-gray-100 hover:text-on-surface-variant'}">
-                        <span class="material-symbols-outlined text-[26px]" style="font-variation-settings: 'FILL' ${userHasLiked ? 1 : 0};">favorite</span> 
+           <div class="flex items-center justify-between px-3 py-2 mt-1">
+                <div class="flex items-center gap-3.5">
+                    <button onclick="window.handleLike('${post.id}', this)" data-post-id="${post.id}" data-liked="${userHasLiked}" class="like-btn flex items-center justify-center transition-all duration-200 active:scale-75 ${userHasLiked ? 'text-red-500 hover:text-red-600' : 'text-on-surface dark:text-gray-100 hover:opacity-70'}">
+                        <span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' ${userHasLiked ? 1 : 0};">favorite</span> 
                     </button>
                     ${!post.disable_comments ? `
-                    <button data-post-id="${post.id}" class="comment-btn flex items-center justify-center text-on-surface dark:text-gray-100 transition-transform active:scale-90 hover:text-on-surface-variant">
-                        <span class="material-symbols-outlined text-[24px]" style="transform: scaleX(-1);">chat_bubble_outline</span> 
+                    <button data-post-id="${post.id}" class="comment-btn flex items-center justify-center text-on-surface dark:text-gray-100 transition-all duration-200 active:scale-75 hover:opacity-70">
+                        <span class="material-symbols-outlined text-[26px]" style="transform: scaleX(-1);">chat_bubble_outline</span> 
                     </button>` : ''}
                 </div>
-                <button onclick="window.handleSavePost('${post.id}', this)" data-post-id="${post.id}" data-saved="${isSaved}" class="save-btn flex items-center justify-center transition-transform active:scale-90 ${isSaved ? 'text-primary' : 'text-on-surface dark:text-gray-100 hover:text-on-surface-variant'}">
-                    <span class="material-symbols-outlined text-[26px]" style="font-variation-settings: 'FILL' ${isSaved ? 1 : 0};">bookmark</span>
+                <button onclick="window.handleSavePost('${post.id}', this)" data-post-id="${post.id}" data-saved="${isSaved}" class="save-btn flex items-center justify-center transition-all duration-200 active:scale-75 ${isSaved ? 'text-primary hover:text-primary/80' : 'text-on-surface dark:text-gray-100 hover:opacity-70'}">
+                    <span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' ${isSaved ? 1 : 0};">bookmark</span>
                 </button>
             </div>
             
