@@ -166,6 +166,8 @@ function setupEventListeners() {
         updateTextUIPreview();
     });
 
+    
+
    // 🚀 INJECT FONTS & COLORS (Fixed Target Bubbling)
     const colorPicker = document.getElementById('text-color-picker');
     if (colorPicker) {
@@ -281,7 +283,7 @@ function setupEventListeners() {
             reader.readAsDataURL(file);
         }
     });
-    
+}
 function showCustomConfirm(title, message, onConfirm) {
     pauseStory();
     const modal = document.getElementById('modal-confirm-action');
@@ -1802,7 +1804,7 @@ function playUserStories(userIndex, postIndex = 0) {
         };
         imgEl.src = optimizedUrl;
     }
-
+}
 function nextStory() {
     const currentUserData = hotpostsByUser.get(currentViewerState.userId);
     if (currentViewerState.postIndex < currentUserData.posts.length - 1) {
