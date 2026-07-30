@@ -632,10 +632,11 @@ function populateProfileUI(profile) {
     if (typeof fetchMyProfileFeed === 'function') {
         fetchMyProfileFeed(profile.id);
     }
-    // Sync Mention Privacy Select
-    const mentionPrivacySelect = document.getElementById('mention-privacy-select');
-    if (mentionPrivacySelect) mentionPrivacySelect.value = profile.mention_privacy || 'connections';
-}
+ // Sync Native Mention Privacy Label
+    const mentionPrivacyLabel = document.getElementById('mention-privacy-label');
+    if (mentionPrivacyLabel) {
+        mentionPrivacyLabel.textContent = profile.mention_privacy === 'none' ? 'No One' : 'Connections';
+    }
 
 // ========================================================
 // PROFILE FEED RENDER ENGINE
@@ -2677,7 +2678,20 @@ function renderViewConnectionsList(users, isSearch = false) {
 // ========================================================
 // PREFERENCES & PRIVACY UPDATES
 // ========================================================
+window.openMentionPrivacySelector = function() {
+    const buttons = `
+        <div class="px-4 py-3 border-b border-surface-variant/40 dark:border-neutral-800 text-center">
+            <p class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Allow Mentions From</p>
+        </div>
+        <button onclick="window.updateMentionPrivacy('connections')" class="w-full flex items-center gap-3 px-5 py-4 border-b border-surface-variant/40 dark:border-neutral-800 font-bold text-[15px] text-on-surface dark:text-gray-100 hover:bg-surface-variant/30 active:bg-surface-variant/50 transition-colors"><span class="material-symbols-outlined text-primary">group</span> My Connections</button>
+        <button onclick="window.updateMentionPrivacy('none')" class="w-full flex items-center gap-3 px-5 py-4 font-bold text-[15px] text-on-surface dark:text-gray-100 hover:bg-surface-variant/30 active:bg-surface-variant/50 transition-colors"><span class="material-symbols-outlined text-error">block</span> No One</button>
+    `;
+    window.openActionSheet(buttons);
+};
+
 window.updateMentionPrivacy = async function(val) {
+    window.closeActionSheet();
+    
     try {
         const { error } = await supabase
             .from('users')
@@ -2687,13 +2701,16 @@ window.updateMentionPrivacy = async function(val) {
         if (error) throw error;
         
         currentUserProfile.mention_privacy = val;
+        
+        // Update the UI Label natively
+        const labelEl = document.getElementById('mention-privacy-label');
+        if (labelEl) labelEl.textContent = val === 'connections' ? 'Connections' : 'No One';
+        
         showToast(`Mentions allowed from: ${val === 'connections' ? 'My Connections' : 'No One'}`, 'success');
         
     } catch (err) {
         console.error("Mention privacy error:", err);
         showToast('Failed to update settings', 'error');
-        // Revert UI if DB fails
-        document.getElementById('mention-privacy-select').value = currentUserProfile.mention_privacy || 'connections';
     }
 };
 // ========================================================
