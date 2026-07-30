@@ -843,7 +843,7 @@ function generatePostHTML(posts, currentUserId) {
             
             ${contentHtml}
             
-            <div class="flex items-center justify-between px-3 pt-2 pb-1 mt-1">
+          <div class="flex items-center justify-between px-3 pt-2 pb-1 mt-1">
                 <div class="flex items-center gap-4">
                     <button onclick="window.handleLike('${post.id}', this)" data-post-id="${post.id}" data-liked="${userHasLiked}" class="like-btn flex items-center justify-center transition-transform active:scale-90 ${userHasLiked ? 'text-red-500' : 'text-on-surface dark:text-gray-100 hover:text-on-surface-variant'}">
                         <span class="material-symbols-outlined text-[26px]" style="font-variation-settings: 'FILL' ${userHasLiked ? 1 : 0};">favorite</span> 
@@ -853,8 +853,8 @@ function generatePostHTML(posts, currentUserId) {
                         <span class="material-symbols-outlined text-[24px]" style="transform: scaleX(-1);">chat_bubble_outline</span> 
                     </button>` : ''}
                 </div>
-               <button data-post-id="${post.id}" data-user-id="${user.id}" data-is-verified="${post.is_verified}" data-hide-likes="${post.hide_likes}" data-disable-comments="${post.disable_comments}" data-is-archived="${post.is_archived || false}" class="post-options-btn text-on-surface dark:text-gray-100 p-1.5 active:opacity-60 transition-opacity">
-                    <span class="material-symbols-outlined text-[20px]">more_vert</span>
+                <button onclick="window.handleSavePost('${post.id}', this)" data-post-id="${post.id}" data-saved="${isSaved}" class="save-btn flex items-center justify-center transition-transform active:scale-90 ${isSaved ? 'text-primary' : 'text-on-surface dark:text-gray-100 hover:text-on-surface-variant'}">
+                    <span class="material-symbols-outlined text-[26px]" style="font-variation-settings: 'FILL' ${isSaved ? 1 : 0};">bookmark</span>
                 </button>
             </div>
             
