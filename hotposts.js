@@ -67,6 +67,13 @@ let currentFacingMode = 'environment';
 let currentPhotoBlob = null;
 let baseImageObj = null; 
 
+// 🚀 NEW: Video Recording Engine States
+let currentMediaType = 'image';
+let mediaRecorder = null;
+let recordedChunks = [];
+let recordingTimer = null;
+let isRecording = false;
+
 let videoZoomScale = 1;
 let initialVideoPinchDist = 0;
 
@@ -115,7 +122,6 @@ export function initHotposts(user) {
 function setupEventListeners() {
     document.getElementById('close-hotpost-camera-btn')?.addEventListener('click', attemptCloseCamera);
     document.getElementById('switch-hotpost-camera-btn')?.addEventListener('click', switchCamera);
-    document.getElementById('capture-hotpost-btn')?.addEventListener('click', capturePhoto);
     document.getElementById('submit-hotpost-btn')?.addEventListener('click', submitHotpost);
 
 // 🚀 FIX: The 'Aa' button should ALWAYS spawn a new text block, just like Instagram.
@@ -222,9 +228,45 @@ function setupEventListeners() {
         showCustomConfirm("Delete Hotpost?", "This will permanently remove this post from your story.", executeDeleteHotpost);
     });
 
+    // 🚀 NEW: Hold-to-Record Physics
+    const captureBtn = document.getElementById('capture-hotpost-btn');
+    let pressTimer = null;
+
+    const startPress = (e) => {
+        if (e.cancelable) e.preventDefault();
+        pressTimer = setTimeout(() => { startRecording(); }, 300); // 300ms hold starts video
+    };
+    const endPress = (e) => {
+        if (e.cancelable) e.preventDefault();
+        clearTimeout(pressTimer);
+        if (isRecording) stopRecording();
+        else capturePhoto(); // Quick tap = Photo
+    };
+
+    captureBtn?.addEventListener('mousedown', startPress);
+    captureBtn?.addEventListener('mouseup', endPress);
+    captureBtn?.addEventListener('touchstart', startPress, {passive: false});
+    captureBtn?.addEventListener('touchend', endPress, {passive: false});
+
+    // 🚀 NEW: Gallery Input (Handles both Images and Videos)
     document.getElementById('hotpost-gallery-input')?.addEventListener('change', (e) => {
         const file = e.target.files[0];
-        if (file) {
+        if (!file) return;
+
+        if (file.type.startsWith('video/')) {
+            if (file.size > 30 * 1024 * 1024) return showToast('Video is too large (max 30MB)', 'error');
+            currentMediaType = 'video';
+            currentPhotoBlob = file;
+            const url = URL.createObjectURL(file);
+            const videoEl = document.getElementById('hotpost-preview-video');
+            videoEl.src = url;
+            videoEl.onloadedmetadata = () => {
+                videoEl.play();
+                showPreviewUI();
+                initDoodleCanvas();
+            };
+        } else {
+            currentMediaType = 'image';
             const reader = new FileReader();
             reader.onload = (event) => {
                 currentPhotoBlob = file;
@@ -239,12 +281,7 @@ function setupEventListeners() {
             reader.readAsDataURL(file);
         }
     });
-
-    document.getElementById('doodle-size-slider')?.addEventListener('input', (e) => {
-        currentDoodleWidth = parseInt(e.target.value);
-    });
-}
-
+    
 function showCustomConfirm(title, message, onConfirm) {
     pauseStory();
     const modal = document.getElementById('modal-confirm-action');
@@ -352,6 +389,57 @@ function setupVideoZoomPhysics() {
     }, { passive: false });
 }
 
+    // 🚀 NEW: MediaRecorder Engine
+function startRecording() {
+    if (!currentCameraStream) return;
+    isRecording = true;
+    recordedChunks = [];
+    currentMediaType = 'video';
+    
+    // UI Animations
+    document.getElementById('capture-inner-circle').classList.replace('bg-white', 'bg-red-500');
+    document.getElementById('capture-inner-circle').classList.add('scale-50');
+    const ring = document.getElementById('capture-progress-ring');
+    ring.classList.remove('hidden');
+    ring.querySelector('circle').style.transition = 'stroke-dashoffset 15s linear';
+    void ring.offsetWidth; // Force Reflow
+    ring.querySelector('circle').style.strokeDashoffset = '0';
+
+    try { mediaRecorder = new MediaRecorder(currentCameraStream, { mimeType: 'video/webm; codecs=vp8,opus' }); } 
+    catch(e) { mediaRecorder = new MediaRecorder(currentCameraStream); }
+
+    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: 'video/mp4' });
+        currentPhotoBlob = blob;
+        const url = URL.createObjectURL(blob);
+        const videoEl = document.getElementById('hotpost-preview-video');
+        videoEl.src = url;
+        videoEl.onloadedmetadata = () => {
+             videoEl.play();
+             showPreviewUI();
+             initDoodleCanvas();
+        }
+    };
+
+    mediaRecorder.start();
+    recordingTimer = setTimeout(() => { if (isRecording) stopRecording(); }, 15000); // 15s Limit
+}
+
+function stopRecording() {
+    isRecording = false;
+    clearTimeout(recordingTimer);
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+    
+    // Reset UI
+    document.getElementById('capture-inner-circle').classList.replace('bg-red-500', 'bg-white');
+    document.getElementById('capture-inner-circle').classList.remove('scale-50');
+    const ring = document.getElementById('capture-progress-ring');
+    ring.classList.add('hidden');
+    ring.querySelector('circle').style.transition = 'none';
+    ring.querySelector('circle').style.strokeDashoffset = '245';
+}
+
 function capturePhoto() {
     const video = document.getElementById('hotpost-camera-feed');
     const canvas = document.createElement('canvas');
@@ -388,41 +476,42 @@ function resetCameraUI() {
     document.getElementById('editor-tools-container').classList.add('hidden');
     
     currentPhotoBlob = null;
+    currentMediaType = 'image'; // Reset to image
     videoZoomScale = 1;
     const video = document.getElementById('hotpost-camera-feed');
     if(video) video.style.transform = currentFacingMode === 'user' ? `scaleX(-1) scale(1)` : `scale(1)`;
 
     imgTransform = { scale: 1, x: 0, y: 0 };
     const previewImg = document.getElementById('hotpost-preview-img');
+    const previewVideo = document.getElementById('hotpost-preview-video');
+    
     if(previewImg) {
         previewImg.style.transform = `translate(0px, 0px) scale(1)`;
         previewImg.style.filter = FILTER_LIST[0].css;
+        previewImg.classList.add('hidden');
+    }
+    if(previewVideo) {
+        previewVideo.pause();
+        previewVideo.src = '';
+        previewVideo.classList.add('hidden');
+        previewVideo.style.filter = FILTER_LIST[0].css;
     }
     
     currentFilterIndex = 0;
     isDrawMode = false;
     doodlePaths = [];
     
-    // 🚀 FIX: Safely strip 'flex' before hiding so the tools aren't permanently stuck invisible
     const colorPicker = document.getElementById('doodle-color-picker');
-    if (colorPicker) {
-        colorPicker.classList.add('hidden');
-        colorPicker.classList.remove('flex');
-    }
+    if (colorPicker) { colorPicker.classList.add('hidden'); colorPicker.classList.remove('flex'); }
     document.getElementById('doodle-size-slider')?.classList.add('hidden');
     
     const doodleBtn = document.getElementById('doodle-hotpost-btn');
-    if (doodleBtn) {
-        doodleBtn.classList.remove('bg-white', 'text-black');
-        doodleBtn.classList.add('bg-black/40', 'text-white');
-    }
+    if (doodleBtn) { doodleBtn.classList.remove('bg-white', 'text-black'); doodleBtn.classList.add('bg-black/40', 'text-white'); }
     
     document.querySelectorAll('.text-widget').forEach(el => el.remove());
-    
-    textElements = [];
-    activeTextId = null;
-    activeTextIdForTouch = null;
+    textElements = []; activeTextId = null; activeTextIdForTouch = null;
 }
+
 function showPreviewUI() {
     document.getElementById('hotpost-camera-feed').classList.add('hidden');
     document.getElementById('hotpost-preview-container').classList.remove('hidden');
@@ -432,6 +521,14 @@ function showPreviewUI() {
     document.getElementById('switch-hotpost-camera-btn').classList.add('hidden');
     document.getElementById('editor-tools-container').classList.remove('hidden');
     document.getElementById('editor-tools-container').classList.add('flex');
+    
+    if (currentMediaType === 'video') {
+        document.getElementById('hotpost-preview-img').classList.add('hidden');
+        document.getElementById('hotpost-preview-video').classList.remove('hidden');
+    } else {
+        document.getElementById('hotpost-preview-video').classList.add('hidden');
+        document.getElementById('hotpost-preview-img').classList.remove('hidden');
+    }
 }
 
 // ==========================================
@@ -1589,34 +1686,66 @@ function playUserStories(userIndex, postIndex = 0) {
     
     document.getElementById('hotpost-viewer-time').textContent = timeAgo(post.created_at);
 
-    // 🚀 LOAD-SYNCED ENGINE (Waits for the image to paint before starting the timer)
+  // 🚀 LOAD-SYNCED ENGINE (Video & Image Aware)
     clearTimeout(currentViewerState.storyTimer);
     const activeBar = progressContainer.querySelector(`.progress-bar-inner[data-index="${postIndex}"]`);
-    if (activeBar) activeBar.style.animation = 'none'; // Lock the progress bar
+    if (activeBar) activeBar.style.animation = 'none'; // Lock progress bar initially
 
     const imgEl = document.getElementById('hotpost-viewer-image');
-    const optimizedUrl = typeof window.optimizeImageUrl === 'function' ? window.optimizeImageUrl(post.media_url, 'hotpost') : post.media_url;
+    const vidEl = document.getElementById('hotpost-viewer-video');
     
-    // Hide image while fetching so it doesn't flash the previous user's photo
     imgEl.style.opacity = '0';
     imgEl.style.transition = 'opacity 0.2s ease';
-
-    imgEl.onload = () => {
-        imgEl.style.opacity = '1'; // Fade in smoothly
-        recordView(post.id);
-
-        if (activeBar) {
-            activeBar.style.animation = `fill-progress ${currentViewerState.storyDuration}ms linear forwards`;
-            activeBar.classList.add('active');
-        }
-
-        currentViewerState.remainingDuration = currentViewerState.storyDuration; 
-        currentViewerState.animationStartTime = performance.now();
-        currentViewerState.storyTimer = setTimeout(nextStory, currentViewerState.storyDuration);
-    };
+    vidEl.style.opacity = '0';
+    vidEl.style.transition = 'opacity 0.2s ease';
     
-    imgEl.src = optimizedUrl;
-}
+    imgEl.classList.add('hidden');
+    vidEl.classList.add('hidden');
+    vidEl.pause();
+    
+    // Check Media Type
+    if (post.media_type === 'video' || post.media_url.includes('.mp4') || post.media_url.includes('.webm')) {
+        vidEl.classList.remove('hidden');
+        vidEl.src = post.media_url; // Cloudinary videos load fast
+        
+        vidEl.oncanplay = () => {
+            vidEl.style.opacity = '1';
+            recordView(post.id);
+            vidEl.play();
+            
+            // Set duration dynamically based on the video
+            currentViewerState.storyDuration = vidEl.duration * 1000;
+            currentViewerState.remainingDuration = currentViewerState.storyDuration;
+            
+            if (activeBar) {
+                activeBar.style.animation = `fill-progress ${currentViewerState.storyDuration}ms linear forwards`;
+                activeBar.classList.add('active');
+            }
+            
+            currentViewerState.animationStartTime = performance.now();
+            currentViewerState.storyTimer = setTimeout(nextStory, currentViewerState.storyDuration);
+        };
+    } else {
+        imgEl.classList.remove('hidden');
+        const optimizedUrl = typeof window.optimizeImageUrl === 'function' ? window.optimizeImageUrl(post.media_url, 'hotpost') : post.media_url;
+        
+        imgEl.onload = () => {
+            imgEl.style.opacity = '1';
+            recordView(post.id);
+            
+            currentViewerState.storyDuration = 5000; // Fixed 5s for Images
+            currentViewerState.remainingDuration = currentViewerState.storyDuration;
+            
+            if (activeBar) {
+                activeBar.style.animation = `fill-progress ${currentViewerState.storyDuration}ms linear forwards`;
+                activeBar.classList.add('active');
+            }
+            
+            currentViewerState.animationStartTime = performance.now();
+            currentViewerState.storyTimer = setTimeout(nextStory, currentViewerState.storyDuration);
+        };
+        imgEl.src = optimizedUrl;
+    }
 
 function nextStory() {
     const currentUserData = hotpostsByUser.get(currentViewerState.userId);
@@ -1640,6 +1769,9 @@ function prevStory() {
 
 function pauseStory() {
     clearTimeout(currentViewerState.storyTimer);
+    const vidEl = document.getElementById('hotpost-viewer-video');
+    if (!vidEl.classList.contains('hidden')) vidEl.pause();
+    
     const activeBar = document.querySelector('#hotpost-progress-bars .progress-bar-inner.active');
     if (activeBar) {
         const elapsedTime = performance.now() - currentViewerState.animationStartTime;
@@ -1652,6 +1784,9 @@ function resumeStory() {
     if (document.getElementById('modal-view-hotpost').classList.contains('hidden')) return;
     if (!document.getElementById('modal-story-details').classList.contains('hidden')) return; 
 
+    const vidEl = document.getElementById('hotpost-viewer-video');
+    if (!vidEl.classList.contains('hidden')) vidEl.play();
+
     const activeBar = document.querySelector('#hotpost-progress-bars .progress-bar-inner.active');
     if (activeBar) activeBar.style.animationPlayState = 'running';
     
@@ -1659,7 +1794,7 @@ function resumeStory() {
     clearTimeout(currentViewerState.storyTimer);
     currentViewerState.storyTimer = setTimeout(nextStory, currentViewerState.remainingDuration);
 }
-
+    
 // ==========================================
 // ENGAGEMENT & ACTIVITY
 // ==========================================
