@@ -111,7 +111,8 @@ export function initFeed(user) {
                 optionsBtn.dataset.userId, 
                 optionsBtn.dataset.isVerified === 'true',
                 optionsBtn.dataset.hideLikes === 'true',
-                optionsBtn.dataset.disableComments === 'true'
+                optionsBtn.dataset.disableComments === 'true',
+                optionsBtn.dataset.isArchived === 'true'
             );
         }
         
@@ -347,8 +348,7 @@ async function fetchPosts(isRefresh = false) {
 
     try {
         const blockedIds = await window.getBlockedUserIds(currentUser.id);
-
-       let query = supabase
+        let query = supabase
             .from('posts')
             .select(`
                 *,
@@ -358,9 +358,12 @@ async function fetchPosts(isRefresh = false) {
                 post_polls(*),
                 post_poll_votes(user_id, option_id),
                 post_events(*),
-                post_event_rsvps(user_id, status)
+                post_event_rsvps(user_id, status),
+                saved_posts(user_id)
             `)
             .eq('is_deleted', false) 
+            .eq('is_archived', false)
+            .gt('expires_at', new Date().toISOString())
             .eq('users.is_deleted', false)
             .eq('users.is_deactivated', false)
             .order('created_at', { ascending: false })
@@ -425,6 +428,8 @@ function renderPosts(posts, isRefresh = false) {
         const likes = post.post_likes || [];
         const likeCount = likes.length;
         const userHasLiked = likes.some(like => like.user_id === currentUser.id);
+        const savedPosts = post.saved_posts || [];
+        const isSaved = savedPosts.some(s => s.user_id === currentUser.id);
         
         // 🚀 NEW: EXACT LIKES BEHAVIOR
         let likedByHtml = '';
@@ -515,8 +520,8 @@ function renderPosts(posts, isRefresh = false) {
                         <span class="material-symbols-outlined text-[24px]" style="transform: scaleX(-1);">chat_bubble_outline</span> 
                     </button>` : ''}
                 </div>
-                <button class="flex items-center justify-center text-on-surface dark:text-gray-100 transition-transform active:scale-90 hover:text-on-surface-variant">
-                    <span class="material-symbols-outlined text-[26px]">bookmark_border</span>
+              <button data-post-id="${post.id}" data-user-id="${user.id}" data-is-verified="${post.is_verified}" data-hide-likes="${post.hide_likes}" data-disable-comments="${post.disable_comments}" data-is-archived="${post.is_archived || false}" class="post-options-btn text-on-surface dark:text-gray-100 p-1.5 active:opacity-60 transition-opacity">
+                    <span class="material-symbols-outlined text-[20px]">more_vert</span>
                 </button>
             </div>
             
@@ -572,7 +577,17 @@ window.handleLike = async function(postId, btnElement) {
             }
         }
     });
-
+// Zero-Refresh removal for the "Liked" panel
+    const likedPanel = document.getElementById('panel-liked-posts');
+    if (!nextLikedState && likedPanel && !likedPanel.classList.contains('translate-x-full')) {
+        const postCard = btnElement.closest(`div[data-post-id="${postId}"]`);
+        if (postCard) {
+            postCard.style.transition = 'all 0.3s ease';
+            postCard.style.transform = 'scale(0.9)';
+            postCard.style.opacity = '0';
+            setTimeout(() => postCard.remove(), 300);
+        }
+    }
     try {
         if (!nextLikedState) {
             await supabase.from('post_likes').delete().match({ post_id: postId, user_id: currentUser.id });
@@ -1466,4 +1481,136 @@ window.searchAndOpenProfile = async function(fullName) {
             showToast('User not found', 'error');
         }
     } catch(e) { console.error(e); }
+};
+// ==========================================
+// SAVING & ARCHIVING ENGINE
+// ==========================================
+window._saveLocks = window._saveLocks || {};
+
+window.handleSavePost = async function(postId, btnElement) {
+    if (!currentUser || window._saveLocks[postId]) return;
+    window._saveLocks[postId] = true;
+
+    const isSaved = btnElement.classList.contains('text-primary');
+    const nextSavedState = !isSaved;
+
+    // Optimistic Update across feed/profile
+    document.querySelectorAll(`.save-btn[data-post-id="${postId}"]`).forEach(btn => {
+        btn.dataset.saved = nextSavedState.toString();
+        const iconSpan = btn.querySelector('.material-symbols-outlined');
+        
+        if (nextSavedState) {
+            btn.classList.remove('text-on-surface', 'dark:text-gray-100', 'hover:text-on-surface-variant');
+            btn.classList.add('text-primary');
+            iconSpan.style.fontVariationSettings = "'FILL' 1";
+            iconSpan.classList.remove('animate-[pulse_0.3s_ease-out]');
+            void iconSpan.offsetWidth;
+            iconSpan.classList.add('animate-[pulse_0.3s_ease-out]');
+        } else {
+            btn.classList.remove('text-primary');
+            btn.classList.add('text-on-surface', 'dark:text-gray-100', 'hover:text-on-surface-variant');
+            iconSpan.style.fontVariationSettings = "'FILL' 0";
+            iconSpan.classList.remove('animate-[pulse_0.3s_ease-out]');
+        }
+    });
+
+    // Zero-Refresh removal for the "Saved" panel
+    const savedPanel = document.getElementById('panel-saved-posts');
+    if (!nextSavedState && savedPanel && !savedPanel.classList.contains('translate-x-full')) {
+        const postCard = btnElement.closest(`div[data-post-id="${postId}"]`);
+        if (postCard) {
+            postCard.style.transition = 'all 0.3s ease';
+            postCard.style.transform = 'scale(0.9)';
+            postCard.style.opacity = '0';
+            setTimeout(() => postCard.remove(), 300);
+        }
+    }
+
+    try {
+        if (!nextSavedState) {
+            await supabase.from('saved_posts').delete().match({ post_id: postId, user_id: currentUser.id });
+        } else {
+            await supabase.from('saved_posts').insert({ post_id: postId, user_id: currentUser.id });
+        }
+    } catch(e) { console.error("Save error:", e); }
+    finally { setTimeout(() => { window._saveLocks[postId] = false; }, 300); }
+};
+
+window.openPostOptions = function(postId, postOwnerId, isVerified, hideLikes, disableComments, isArchived) {
+    const isOwner = currentUser.id === postOwnerId;
+    let buttonsHtml = '';
+
+    if (isOwner) {
+        const archiveBtn = isArchived ? 
+            `<button onclick="window.unarchivePost('${postId}')" class="w-full flex items-center gap-4 p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-2xl font-bold transition-colors">
+                <span class="material-symbols-outlined">unarchive</span> Unarchive Post
+            </button>` :
+            `<button onclick="window.archivePost('${postId}')" class="w-full flex items-center gap-4 p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-2xl font-bold transition-colors">
+                <span class="material-symbols-outlined">archive</span> Archive Post
+            </button>`;
+
+        buttonsHtml = `
+            <div class="flex flex-col">
+                ${archiveBtn}
+                <button onclick="window.togglePostSetting('${postId}', 'hide_likes', ${!hideLikes})" class="w-full flex items-center gap-4 p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-2xl font-bold transition-colors">
+                    <span class="material-symbols-outlined">${hideLikes ? 'visibility' : 'visibility_off'}</span> ${hideLikes ? 'Unhide like count' : 'Hide like count'}
+                </button>
+                <button onclick="window.togglePostSetting('${postId}', 'disable_comments', ${!disableComments})" class="w-full flex items-center gap-4 p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-2xl font-bold transition-colors">
+                    <span class="material-symbols-outlined">${disableComments ? 'chat_bubble' : 'comments_disabled'}</span> ${disableComments ? 'Turn on commenting' : 'Turn off commenting'}
+                </button>
+                <button onclick="window.deletePost('${postId}')" class="w-full flex items-center gap-4 p-4 bg-error/10 text-error rounded-2xl font-bold active:scale-95 transition-transform mt-2">
+                    <span class="material-symbols-outlined">delete</span> Delete Post
+                </button>
+            </div>
+        `;
+    } else {
+        if (isVerified) {
+            buttonsHtml = `<p class="text-sm text-center text-on-surface-variant font-medium py-4">Official Verified Posts cannot be reported.</p>`;
+        } else {
+            buttonsHtml = `
+                <button onclick="window.openReportPostModal('${postId}')" class="w-full flex items-center gap-3 p-4 bg-orange-500/10 text-orange-500 rounded-2xl font-bold active:scale-95 transition-transform">
+                    <span class="material-symbols-outlined">flag</span> Report Post
+                </button>
+            `;
+        }
+    }
+    window.openActionSheet(buttonsHtml);
+};
+
+window.archivePost = async function(postId) {
+    window.closeActionSheet();
+    
+    // Instant DOM Removal from Feed/Profile
+    document.querySelectorAll(`div[data-post-id="${postId}"]`).forEach(el => {
+        el.style.transition = 'all 0.3s ease';
+        el.style.transform = 'scale(0.9)';
+        el.style.opacity = '0';
+        setTimeout(() => el.remove(), 300);
+    });
+
+    const { error } = await supabase.from('posts').update({ is_archived: true }).eq('id', postId);
+    if (error) showToast('Failed to archive.', 'error');
+    else showToast('Post archived.', 'success');
+};
+
+window.unarchivePost = async function(postId) {
+    window.closeActionSheet();
+    
+    // Zero-Refresh removal from Archived Panel
+    const archivedPanel = document.getElementById('panel-archived-posts');
+    if (archivedPanel && !archivedPanel.classList.contains('translate-x-full')) {
+        document.querySelectorAll(`div[data-post-id="${postId}"]`).forEach(el => {
+            el.style.transition = 'all 0.3s ease';
+            el.style.transform = 'scale(0.9)';
+            el.style.opacity = '0';
+            setTimeout(() => el.remove(), 300);
+        });
+    }
+
+    const { error } = await supabase.from('posts').update({ is_archived: false }).eq('id', postId);
+    if (error) showToast('Failed to unarchive.', 'error');
+    else {
+        showToast('Post restored to profile.', 'success');
+        if (typeof window.refreshMyProfile === 'function') window.refreshMyProfile();
+    }
 };
