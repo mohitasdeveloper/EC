@@ -316,10 +316,10 @@
             <h2 class="text-xl font-extrabold ml-2 text-on-surface dark:text-gray-100 tracking-tight">Settings</h2>
         </div>
         
-        <div class="flex-1 overflow-y-auto px-5 py-4 space-y-2 mt-2 hide-scrollbar">
+        <div class="flex-1 overflow-y-auto px-5 py-4 space-y-3 mt-2 hide-scrollbar">
             
-            <!-- SECTION 1: YOUR ACTIVITY (Minimalist Accordion) -->
-            <details class="group mb-2 bg-surface-variant/10 dark:bg-neutral-900/30 rounded-2xl border border-surface-variant/30 dark:border-neutral-800 overflow-hidden">
+            <!-- SECTION 1: YOUR ACTIVITY -->
+            <details class="group bg-surface-variant/10 dark:bg-neutral-900/30 rounded-2xl border border-surface-variant/30 dark:border-neutral-800 overflow-hidden">
                 <summary class="flex items-center justify-between p-4 cursor-pointer list-none transition-colors hover:bg-surface-variant/20 dark:hover:bg-neutral-800/50">
                     <div class="flex items-center gap-3 text-on-surface dark:text-gray-200">
                         <span class="material-symbols-outlined text-[24px]">local_activity</span>
@@ -328,89 +328,122 @@
                     <span class="material-symbols-outlined text-[20px] text-on-surface-variant transition-transform duration-300 group-open:rotate-180">expand_more</span>
                 </summary>
                 <div class="px-2 pb-2 bg-surface-variant/5 dark:bg-black/20 space-y-1 animate-fadeIn">
-                    <button onclick="openSettingsSubPanel('panel-saved-posts'); window.fetchSavedPosts();" class="w-full flex items-center justify-between p-3 rounded-xl hover:bg-surface-variant/30 dark:hover:bg-neutral-800 text-on-surface dark:text-gray-200 transition-colors font-bold text-[14px]">
+                    <button onclick="openSettingsSubPanel('panel-saved-posts'); window.fetchSavedPosts();" class="w-full flex items-center justify-between p-3 rounded-xl hover:bg-surface-variant/30 dark:hover:bg-neutral-800 text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[14px]">
                         <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[20px] text-primary">bookmark</span> Saved</div>
                         <span class="material-symbols-outlined text-[18px] text-on-surface-variant">chevron_right</span>
                     </button>
-                    <button onclick="openSettingsSubPanel('panel-liked-posts'); window.fetchLikedPosts();" class="w-full flex items-center justify-between p-3 rounded-xl hover:bg-surface-variant/30 dark:hover:bg-neutral-800 text-on-surface dark:text-gray-200 transition-colors font-bold text-[14px]">
+                    <button onclick="openSettingsSubPanel('panel-liked-posts'); window.fetchLikedPosts();" class="w-full flex items-center justify-between p-3 rounded-xl hover:bg-surface-variant/30 dark:hover:bg-neutral-800 text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[14px]">
                         <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[20px] text-red-500">favorite</span> Liked</div>
                         <span class="material-symbols-outlined text-[18px] text-on-surface-variant">chevron_right</span>
                     </button>
-                    <button onclick="openSettingsSubPanel('panel-archived-posts'); window.fetchArchivedPosts();" class="w-full flex items-center justify-between p-3 rounded-xl hover:bg-surface-variant/30 dark:hover:bg-neutral-800 text-on-surface dark:text-gray-200 transition-colors font-bold text-[14px]">
+                    <button onclick="openSettingsSubPanel('panel-archived-posts'); window.fetchArchivedPosts();" class="w-full flex items-center justify-between p-3 rounded-xl hover:bg-surface-variant/30 dark:hover:bg-neutral-800 text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[14px]">
                         <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[20px] text-orange-500">archive</span> Archived</div>
                         <span class="material-symbols-outlined text-[18px] text-on-surface-variant">chevron_right</span>
                     </button>
                 </div>
             </details>
 
-            <div class="my-4 border-t border-surface-variant/40 dark:border-neutral-800"></div>
-
             <!-- SECTION 2: CONNECTIONS -->
-            <h4 class="text-[12px] font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider mb-2 px-2">Connections</h4>
-            
-            <button onclick="handleProfileStatsClick(); closeSettingsSidebar();" class="w-full flex items-center gap-3 p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[15px]">
-                <span class="material-symbols-outlined text-[24px]">group</span> <span id="sidebar-stats-text">Connections</span>
-            </button>
-            <button onclick="openBlockedUsersModal(); closeSettingsSidebar();" class="w-full flex items-center gap-3 p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[15px]">
-                <span class="material-symbols-outlined text-[24px]">block</span> Blocked Users
-            </button>
-
-            <div class="my-4 border-t border-surface-variant/40 dark:border-neutral-800"></div>
+            <details class="group bg-surface-variant/10 dark:bg-neutral-900/30 rounded-2xl border border-surface-variant/30 dark:border-neutral-800 overflow-hidden">
+                <summary class="flex items-center justify-between p-4 cursor-pointer list-none transition-colors hover:bg-surface-variant/20 dark:hover:bg-neutral-800/50">
+                    <div class="flex items-center gap-3 text-on-surface dark:text-gray-200">
+                        <span class="material-symbols-outlined text-[24px]">group</span>
+                        <span class="text-[15px] font-bold">Connections</span>
+                    </div>
+                    <span class="material-symbols-outlined text-[20px] text-on-surface-variant transition-transform duration-300 group-open:rotate-180">expand_more</span>
+                </summary>
+                <div class="px-2 pb-2 bg-surface-variant/5 dark:bg-black/20 space-y-1 animate-fadeIn">
+                    <button onclick="handleProfileStatsClick(); closeSettingsSidebar();" class="w-full flex items-center justify-between p-3 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[14px]">
+                        <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[20px]">people</span> <span id="sidebar-stats-text">Connections</span></div>
+                    </button>
+                    <button onclick="openBlockedUsersModal(); closeSettingsSidebar();" class="w-full flex items-center justify-between p-3 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[14px]">
+                        <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[20px]">block</span> Blocked Users</div>
+                    </button>
+                </div>
+            </details>
 
             <!-- SECTION 3: SETTINGS & PRIVACY -->
-            <h4 class="text-[12px] font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider mb-2 px-2">Settings & Privacy</h4>
+            <details class="group bg-surface-variant/10 dark:bg-neutral-900/30 rounded-2xl border border-surface-variant/30 dark:border-neutral-800 overflow-hidden">
+                <summary class="flex items-center justify-between p-4 cursor-pointer list-none transition-colors hover:bg-surface-variant/20 dark:hover:bg-neutral-800/50">
+                    <div class="flex items-center gap-3 text-on-surface dark:text-gray-200">
+                        <span class="material-symbols-outlined text-[24px]">settings</span>
+                        <span class="text-[15px] font-bold">Settings & Privacy</span>
+                    </div>
+                    <span class="material-symbols-outlined text-[20px] text-on-surface-variant transition-transform duration-300 group-open:rotate-180">expand_more</span>
+                </summary>
+                <div class="px-2 pb-2 bg-surface-variant/5 dark:bg-black/20 space-y-1 animate-fadeIn">
+                    <button onclick="openSettingsSubPanel('settings-account-panel')" class="w-full flex items-center justify-between p-3 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[14px]">
+                        <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[20px]">manage_accounts</span> Account Center</div>
+                        <span class="material-symbols-outlined text-[18px] text-on-surface-variant">chevron_right</span>
+                    </button>
+                    
+                    <button onclick="openSettingsSubPanel('settings-notifications-panel'); fetchNotificationSettings();" class="w-full flex items-center justify-between p-3 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[14px]">
+                        <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[20px]">notifications_active</span> Notifications</div>
+                        <span class="material-symbols-outlined text-[18px] text-on-surface-variant">chevron_right</span>
+                    </button>
 
-            <button onclick="openSettingsSubPanel('settings-account-panel')" class="w-full flex items-center justify-between p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[15px]">
-                <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[24px]">manage_accounts</span> Account Center</div>
-                <span class="material-symbols-outlined text-[20px] text-on-surface-variant">chevron_right</span>
-            </button>
-            
-            <button onclick="openSettingsSubPanel('settings-notifications-panel'); fetchNotificationSettings();" class="w-full flex items-center justify-between p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[15px]">
-                <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[24px]">notifications_active</span> Notifications</div>
-                <span class="material-symbols-outlined text-[20px] text-on-surface-variant">chevron_right</span>
-            </button>
+                    <!-- NATIVE UI MENTIONS SELECTOR -->
+                    <div onclick="window.openMentionPrivacySelector()" class="flex items-center justify-between p-3 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-xl cursor-pointer transition-colors">
+                        <div class="flex items-center gap-3 text-on-surface dark:text-gray-200">
+                            <span class="material-symbols-outlined text-[20px]">alternate_email</span>
+                            <span class="text-[14px] font-bold">Allow Mentions</span>
+                        </div>
+                        <div class="flex items-center gap-1 text-on-surface-variant">
+                            <span id="mention-privacy-label" class="text-[12px] font-bold">Connections</span>
+                            <span class="material-symbols-outlined text-[16px]">expand_more</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center justify-between p-3 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-xl transition-colors">
+                        <div class="flex items-center gap-3 text-on-surface dark:text-gray-200"><span class="material-symbols-outlined text-[20px]">lock</span><span class="text-[14px] font-bold">Private Account</span></div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="privacy-toggle-switch" class="sr-only peer" onchange="togglePrivacy(this.checked)">
+                            <div class="w-9 h-5 bg-surface-variant dark:bg-neutral-700 rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+                        </label>
+                    </div>
 
-            <!-- 🚀 NATIVE MENTIONS SELECTOR -->
-            <div onclick="window.openMentionPrivacySelector()" class="flex items-center justify-between p-4 bg-surface-variant/10 hover:bg-surface-variant/20 dark:bg-neutral-900/30 dark:hover:bg-neutral-900/50 rounded-2xl mb-2 cursor-pointer transition-colors">
-                <div class="flex items-center gap-3 text-on-surface dark:text-gray-200">
-                    <span class="material-symbols-outlined text-[24px]">alternate_email</span>
-                    <span class="text-[15px] font-bold">Allow Mentions</span>
+                    <div class="flex items-center justify-between p-3 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-xl transition-colors">
+                        <div class="flex items-center gap-3 text-on-surface dark:text-gray-200"><span class="material-symbols-outlined text-[20px]">dark_mode</span><span class="text-[14px] font-bold">Dark Theme</span></div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="theme-toggle-switch" class="sr-only peer">
+                            <div class="w-9 h-5 bg-surface-variant dark:bg-neutral-700 rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+                        </label>
+                    </div>
+
+                    <button onclick="openEditSocialsModal(); closeSettingsSidebar();" class="w-full flex items-center justify-between p-3 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[14px]">
+                        <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[20px]">link</span> Manage Socials</div>
+                    </button>
                 </div>
-                <div class="flex items-center gap-1 text-on-surface-variant">
-                    <span id="mention-privacy-label" class="text-[13px] font-bold">Connections</span>
-                    <span class="material-symbols-outlined text-[18px]">expand_more</span>
+            </details>
+
+            <!-- SECTION 4: ABOUT -->
+            <details class="group bg-surface-variant/10 dark:bg-neutral-900/30 rounded-2xl border border-surface-variant/30 dark:border-neutral-800 overflow-hidden">
+                <summary class="flex items-center justify-between p-4 cursor-pointer list-none transition-colors hover:bg-surface-variant/20 dark:hover:bg-neutral-800/50">
+                    <div class="flex items-center gap-3 text-on-surface dark:text-gray-200">
+                        <span class="material-symbols-outlined text-[24px]">info</span>
+                        <span class="text-[15px] font-bold">About</span>
+                    </div>
+                    <span class="material-symbols-outlined text-[20px] text-on-surface-variant transition-transform duration-300 group-open:rotate-180">expand_more</span>
+                </summary>
+                <div class="px-2 pb-2 bg-surface-variant/5 dark:bg-black/20 space-y-1 animate-fadeIn">
+                    <a href="https://ecampus.mohitmali.in/privacy.html" target="_blank" class="w-full flex items-center justify-between p-3 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[14px]">
+                        <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[20px]">privacy_tip</span> Privacy Policy</div>
+                        <span class="material-symbols-outlined text-[18px] text-on-surface-variant">open_in_new</span>
+                    </a>
+                    <a href="https://ecampus.mohitmali.in/terms.html" target="_blank" class="w-full flex items-center justify-between p-3 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[14px]">
+                        <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[20px]">description</span> Terms of Service</div>
+                        <span class="material-symbols-outlined text-[18px] text-on-surface-variant">open_in_new</span>
+                    </a>
                 </div>
-            </div>
-            
-            <div class="flex items-center justify-between p-4 bg-surface-variant/10 dark:bg-neutral-900/30 rounded-2xl">
-                <div class="flex items-center gap-3 text-on-surface dark:text-gray-200"><span class="material-symbols-outlined text-[24px]">lock</span><span class="text-[15px] font-bold">Private Account</span></div>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" id="privacy-toggle-switch" class="sr-only peer" onchange="togglePrivacy(this.checked)">
-                    <div class="w-11 h-6 bg-surface-variant dark:bg-neutral-700 rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
-                </label>
-            </div>
+            </details>
 
-            <div class="flex items-center justify-between p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl transition-colors">
-                <div class="flex items-center gap-3 text-on-surface dark:text-gray-200"><span class="material-symbols-outlined text-[24px]">dark_mode</span><span class="text-[15px] font-bold">Dark Theme</span></div>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" id="theme-toggle-switch" class="sr-only peer">
-                    <div class="w-11 h-6 bg-surface-variant dark:bg-neutral-700 rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
-                </label>
-            </div>
-
-            <button onclick="openEditSocialsModal(); closeSettingsSidebar();" class="w-full flex items-center gap-3 p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[15px]">
-                <span class="material-symbols-outlined text-[24px]">link</span> Manage Socials
+            <!-- SIGN OUT BUTTON (Standalone at the bottom) -->
+            <button id="sign-out-btn" class="w-full flex items-center justify-center gap-2 p-4 rounded-2xl bg-error/10 text-error hover:bg-error/20 transition-colors mt-4 shadow-sm active:scale-95">
+                <span class="material-symbols-outlined text-[22px]">logout</span><span class="text-[15px] font-extrabold">Sign Out</span>
             </button>
-
-            <div class="my-4 border-t border-surface-variant/40 dark:border-neutral-800"></div>
             
-            <a href="https://ecampus.mohitmali.in/privacy.html" target="_blank" class="w-full flex items-center gap-3 p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[15px]"><span class="material-symbols-outlined text-[24px]">privacy_tip</span> Privacy Policy</a>
-            <a href="https://ecampus.mohitmali.in/terms.html" target="_blank" class="w-full flex items-center gap-3 p-4 hover:bg-surface-variant/30 dark:hover:bg-neutral-900 rounded-2xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[15px]"><span class="material-symbols-outlined text-[24px]">description</span> Terms of Service</a>
-
-            <button id="sign-out-btn" class="w-full flex items-center gap-3 p-4 rounded-2xl bg-error/10 text-error transition-colors text-left mt-6 shadow-sm"><span class="material-symbols-outlined text-[24px]">logout</span><span class="text-[15px] font-extrabold">Sign Out</span></button>
         </div>
     </div>
-
     <!-- 🚀 PROPER FEED UI PANELS (SAVED, LIKED, ARCHIVED) -->
     
     <!-- SAVED POSTS PANEL -->
