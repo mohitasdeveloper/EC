@@ -265,20 +265,30 @@ function setupEventListeners() {
     captureBtn?.addEventListener('touchend', endPress, {passive: false});
     captureBtn?.addEventListener('touchcancel', endPress, {passive: false});
     
-    // 🚀 NEW: Gallery Input (Handles both Images and Videos)
+   // 🚀 NEW: Bulletproof Gallery Input (Memory Safe, Handles Images & Videos)
     document.getElementById('hotpost-gallery-input')?.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
+        // Clean up old memory before processing the new file
+        if (currentPreviewObjectURL) {
+            URL.revokeObjectURL(currentPreviewObjectURL);
+            currentPreviewObjectURL = null;
+        }
+
         if (file.type.startsWith('video/')) {
             if (file.size > 30 * 1024 * 1024) return showToast('Video is too large (max 30MB)', 'error');
+            
             currentMediaType = 'video';
             currentPhotoBlob = file;
-            const url = URL.createObjectURL(file);
+            currentPreviewObjectURL = URL.createObjectURL(file);
+            
             const videoEl = document.getElementById('hotpost-preview-video');
-            videoEl.src = url;
-            videoEl.onloadedmetadata = () => {
-                videoEl.play();
+            videoEl.src = currentPreviewObjectURL;
+            
+            // 🚀 FIX: Use onloadeddata for strict mobile compatibility instead of metadata
+            videoEl.onloadeddata = () => {
+                videoEl.play().catch(err => console.error("Gallery playback blocked:", err));
                 showPreviewUI();
                 initDoodleCanvas();
             };
@@ -290,6 +300,8 @@ function setupEventListeners() {
                 baseImageObj = new Image();
                 baseImageObj.onload = () => {
                     document.getElementById('hotpost-preview-img').src = event.target.result;
+                    imgTransform = { scale: 1, x: 0, y: 0 }; 
+                    document.getElementById('hotpost-preview-img').style.transform = `translate(0px, 0px) scale(1)`;
                     showPreviewUI();
                     initDoodleCanvas();
                 };
@@ -297,6 +309,9 @@ function setupEventListeners() {
             };
             reader.readAsDataURL(file);
         }
+        
+        // Reset input so the user can select the same file again if needed
+        e.target.value = '';
     });
 }
 function showCustomConfirm(title, message, onConfirm) {
@@ -858,9 +873,21 @@ function setupEditorTouchPhysics() {
     };
 
     container.addEventListener('touchstart', (e) => {
+        // 🚀 STRICT LOCK 1: If Draw Mode is ON, block all other gestures immediately
+        if (isDrawMode) {
+            touchMode = 'draw';
+            isDrawing = true;
+            const rect = container.getBoundingClientRect();
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            currentPath = [{ x: startX - rect.left, y: startY - rect.top }];
+            return;
+        }
+
         const handle = e.target.closest('.text-handle');
         const widget = e.target.closest('.text-widget');
 
+        // 🚀 STRICT LOCK 2: If touching a Text Handle, block Background & Widget dragging
         if (handle) {
             e.stopPropagation(); 
             touchMode = handle.dataset.action; 
@@ -887,9 +914,8 @@ function setupEditorTouchPhysics() {
                 activeTextId = newId;
                 renderTextElements(); 
                 touchMode = 'idle';
-            } else {
+            } else if (touchMode === 'scale') {
                 const tObj = textElements.find(t => t.id === activeTextIdForTouch);
-                initialObjWidth = tObj.width;
                 initialTextScale = tObj.scale;
                 const rect = container.getBoundingClientRect();
                 widgetCenterX = rect.left + (rect.width * tObj.x);
@@ -899,7 +925,9 @@ function setupEditorTouchPhysics() {
             return;
         }
         
-        if (widget && !isDrawMode) {
+        // 🚀 STRICT LOCK 3: If touching a Text Widget, block Background swiping
+        if (widget) {
+            e.stopPropagation();
             const wasAlreadyActive = widget.classList.contains('active');
             touchMode = 'drag_text';
             activeTextIdForTouch = widget.id;
@@ -911,7 +939,6 @@ function setupEditorTouchPhysics() {
             startX = e.touches[0].clientX;
             startY = e.touches[0].clientY;
             
-            // 🚀 Record intent to distinguish a tap from a drag
             widget.dataset.wasActive = wasAlreadyActive;
             widget.dataset.dragged = 'false';
 
@@ -923,27 +950,21 @@ function setupEditorTouchPhysics() {
             return;
         }
         
+        // 🚀 4. Background Touch Actions (Clear Text Selection, Zoom, Pan, Swipe)
         activeTextId = null;
         activeTextIdForTouch = null;
         document.querySelectorAll('.text-widget').forEach(el => el.classList.remove('active'));
 
-        if (e.touches.length === 2 && !isDrawMode) {
+        if (e.touches.length === 2) {
             touchMode = 'zoom_bg';
             initialPinchDist = getPinchDistance(e.touches);
             initialBgScale = imgTransform.scale;
             return;
         }
 
-        if (e.touches.length > 1) return;
-        startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
-
-        if (isDrawMode) {
-            touchMode = 'draw';
-            isDrawing = true;
-            const rect = container.getBoundingClientRect();
-            currentPath = [{ x: startX - rect.left, y: startY - rect.top }];
-        } else {
+        if (e.touches.length === 1) {
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
             touchMode = imgTransform.scale > 1.0 ? 'pan_bg' : 'swipe';
             bgDragStartX = startX;
             bgDragStartY = startY;
@@ -951,14 +972,13 @@ function setupEditorTouchPhysics() {
     }, { passive: false });
 
     container.addEventListener('touchmove', (e) => {
-        if (e.cancelable) e.preventDefault(); 
-        if (e.touches.length > 1 && touchMode !== 'zoom_bg') return;
+        if (e.cancelable) e.preventDefault(); // Prevents iOS bounce scrolling while editing
+        if (touchMode === 'idle') return;
 
         const currentX = e.touches[0].clientX;
         const currentY = e.touches[0].clientY;
         const rect = container.getBoundingClientRect();
 
-     
         if (touchMode === 'scale') {
             const tObj = textElements.find(t => t.id === activeTextIdForTouch);
             const currentDist = Math.hypot(currentX - widgetCenterX, currentY - widgetCenterY);
@@ -974,7 +994,6 @@ function setupEditorTouchPhysics() {
             const deltaXpx = currentX - startX;
             const deltaYpx = currentY - startY;
 
-            // 🚀 If dragged more than 5px, lock it in as a drag
             if (Math.abs(deltaXpx) > 5 || Math.abs(deltaYpx) > 5) {
                 const widgetEl = document.getElementById(activeTextIdForTouch);
                 if (widgetEl) widgetEl.dataset.dragged = 'true';
@@ -1031,9 +1050,9 @@ function setupEditorTouchPhysics() {
     }, { passive: false });
     
     container.addEventListener('touchend', (e) => {
-        // 🚀 NEW: Smart Tap-to-Edit checks if you tapped without dragging
         if (touchMode === 'drag_text' && activeTextIdForTouch) {
             const widgetEl = document.getElementById(activeTextIdForTouch);
+            // Open editor ONLY if they tapped it without dragging
             if (widgetEl && widgetEl.dataset.wasActive === 'true' && widgetEl.dataset.dragged === 'false') {
                 activateTextTool(activeTextIdForTouch);
             }
@@ -1063,6 +1082,7 @@ function setupEditorTouchPhysics() {
         }
     }, { passive: true });
 }
+
 
 function showFilterToast(name) {
     const toast = document.getElementById('filter-name-toast');
