@@ -1112,6 +1112,10 @@ async function submitHotpost() {
     renderHotpostCircles(); 
     closeCameraModal(true);
     
+    // 🚀 FIX 1: Yield the main thread! 
+    // This allows the browser to paint the "Uploading..." spinner UI before it freezes during canvas processing.
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
     try {
         let finalMediaUrl = '';
         
@@ -1237,7 +1241,6 @@ async function submitHotpost() {
                 const overData = await overRes.json();
                 if (overData.error) throw new Error(overData.error.message);
                 
-                // Cloudinary requires slashes in public_id to be replaced with colons for layer transformations
                 overlayPublicId = overData.public_id.replace(/\//g, ':');
             }
 
@@ -1246,7 +1249,6 @@ async function submitHotpost() {
             vidForm.append('file', currentPhotoBlob, 'hotpost.mp4');
             vidForm.append('upload_preset', CLOUDINARY_HOTPOSTS_PRESET);
             
-            // Video uploads need the /video/upload endpoint instead of /image/upload
             const videoUploadUrl = CLOUDINARY_URL.replace('/image/', '/video/');
             const vidRes = await fetch(videoUploadUrl, { method: 'POST', body: vidForm });
             const vidData = await vidRes.json();
@@ -1256,8 +1258,17 @@ async function submitHotpost() {
 
             // 3. Cloudinary Magic: Merge the video and overlay dynamically!
             if (overlayPublicId) {
-                finalMediaUrl = finalMediaUrl.replace('/upload/', `/upload/l_${overlayPublicId},w_1.0,h_1.0,fl_relative/fl_layer_apply/`);
+                // 🚀 FIX 2: Apply aggressive compression (q_auto:eco, vc_auto) to the composite video!
+                finalMediaUrl = finalMediaUrl.replace('/upload/', `/upload/l_${overlayPublicId},w_1.0,h_1.0,fl_relative/fl_layer_apply,q_auto:eco,vc_auto/`);
+            } else {
+                // 🚀 FIX 2: Even if there are no overlays, compress the raw video payload heavily!
+                finalMediaUrl = finalMediaUrl.replace('/upload/', `/upload/q_auto:eco,vc_auto/`);
             }
+
+            // 🚀 FIX 3: EAGER CLOUDINARY GENERATION
+            // Pinging the URL immediately forces Cloudinary to build the video file on their servers now, 
+            // ensuring it is fully processed and ready to play by the time the user clicks to view it.
+            fetch(finalMediaUrl, { method: 'HEAD', mode: 'no-cors' }).catch(() => {});
 
         } else {
             
@@ -1313,14 +1324,16 @@ async function submitHotpost() {
             const res = await fetch(CLOUDINARY_URL, { method: 'POST', body: formData });
             const data = await res.json();
             if (data.error) throw new Error(data.error.message);
-            finalMediaUrl = data.secure_url;
+            
+            // 🚀 FIX: Apply basic auto-compression for Images to save bandwidth
+            finalMediaUrl = data.secure_url.replace('/upload/', '/upload/q_auto:eco,f_auto/');
         }
 
         // --- SAVE TO SUPABASE ---
         const { data: newHotpost, error } = await supabase.from('hotposts').insert({
             user_id: currentUser.id,
             media_url: finalMediaUrl,
-            media_type: currentMediaType, // 'image' or 'video'
+            media_type: currentMediaType, 
             visibility: visibility,
             allow_rewatch: allowRewatch
         }).select('id').single();
