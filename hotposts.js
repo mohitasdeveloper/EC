@@ -1313,55 +1313,73 @@ async function fetchHotposts() {
     if (!isUploadingBackground) container.innerHTML = HOTPOST_SKELETON;
 
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const blockedIds = await window.getBlockedUserIds(currentUser.id);
-
-    // 🚀 FIX: Added media_type to the select string!
-    let query = supabase
-        .from('hotposts')
-        .select(`
-            id, created_at, media_url, visibility, user_id, allow_rewatch, media_type,
-            users!inner ( id, full_name, profile_img_url, tick_type, is_deleted, is_deactivated ),
-            hotpost_views ( viewer_id )
-        `)
-        .gt('created_at', twentyFourHoursAgo)
-        .eq('is_deleted', false)
-        .eq('users.is_deleted', false)
-        .eq('users.is_deactivated', false)
-        .order('created_at', { ascending: false });
     
-    if (blockedIds.length > 0) {
-        query = query.not('user_id', 'in', `(${blockedIds.join(',')})`);
-    }
+    try {
+        const blockedIds = await window.getBlockedUserIds(currentUser.id);
 
-    const { data, error } = await query;
-    if (error) return;
+        // 🚀 FIX: Fetch approved connections first to enforce privacy
+        const { data: myConns } = await supabase.from('connections')
+            .select('user_one_id, user_two_id')
+            .eq('status', 'accepted')
+            .or(`user_one_id.eq.${currentUser.id},user_two_id.eq.${currentUser.id}`);
+            
+        const myConnectionIds = new Set(myConns ? myConns.map(c => c.user_one_id === currentUser.id ? c.user_two_id : c.user_one_id) : []);
 
-    const unviewedData = data.filter(post => {
-        if (post.user_id === currentUser.id) return true; 
-        const hasViewed = post.hotpost_views.some(v => v.viewer_id === currentUser.id);
+        let query = supabase
+            .from('hotposts')
+            .select(`
+                id, created_at, media_url, visibility, user_id, allow_rewatch, media_type,
+                users!inner ( id, full_name, profile_img_url, tick_type, is_deleted, is_deactivated ),
+                hotpost_views ( viewer_id )
+            `)
+            .gt('created_at', twentyFourHoursAgo)
+            .eq('is_deleted', false)
+            .eq('users.is_deleted', false)
+            .eq('users.is_deactivated', false)
+            .order('created_at', { ascending: false });
         
-        if (!hasViewed) return true; 
-        if (hasViewed && post.allow_rewatch) return true; 
-        return false; 
-    });
-
-    hotpostsByUser.clear();
-    for (const post of unviewedData) {
-        const userId = post.users.id;
-        if (!hotpostsByUser.has(userId)) {
-            hotpostsByUser.set(userId, { user: post.users, posts: [], viewed: true });
+        if (blockedIds.length > 0) {
+            query = query.not('user_id', 'in', `(${blockedIds.join(',')})`);
         }
-        
-        const hasViewed = post.hotpost_views.some(v => v.viewer_id === currentUser.id);
-        if (!hasViewed && post.user_id !== currentUser.id) {
-            hotpostsByUser.get(userId).viewed = false; 
-        }
-        
-        hotpostsByUser.get(userId).posts.unshift({ ...post, users: undefined }); 
-    }
 
-    renderHotpostCircles();
+        const { data, error } = await query;
+        if (error) throw error;
+
+        const unviewedData = data.filter(post => {
+            if (post.user_id === currentUser.id) return true; 
+            
+            // 🚀 FIX: Strictly enforce "Connections Only" visibility
+            if (post.visibility === 'connections' && !myConnectionIds.has(post.user_id)) {
+                return false; 
+            }
+
+            const hasViewed = post.hotpost_views.some(v => v.viewer_id === currentUser.id);
+            if (!hasViewed) return true; 
+            if (hasViewed && post.allow_rewatch) return true; 
+            return false; 
+        });
+
+        hotpostsByUser.clear();
+        for (const post of unviewedData) {
+            const userId = post.users.id;
+            if (!hotpostsByUser.has(userId)) {
+                hotpostsByUser.set(userId, { user: post.users, posts: [], viewed: true });
+            }
+            
+            const hasViewed = post.hotpost_views.some(v => v.viewer_id === currentUser.id);
+            if (!hasViewed && post.user_id !== currentUser.id) {
+                hotpostsByUser.get(userId).viewed = false; 
+            }
+            
+            hotpostsByUser.get(userId).posts.unshift({ ...post, users: undefined }); 
+        }
+
+        renderHotpostCircles();
+    } catch (e) {
+        console.error("Hotposts fetch error:", e);
+    }
 }
+
 function renderHotpostCircles() {
     const container = document.querySelector('#view-dashboard .flex.gap-4.overflow-x-auto');
     if (!container) return;
@@ -1623,6 +1641,15 @@ function openHotpostViewer(userId) {
 function closeHotpostViewer() {
     document.getElementById('modal-view-hotpost').classList.replace('flex', 'hidden');
     clearTimeout(currentViewerState.storyTimer);
+
+    // 🚀 FIX: Force pause video, wipe source, and unload to kill background audio
+    const vidEl = document.getElementById('hotpost-viewer-video');
+    if (vidEl) {
+        vidEl.pause();
+        vidEl.removeAttribute('src'); 
+        vidEl.load(); 
+    }
+
     const activeBar = document.querySelector('#hotpost-progress-bars .progress-bar-inner.active');
     if (activeBar) activeBar.style.animation = 'none';
     
@@ -1706,18 +1733,13 @@ function playUserStories(userIndex, postIndex = 0) {
         return `<span class="material-symbols-outlined text-[14px] ${colors[tickType.toLowerCase()] || colors.blue}" style="font-variation-settings: 'FILL' 1;">verified</span>`;
     };
 
-// 🚀 ULTRA-FAST PROFILE ROUTING
     const avatarEl = document.getElementById('hotpost-viewer-avatar');
     const nameEl = document.getElementById('hotpost-viewer-name');
     
     const openProfileHandler = (e) => {
-        e.preventDefault();  // Stop any ghost clicks
-        e.stopPropagation(); // Prevent the story from skipping to the next one
-        
-        closeHotpostViewer(); // Close the story viewer smoothly
-        
-        // 🚀 THE FIX: Trigger your app's native profile function!
-        // We use a tiny delay (150ms) to let the story modal close cleanly before opening the profile
+        e.preventDefault();  
+        e.stopPropagation(); 
+        closeHotpostViewer(); 
         setTimeout(() => {
             if (typeof window.viewUserProfile === 'function') {
                 window.viewUserProfile(userData.user.id);
@@ -1725,7 +1747,6 @@ function playUserStories(userIndex, postIndex = 0) {
         }, 150); 
     };
 
-    // Apply strict Z-index and Pointer Events so the Next/Prev zones don't block them
     if (avatarEl) {
         avatarEl.src = userData.user.profile_img_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.user.full_name)}&background=e1e3e4`;
         avatarEl.onclick = openProfileHandler;
@@ -1744,10 +1765,9 @@ function playUserStories(userIndex, postIndex = 0) {
     
     document.getElementById('hotpost-viewer-time').textContent = timeAgo(post.created_at);
 
-  // 🚀 LOAD-SYNCED ENGINE (Video & Image Aware)
     clearTimeout(currentViewerState.storyTimer);
     const activeBar = progressContainer.querySelector(`.progress-bar-inner[data-index="${postIndex}"]`);
-    if (activeBar) activeBar.style.animation = 'none'; // Lock progress bar initially
+    if (activeBar) activeBar.style.animation = 'none';
 
     const imgEl = document.getElementById('hotpost-viewer-image');
     const vidEl = document.getElementById('hotpost-viewer-video');
@@ -1761,18 +1781,21 @@ function playUserStories(userIndex, postIndex = 0) {
     vidEl.classList.add('hidden');
     vidEl.pause();
     
-    // Check Media Type
+    // 🚀 FIX: Hard reset video event listeners to prevent duplicate triggers
+    vidEl.onloadeddata = null;
+    vidEl.onended = null;
+    
     if (post.media_type === 'video' || post.media_url.includes('.mp4') || post.media_url.includes('.webm')) {
         vidEl.classList.remove('hidden');
-        vidEl.src = post.media_url; // Cloudinary videos load fast
+        vidEl.src = post.media_url; 
         
-        vidEl.oncanplay = () => {
+        // 🚀 FIX: Use onloadeddata instead of oncanplay
+        vidEl.onloadeddata = () => {
             vidEl.style.opacity = '1';
             recordView(post.id);
             vidEl.play();
             
-            // Set duration dynamically based on the video
-            currentViewerState.storyDuration = vidEl.duration * 1000;
+            currentViewerState.storyDuration = (vidEl.duration * 1000) || 15000;
             currentViewerState.remainingDuration = currentViewerState.storyDuration;
             
             if (activeBar) {
@@ -1781,7 +1804,14 @@ function playUserStories(userIndex, postIndex = 0) {
             }
             
             currentViewerState.animationStartTime = performance.now();
-            currentViewerState.storyTimer = setTimeout(nextStory, currentViewerState.storyDuration);
+            
+            // 🚀 FIX: Sync transition exactly with video end
+            vidEl.onended = () => nextStory();
+            
+            // Failsafe timer (1 second buffer) just in case the video errors out
+            currentViewerState.storyTimer = setTimeout(() => {
+                if (!vidEl.paused && vidEl.currentTime >= vidEl.duration - 0.5) nextStory();
+            }, currentViewerState.storyDuration + 1000);
         };
     } else {
         imgEl.classList.remove('hidden');
@@ -1791,7 +1821,7 @@ function playUserStories(userIndex, postIndex = 0) {
             imgEl.style.opacity = '1';
             recordView(post.id);
             
-            currentViewerState.storyDuration = 5000; // Fixed 5s for Images
+            currentViewerState.storyDuration = 5000; 
             currentViewerState.remainingDuration = currentViewerState.storyDuration;
             
             if (activeBar) {
@@ -1805,13 +1835,44 @@ function playUserStories(userIndex, postIndex = 0) {
         imgEl.src = optimizedUrl;
     }
 }
+
 function nextStory() {
     const currentUserData = hotpostsByUser.get(currentViewerState.userId);
+    
+    // If current user has more stories, play next
     if (currentViewerState.postIndex < currentUserData.posts.length - 1) {
         playUserStories(currentViewerState.userIndex, currentViewerState.postIndex + 1);
-    } else {
+    } 
+    // Move to the next user in the queue
+    else {
         processStoryDisappear();
-        playUserStories(currentViewerState.userIndex + 1, 0);
+        const nextUserIndex = currentViewerState.userIndex + 1;
+        
+        if (nextUserIndex < currentViewerState.userOrder.length) {
+            const nextUserId = currentViewerState.userOrder[nextUserIndex];
+            const nextUserData = hotpostsByUser.get(nextUserId);
+
+            // 🚀 FIX: Instagram Logic - Find the first unviewed post for the next user
+            let startPostIndex = 0;
+            if (nextUserId !== currentUser.id) {
+                const firstUnviewedIndex = nextUserData.posts.findIndex(p => {
+                    return !p.hotpost_views?.some(v => v.viewer_id === currentUser.id) && !sessionViewedPostIds.has(p.id);
+                });
+                
+                // If they have unviewed posts, start there.
+                if (firstUnviewedIndex !== -1) {
+                    playUserStories(nextUserIndex, firstUnviewedIndex);
+                } else {
+                    // If all are viewed, completely skip this user and check the next one
+                    currentViewerState.userIndex = nextUserIndex; 
+                    nextStory(); 
+                }
+            } else {
+                playUserStories(nextUserIndex, 0); // Always play own stories from beginning
+            }
+        } else {
+            closeHotpostViewer();
+        }
     }
 }
 
