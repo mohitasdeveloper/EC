@@ -1271,13 +1271,15 @@
     </div>
 
 <!-- HOTPOST CAMERA & EDITOR MODAL (Ultimate Native Engine) -->
-   <div id="modal-hotpost-camera" class="fixed inset-0 z-[200] bg-black hidden flex-col justify-center items-center">
-        <video id="hotpost-camera-feed" class="absolute w-full h-full object-cover origin-center transition-transform duration-75" playsinline autoplay></video>
+  <div id="modal-hotpost-camera" class="fixed inset-0 z-[200] bg-black hidden flex-col justify-center items-center">
+        <!-- 🚀 FIX: Added 'muted' to camera feed to prevent screeching audio feedback loops -->
+        <video id="hotpost-camera-feed" class="absolute w-full h-full object-cover origin-center transition-transform duration-75" playsinline autoplay muted></video>
         
       <div id="hotpost-preview-container" class="absolute w-full h-full hidden overflow-hidden bg-black">
             <div id="hotpost-bg-wrapper" class="absolute w-full h-full flex items-center justify-center pointer-events-none">
                 <img id="hotpost-preview-img" class="w-full h-full object-cover pointer-events-none hidden" />
-                <video id="hotpost-preview-video" class="w-full h-full object-cover pointer-events-none hidden" loop muted playsinline></video>
+                <!-- 🚀 FIX: Force autoplay and muted properties for native mobile WebViews -->
+                <video id="hotpost-preview-video" class="w-full h-full object-cover pointer-events-none hidden" loop muted playsinline autoplay></video>
             </div>
             <canvas id="hotpost-doodle-canvas" class="absolute top-0 left-0 w-full h-full pointer-events-none z-40"></canvas>
             <div id="filter-name-toast" class="filter-name-toast hidden"></div>
