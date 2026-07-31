@@ -409,7 +409,6 @@ function setupVideoZoomPhysics() {
     }, { passive: false });
 }
 
-    // 🚀 NEW: MediaRecorder Engine
 function startRecording() {
     if (!currentCameraStream) return;
     isRecording = true;
@@ -425,18 +424,34 @@ function startRecording() {
     void ring.offsetWidth; // Force Reflow
     ring.querySelector('circle').style.strokeDashoffset = '0';
 
-    try { mediaRecorder = new MediaRecorder(currentCameraStream, { mimeType: 'video/webm; codecs=vp8,opus' }); } 
-    catch(e) { mediaRecorder = new MediaRecorder(currentCameraStream); }
+    // 🚀 FIX: Dynamically select codec. Safari needs mp4/h264, Android uses webm
+    let options = { mimeType: 'video/webm;codecs=vp8,opus' };
+    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options = { mimeType: 'video/mp4' }; // iOS Fallback
+    }
+
+    try { 
+        mediaRecorder = new MediaRecorder(currentCameraStream, options); 
+    } catch(e) { 
+        mediaRecorder = new MediaRecorder(currentCameraStream); 
+    }
 
     mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
     mediaRecorder.onstop = () => {
-        const blob = new Blob(recordedChunks, { type: 'video/mp4' });
+        // 🚀 FIX: Wrap the blob in the EXACT mimeType it was recorded in to prevent corruption
+        const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
         currentPhotoBlob = blob;
-        const url = URL.createObjectURL(blob);
+        
+        // 🚀 FIX: Track memory allocation
+        if (currentPreviewObjectURL) URL.revokeObjectURL(currentPreviewObjectURL);
+        currentPreviewObjectURL = URL.createObjectURL(blob);
+        
         const videoEl = document.getElementById('hotpost-preview-video');
-        videoEl.src = url;
-        videoEl.onloadedmetadata = () => {
-             videoEl.play();
+        videoEl.src = currentPreviewObjectURL;
+        
+        // 🚀 FIX: onloadeddata is 10x more reliable on mobile than onloadedmetadata
+        videoEl.onloadeddata = () => {
+             videoEl.play().catch(e => console.error("Playback blocked:", e));
              showPreviewUI();
              initDoodleCanvas();
         }
@@ -445,7 +460,6 @@ function startRecording() {
     mediaRecorder.start();
     recordingTimer = setTimeout(() => { if (isRecording) stopRecording(); }, 15000); // 15s Limit
 }
-
 function stopRecording() {
     isRecording = false;
     clearTimeout(recordingTimer);
@@ -551,57 +565,6 @@ function resetCameraUI() {
     }
 }
 
-function startRecording() {
-    if (!currentCameraStream) return;
-    isRecording = true;
-    recordedChunks = [];
-    currentMediaType = 'video';
-    
-    // UI Animations
-    document.getElementById('capture-inner-circle').classList.replace('bg-white', 'bg-red-500');
-    document.getElementById('capture-inner-circle').classList.add('scale-50');
-    const ring = document.getElementById('capture-progress-ring');
-    ring.classList.remove('hidden');
-    ring.querySelector('circle').style.transition = 'stroke-dashoffset 15s linear';
-    void ring.offsetWidth; // Force Reflow
-    ring.querySelector('circle').style.strokeDashoffset = '0';
-
-    // 🚀 FIX: Dynamically select codec. Safari needs mp4/h264, Android uses webm
-    let options = { mimeType: 'video/webm;codecs=vp8,opus' };
-    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-        options = { mimeType: 'video/mp4' }; // iOS Fallback
-    }
-
-    try { 
-        mediaRecorder = new MediaRecorder(currentCameraStream, options); 
-    } catch(e) { 
-        mediaRecorder = new MediaRecorder(currentCameraStream); 
-    }
-
-    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
-    mediaRecorder.onstop = () => {
-        // 🚀 FIX: Wrap the blob in the EXACT mimeType it was recorded in to prevent corruption
-        const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
-        currentPhotoBlob = blob;
-        
-        // 🚀 FIX: Track memory allocation
-        if (currentPreviewObjectURL) URL.revokeObjectURL(currentPreviewObjectURL);
-        currentPreviewObjectURL = URL.createObjectURL(blob);
-        
-        const videoEl = document.getElementById('hotpost-preview-video');
-        videoEl.src = currentPreviewObjectURL;
-        
-        // 🚀 FIX: onloadeddata is 10x more reliable on mobile than onloadedmetadata
-        videoEl.onloadeddata = () => {
-             videoEl.play().catch(e => console.error("Playback blocked:", e));
-             showPreviewUI();
-             initDoodleCanvas();
-        }
-    };
-
-    mediaRecorder.start();
-    recordingTimer = setTimeout(() => { if (isRecording) stopRecording(); }, 15000); // 15s Limit
-}
 
 function showPreviewUI() {
     document.getElementById('hotpost-camera-feed').classList.add('hidden');
