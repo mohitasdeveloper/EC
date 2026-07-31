@@ -66,7 +66,7 @@ let currentCameraStream = null;
 let currentFacingMode = 'environment';
 let currentPhotoBlob = null;
 let baseImageObj = null; 
-
+let currentPreviewObjectURL = null; // 🚀 FIX: Added to track memory leaks
 // 🚀 NEW: Video Recording Engine States
 let currentMediaType = 'image';
 let mediaRecorder = null;
@@ -230,26 +230,41 @@ function setupEventListeners() {
         showCustomConfirm("Delete Hotpost?", "This will permanently remove this post from your story.", executeDeleteHotpost);
     });
 
-    // 🚀 NEW: Hold-to-Record Physics
+    // 🚀 NEW: Bulletproof Hold-to-Record Physics
     const captureBtn = document.getElementById('capture-hotpost-btn');
     let pressTimer = null;
+    let isPressing = false;
 
     const startPress = (e) => {
         if (e.cancelable) e.preventDefault();
-        pressTimer = setTimeout(() => { startRecording(); }, 300); // 300ms hold starts video
+        if (isPressing) return;
+        isPressing = true;
+        
+        // Wait exactly 250ms. If finger is still down, it's a video. Start recording.
+        pressTimer = setTimeout(() => { 
+            if (isPressing) startRecording(); 
+        }, 250); 
     };
+    
     const endPress = (e) => {
         if (e.cancelable) e.preventDefault();
-        clearTimeout(pressTimer);
-        if (isRecording) stopRecording();
-        else capturePhoto(); // Quick tap = Photo
+        isPressing = false;
+        
+        if (isRecording) {
+            stopRecording(); // It was a long press, stop video.
+        } else {
+            clearTimeout(pressTimer); // It was a short tap, cancel video start.
+            capturePhoto(); // Instantly take photo.
+        }
     };
 
     captureBtn?.addEventListener('mousedown', startPress);
     captureBtn?.addEventListener('mouseup', endPress);
+    captureBtn?.addEventListener('mouseleave', endPress); // Failsafe if mouse dragged away
     captureBtn?.addEventListener('touchstart', startPress, {passive: false});
     captureBtn?.addEventListener('touchend', endPress, {passive: false});
-
+    captureBtn?.addEventListener('touchcancel', endPress, {passive: false});
+    
     // 🚀 NEW: Gallery Input (Handles both Images and Videos)
     document.getElementById('hotpost-gallery-input')?.addEventListener('change', (e) => {
         const file = e.target.files[0];
@@ -337,15 +352,18 @@ async function openCameraModal() {
     if (currentCameraStream) currentCameraStream.getTracks().forEach(track => track.stop());
 
     try {
+        // 🚀 FIX: Added 'audio: true' to actually record sound
         currentCameraStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: currentFacingMode, width: { ideal: 1920 }, height: { ideal: 1080 } }
+            video: { facingMode: currentFacingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
+            audio: true 
         });
         video.srcObject = currentCameraStream;
+        video.muted = true; // Prevents audio feedback loops
         
         videoZoomScale = 1;
         video.style.transform = currentFacingMode === 'user' ? `scaleX(-1) scale(${videoZoomScale})` : `scale(${videoZoomScale})`;
     } catch (err) {
-        showToast('Camera access denied.', 'error');
+        showToast('Camera or Microphone access denied.', 'error');
         closeCameraModal(true);
     }
 }
@@ -433,13 +451,15 @@ function stopRecording() {
     clearTimeout(recordingTimer);
     if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
     
-    // Reset UI
+    // UI Reset is handled in resetCameraUI, but do it here for smooth instant UX
     document.getElementById('capture-inner-circle').classList.replace('bg-red-500', 'bg-white');
     document.getElementById('capture-inner-circle').classList.remove('scale-50');
     const ring = document.getElementById('capture-progress-ring');
-    ring.classList.add('hidden');
-    ring.querySelector('circle').style.transition = 'none';
-    ring.querySelector('circle').style.strokeDashoffset = '245';
+    if (ring) {
+        ring.classList.add('hidden');
+        ring.querySelector('circle').style.transition = 'none';
+        ring.querySelector('circle').style.strokeDashoffset = '245';
+    }
 }
 
 function capturePhoto() {
@@ -470,6 +490,12 @@ function capturePhoto() {
 }
 
 function resetCameraUI() {
+    // 🚀 FIX: Prevent massive memory leaks by destroying old preview blobs
+    if (currentPreviewObjectURL) {
+        URL.revokeObjectURL(currentPreviewObjectURL);
+        currentPreviewObjectURL = null;
+    }
+
     document.getElementById('hotpost-camera-feed').classList.remove('hidden');
     document.getElementById('hotpost-preview-container').classList.add('hidden');
     document.getElementById('capture-ui').classList.remove('hidden');
@@ -494,7 +520,8 @@ function resetCameraUI() {
     }
     if(previewVideo) {
         previewVideo.pause();
-        previewVideo.src = '';
+        previewVideo.removeAttribute('src'); // 🚀 FIX: Wipe src to stop ghost playback
+        previewVideo.load();
         previewVideo.classList.add('hidden');
         previewVideo.style.filter = FILTER_LIST[0].css;
     }
@@ -512,6 +539,68 @@ function resetCameraUI() {
     
     document.querySelectorAll('.text-widget').forEach(el => el.remove());
     textElements = []; activeTextId = null; activeTextIdForTouch = null;
+
+    // 🚀 FIX: Reset Capture Button UI safely
+    document.getElementById('capture-inner-circle').classList.replace('bg-red-500', 'bg-white');
+    document.getElementById('capture-inner-circle').classList.remove('scale-50');
+    const ring = document.getElementById('capture-progress-ring');
+    if (ring) {
+        ring.classList.add('hidden');
+        ring.querySelector('circle').style.transition = 'none';
+        ring.querySelector('circle').style.strokeDashoffset = '245';
+    }
+}
+
+function startRecording() {
+    if (!currentCameraStream) return;
+    isRecording = true;
+    recordedChunks = [];
+    currentMediaType = 'video';
+    
+    // UI Animations
+    document.getElementById('capture-inner-circle').classList.replace('bg-white', 'bg-red-500');
+    document.getElementById('capture-inner-circle').classList.add('scale-50');
+    const ring = document.getElementById('capture-progress-ring');
+    ring.classList.remove('hidden');
+    ring.querySelector('circle').style.transition = 'stroke-dashoffset 15s linear';
+    void ring.offsetWidth; // Force Reflow
+    ring.querySelector('circle').style.strokeDashoffset = '0';
+
+    // 🚀 FIX: Dynamically select codec. Safari needs mp4/h264, Android uses webm
+    let options = { mimeType: 'video/webm;codecs=vp8,opus' };
+    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options = { mimeType: 'video/mp4' }; // iOS Fallback
+    }
+
+    try { 
+        mediaRecorder = new MediaRecorder(currentCameraStream, options); 
+    } catch(e) { 
+        mediaRecorder = new MediaRecorder(currentCameraStream); 
+    }
+
+    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+        // 🚀 FIX: Wrap the blob in the EXACT mimeType it was recorded in to prevent corruption
+        const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
+        currentPhotoBlob = blob;
+        
+        // 🚀 FIX: Track memory allocation
+        if (currentPreviewObjectURL) URL.revokeObjectURL(currentPreviewObjectURL);
+        currentPreviewObjectURL = URL.createObjectURL(blob);
+        
+        const videoEl = document.getElementById('hotpost-preview-video');
+        videoEl.src = currentPreviewObjectURL;
+        
+        // 🚀 FIX: onloadeddata is 10x more reliable on mobile than onloadedmetadata
+        videoEl.onloadeddata = () => {
+             videoEl.play().catch(e => console.error("Playback blocked:", e));
+             showPreviewUI();
+             initDoodleCanvas();
+        }
+    };
+
+    mediaRecorder.start();
+    recordingTimer = setTimeout(() => { if (isRecording) stopRecording(); }, 15000); // 15s Limit
 }
 
 function showPreviewUI() {
