@@ -1096,15 +1096,6 @@ window.openCommentActionSheet = function(commentId, commentOwnerId) {
     }, 10);
 };
 
-window.closeCommentActionSheet = function() {
-    const modal = document.getElementById('modal-comment-options');
-    const wrapper = document.getElementById('comment-options-wrapper');
-    
-    modal.style.pointerEvents = 'none';
-    modal.classList.add('opacity-0');
-    wrapper.classList.add('scale-95');
-    setTimeout(() => modal.classList.replace('flex', 'hidden'), 200);
-};
 
 // 🚀 FIX: Nan Bug Fix on Submit!
 async function submitComment(postId) {
