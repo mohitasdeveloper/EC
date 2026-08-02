@@ -392,7 +392,13 @@ async function fetchPosts(isRefresh = false) {
         if (hasMorePosts) setupIntersectionObserver();
 
     } catch (error) {
-        if (isRefresh) document.getElementById('feed-posts-container').innerHTML = `<p class="text-center py-10 text-error">Failed to load feed.</p>`;
+        if (isRefresh) {
+            document.getElementById('feed-posts-container').innerHTML = `<p class="text-center py-10 text-error">Failed to load feed.</p>`;
+        } else {
+            // 🚀 FIX: Re-attach the observer on failure so the user can scroll to try again!
+            showToast('Network error. Scroll down to retry.', 'error');
+            if (hasMorePosts) setupIntersectionObserver();
+        }
     } finally {
         isFetchingFeed = false;
     }
