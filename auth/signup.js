@@ -107,16 +107,14 @@ async function handleSignup(event) {
 
         const user = authData?.user;
 
-        if (user) {
-            // ✅ Account successfully created
-            showMessage("Account created! Please check your email to confirm your account.", false);
+       if (user) {
+    showMessage("Account created successfully!", false);
 
-            // Clear the form
-            signupForm.reset();
-            document.getElementById('other-college-container').classList.add('hidden');
-        } else {
-            showMessage("Something went wrong during signup.");
-        }
+    // Redirect immediately
+    window.location.href = "../index.html";
+} else {
+    showMessage("Something went wrong during signup.");
+}
 
     } catch (err) {
         console.error("Signup process error:", err);
