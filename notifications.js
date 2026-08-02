@@ -1,3 +1,4 @@
+import { PushNotifications } from '@capacitor/push-notifications';
 import { supabase } from './supabase.js';
 import { showToast } from './ui.js';
 import { timeAgo } from './utils.js';
@@ -35,8 +36,10 @@ export function initNotifications(user) {
     currentUser = user;
     setupEventListeners();
     fetchNotifications();
-    setupPushNotifications(); 
+    setupPushNotifications();
 }
+
+
 
 function setupEventListeners() {
     const notifBtn = document.getElementById('notif-btn');
