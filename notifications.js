@@ -75,7 +75,6 @@ function setupEventListeners() {
         }
     });
 }
-
 // --------------------------------------------------
 // PUSH NOTIFICATIONS (Deep Linking Engine)
 // --------------------------------------------------
@@ -88,72 +87,78 @@ async function setupPushNotifications() {
     if (!PushNotifications) return;
 
     try {
-        let permStatus = await PushNotifications.checkPermissions();
-        if (permStatus.receive === 'prompt') {
-            permStatus = await PushNotifications.requestPermissions();
-        }
-        if (permStatus.receive !== 'granted') return;
+        // 1. Clear ghost listeners to prevent duplicate fires
+        await PushNotifications.removeAllListeners();
 
-        await PushNotifications.register();
-
-        await PushNotifications.addListener('registration', async (token) => {
-            await saveTokenToSupabase(token.value);
-        });
-
-        await PushNotifications.addListener('pushNotificationReceived', (notification) => {
-            showToast(`${notification.title}: ${notification.body}`, 'info');
-            fetchNotifications(); 
-        });
-
-        // 🚀 THE DEEP LINK INTERCEPTOR
+        // 2. 🚀 CRITICAL: Attach the click listener FIRST! 
+        // If the app was killed, Capacitor holds the click in a queue. 
+        // We must attach this listener before registering, or the queued click is lost forever.
         await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
             if (SplashScreen) SplashScreen.hide().catch(()=>{});
             
             const data = action.notification.data;
             
+            // Fallback: If no custom data payload, just go to notifications tab
             if (!data || !data.type) {
-                openNotifications();
+                if (typeof window.openNotifications === 'function') window.openNotifications();
                 return;
             }
 
-            // 1. COLD START: App is still booting, window functions don't exist yet
+            // --- SCENARIO A: COLD START ---
+            // The app was killed. Window functions aren't ready yet.
             if (typeof window.openSinglePostView !== 'function') {
                 localStorage.setItem('pending_notification_route', JSON.stringify(data));
-                return; // Let main.js take over when ready
+                return; // main.js will read this localStorage variable once the DOM fully boots
             }
 
-            // 2. WARM START: App is in background, instantly route it!
-            closeNotifications();
+            // --- SCENARIO B: WARM START ---
+            // The app is already running in the background. Instantly route it without reloading!
+            if (typeof window.closeNotifications === 'function') window.closeNotifications();
+            
             setTimeout(() => {
                 if (data.type.startsWith('post_') && data.target_id) {
                     window.openSinglePostView(data.target_id);
                     if (['post_comment', 'comment_reply', 'comment_like', 'comment_mention'].includes(data.type)) {
-                        setTimeout(() => window.openCommentsModal(data.target_id), 500);
+                        setTimeout(() => {
+                            if (typeof window.openCommentsModal === 'function') window.openCommentsModal(data.target_id);
+                        }, 500);
                     }
                 } 
                 else if ((data.type === 'connection_accepted' || data.type === 'connection_request') && data.sender_id) {
-                    window.viewUserProfile(data.sender_id);
+                    if (typeof window.viewUserProfile === 'function') window.viewUserProfile(data.sender_id);
                 } 
                 else if (data.type.startsWith('hotpost_')) {
                     if (typeof window.showMyHotposts === 'function') window.showMyHotposts();
                     else if (typeof window.openHotpostViewer === 'function') window.openHotpostViewer(currentUser.id);
                 } 
                 else {
-                    openNotifications();
+                    if (typeof window.openNotifications === 'function') window.openNotifications();
                 }
-            }, 150);
+            }, 150); // Slight delay ensures UI transitions smoothly
+        });
+
+        // 3. 🚀 NOW Request Permissions and Register
+        let permStatus = await PushNotifications.checkPermissions();
+        if (permStatus.receive === 'prompt') {
+            permStatus = await PushNotifications.requestPermissions();
+        }
+        
+        if (permStatus.receive === 'granted') {
+            await PushNotifications.register();
+        }
+
+        // 4. Handle incoming foreground notifications & token generation
+        await PushNotifications.addListener('registration', async (token) => {
+            if (typeof saveTokenToSupabase === 'function') await saveTokenToSupabase(token.value);
+        });
+
+        await PushNotifications.addListener('pushNotificationReceived', (notification) => {
+            if (typeof showToast === 'function') showToast(`${notification.title}: ${notification.body}`, 'info');
+            if (typeof fetchNotifications === 'function') fetchNotifications(); 
         });
 
     } catch (err) {
-        console.error("Push Notifications skipped:", err);
-    }
-}
-
-async function saveTokenToSupabase(token) {
-    try {
-        await supabase.from('users').update({ fcm_token: token }).eq('id', currentUser.id);
-    } catch (err) {
-        console.error("Could not save push token:", err);
+        console.error("Push Notifications engine failed:", err);
     }
 }
 
