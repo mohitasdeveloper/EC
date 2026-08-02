@@ -1,4 +1,3 @@
-import { PushNotifications } from '@capacitor/push-notifications';
 import { supabase } from './supabase.js';
 import { showToast } from './ui.js';
 import { timeAgo } from './utils.js';
@@ -38,8 +37,6 @@ export function initNotifications(user) {
     fetchNotifications();
     setupPushNotifications();
 }
-
-
 
 function setupEventListeners() {
     const notifBtn = document.getElementById('notif-btn');
@@ -130,7 +127,6 @@ async function setupPushNotifications() {
             setTimeout(() => {
                 if (data.type.startsWith('post_') && data.target_id) {
                     window.openSinglePostView(data.target_id);
-                    // 🚀 FIX: Only open comments if it is a specific comment action (Removed 'post_mention')
                     if (['post_comment', 'comment_reply', 'comment_like', 'comment_mention'].includes(data.type)) {
                         setTimeout(() => window.openCommentsModal(data.target_id), 500);
                     }
@@ -208,7 +204,6 @@ function switchNotifTab(tabName) {
 }
 
 async function fetchNotifications() {
-    // Inject instant shimmer feedback
     document.getElementById('notifications-list-all').innerHTML = NOTIF_SKELETON;
     document.getElementById('notifications-list-requests').innerHTML = NOTIF_SKELETON;
 
@@ -264,7 +259,6 @@ function renderNotificationItem(notif) {
     const ui = iconMap[notif.type] || { icon: 'notifications', color: 'text-gray-500', bg: 'bg-gray-100' };
     const isUnread = !notif.is_read ? 'bg-primary/5 dark:bg-primary/10' : 'bg-surface dark:bg-[#121212]';
 
-    // 🚀 Compress Image & Add Fallback
     const rawAvatarUrl = sender.profile_img_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(sender.full_name)}&background=e1e3e4`;
     const optimizedAvatar = typeof window.optimizeImageUrl === 'function' ? window.optimizeImageUrl(rawAvatarUrl, 'avatar') : rawAvatarUrl;
     const fallback = `this.onerror=null; this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(sender.full_name)}&background=e1e3e4';`;
@@ -317,9 +311,7 @@ async function handleNotificationClick(notif, element) {
     element.classList.remove('bg-primary/5', 'dark:bg-primary/10');
     element.classList.add('bg-surface', 'dark:bg-[#121212]');
 
-    // 1. POST NOTIFICATIONS
     if (['post_like', 'post_comment', 'page_new_post', 'comment_reply', 'comment_like', 'post_mention', 'comment_mention'].includes(notif.type)) {
-        
         const { data } = await supabase.from('posts')
             .select('id')
             .eq('id', notif.target_id)
@@ -328,20 +320,15 @@ async function handleNotificationClick(notif, element) {
             
         if (data) {
             closeNotifications(); 
-            
-            // Open the post immediately
             setTimeout(() => window.openSinglePostView(notif.target_id), 150);
 
-            // 🚀 FIX: Open comments automatically only if it's a comment interaction (Removed 'post_mention')
             if (['post_comment', 'comment_reply', 'comment_like', 'comment_mention'].includes(notif.type)) {
                 setTimeout(() => window.openCommentsModal(notif.target_id), 500);
             }
-
         } else {
             showToast('Post not available.', 'info');
         }
     }
-    // 2. HOTPOST NOTIFICATIONS
     else if (notif.type === 'hotpost_like' || notif.type === 'hotpost_reply' || notif.type === 'page_new_hotpost') {
         const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
         
@@ -361,7 +348,6 @@ async function handleNotificationClick(notif, element) {
             showToast('Hotpost expired.', 'info');
         }
     }
-    // 3. PROFILE & CONNECTION NOTIFICATIONS
     else if (notif.type === 'connection_accepted' || notif.type === 'connection_request' || notif.type === 'new_follower') {
         closeNotifications();
         setTimeout(() => window.viewUserProfile(notif.sender.id), 150);
