@@ -1549,13 +1549,18 @@ function renderHotpostCircles() {
 }
 
 function preloadHotpostImages() {
-    hotpostsByUser.forEach((data) => {
+    // 🚀 FIX: Only preload the first 3 users' stories to prevent network thread bottlenecking!
+    let count = 0;
+    
+    for (const [userId, data] of hotpostsByUser.entries()) {
+        if (count >= 3) break; // Stop after 3 users
+        
         if (data.posts && data.posts.length > 0) {
             const firstPost = data.posts[0];
             
-            // 🚀 FIX: Skip preloading if it's a video to save bandwidth and prevent browser errors
+            // Skip preloading if it's a video to save bandwidth
             if (firstPost.media_type === 'video' || firstPost.media_url.includes('.mp4') || firstPost.media_url.includes('.webm')) {
-                return;
+                continue;
             }
 
             const optimizedUrl = typeof window.optimizeImageUrl === 'function' 
@@ -1564,10 +1569,10 @@ function preloadHotpostImages() {
             
             const img = new Image();
             img.src = optimizedUrl;
+            count++;
         }
-    });
+    }
 }
-
 // ==========================================
 // VIEWER ENGINES & PHYSICS
 // ==========================================
