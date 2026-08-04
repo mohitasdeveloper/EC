@@ -90,29 +90,24 @@ async function setupPushNotifications() {
         // 1. Clear ghost listeners to prevent duplicate fires
         await PushNotifications.removeAllListeners();
 
-        // 2. 🚀 CRITICAL: Attach the click listener FIRST! 
-        // If the app was killed, Capacitor holds the click in a queue. 
-        // We must attach this listener before registering, or the queued click is lost forever.
+        // 2. Attach the click listener FIRST for cold-start handling
         await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
             if (SplashScreen) SplashScreen.hide().catch(()=>{});
             
             const data = action.notification.data;
             
-            // Fallback: If no custom data payload, just go to notifications tab
             if (!data || !data.type) {
                 if (typeof window.openNotifications === 'function') window.openNotifications();
                 return;
             }
 
-            // --- SCENARIO A: COLD START ---
-            // The app was killed. Window functions aren't ready yet.
+            // COLD START
             if (typeof window.openSinglePostView !== 'function') {
                 localStorage.setItem('pending_notification_route', JSON.stringify(data));
-                return; // main.js will read this localStorage variable once the DOM fully boots
+                return;
             }
 
-            // --- SCENARIO B: WARM START ---
-            // The app is already running in the background. Instantly route it without reloading!
+            // WARM START
             if (typeof window.closeNotifications === 'function') window.closeNotifications();
             
             setTimeout(() => {
@@ -134,22 +129,45 @@ async function setupPushNotifications() {
                 else {
                     if (typeof window.openNotifications === 'function') window.openNotifications();
                 }
-            }, 150); // Slight delay ensures UI transitions smoothly
+            }, 150);
         });
 
-        // 3. 🚀 NOW Request Permissions and Register
+        // 3. Request Permissions (FIXED: Triggers if status is anything other than 'granted')
         let permStatus = await PushNotifications.checkPermissions();
-        if (permStatus.receive === 'prompt') {
+        if (permStatus.receive !== 'granted') {
             permStatus = await PushNotifications.requestPermissions();
         }
         
         if (permStatus.receive === 'granted') {
+            // FIXED: Create the Android Notification Channel explicitly
+            try {
+                await PushNotifications.createChannel({
+                    id: 'default',
+                    name: 'ECampus Notifications',
+                    description: 'General campus updates',
+                    importance: 5,
+                    visibility: 1,
+                    vibration: true
+                });
+            } catch (channelErr) {
+                console.error("Error creating notification channel:", channelErr);
+            }
+
             await PushNotifications.register();
         }
 
-        // 4. Handle incoming foreground notifications & token generation
+        // 4. Handle token registration (FIXED: Directly updates Supabase table)
         await PushNotifications.addListener('registration', async (token) => {
-            if (typeof saveTokenToSupabase === 'function') await saveTokenToSupabase(token.value);
+            if (currentUser && currentUser.id) {
+                console.log("FCM Token generated:", token.value);
+                const { error } = await supabase
+                    .from('users')
+                    .update({ fcm_token: token.value })
+                    .eq('id', currentUser.id);
+                
+                if (error) console.error("Error saving FCM token to Supabase:", error);
+                else console.log("FCM Token successfully saved to Supabase!");
+            }
         });
 
         await PushNotifications.addListener('pushNotificationReceived', (notification) => {
@@ -161,7 +179,6 @@ async function setupPushNotifications() {
         console.error("Push Notifications engine failed:", err);
     }
 }
-
 // -----------------------------------
 // UI & FETCHING LOGIC
 // -----------------------------------
