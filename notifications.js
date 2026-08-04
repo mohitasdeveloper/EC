@@ -79,18 +79,24 @@ function setupEventListeners() {
 // PUSH NOTIFICATIONS (Deep Linking Engine)
 // --------------------------------------------------
 async function setupPushNotifications() {
+    // 1. SAFEGUARD: Wait for Android to inject the Capacitor bridge
+    if (!window.Capacitor || !window.Capacitor.Plugins || !window.Capacitor.Plugins.PushNotifications) {
+        console.log("Capacitor bridge not ready yet. Retrying in 500ms...");
+        setTimeout(setupPushNotifications, 500);
+        return;
+    }
+
     const Cap = window.Capacitor;
-    if (!Cap || !Cap.isNativePlatform()) return; 
+    if (!Cap.isNativePlatform()) return; 
 
     const PushNotifications = Cap.Plugins.PushNotifications;
     const SplashScreen = Cap.Plugins.SplashScreen;
-    if (!PushNotifications) return;
 
     try {
-        // 1. Clear ghost listeners to prevent duplicate fires
+        // 2. Clear ghost listeners
         await PushNotifications.removeAllListeners();
 
-        // 2. Attach the click listener FIRST for cold-start handling
+        // 3. Attach click listener FIRST (Deep Linking Engine)
         await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
             if (SplashScreen) SplashScreen.hide().catch(()=>{});
             
@@ -101,13 +107,11 @@ async function setupPushNotifications() {
                 return;
             }
 
-            // COLD START
             if (typeof window.openSinglePostView !== 'function') {
                 localStorage.setItem('pending_notification_route', JSON.stringify(data));
                 return;
             }
 
-            // WARM START
             if (typeof window.closeNotifications === 'function') window.closeNotifications();
             
             setTimeout(() => {
@@ -132,14 +136,16 @@ async function setupPushNotifications() {
             }, 150);
         });
 
-        // 3. Request Permissions (FIXED: Triggers if status is anything other than 'granted')
+        // 4. THE PERMISSION PROMPT LOGIC
         let permStatus = await PushNotifications.checkPermissions();
+        
+        // Force the prompt if the user hasn't explicitly said 'granted'
         if (permStatus.receive !== 'granted') {
             permStatus = await PushNotifications.requestPermissions();
         }
         
         if (permStatus.receive === 'granted') {
-            // FIXED: Create the Android Notification Channel explicitly
+            // Create Android Notification Channel
             try {
                 await PushNotifications.createChannel({
                     id: 'default',
@@ -154,19 +160,23 @@ async function setupPushNotifications() {
             }
 
             await PushNotifications.register();
+        } else {
+            console.log("Push permissions were denied by the user.");
         }
 
-        // 4. Handle token registration (FIXED: Directly updates Supabase table)
+        // 5. Handle Token Registration & Save to Supabase
         await PushNotifications.addListener('registration', async (token) => {
             if (currentUser && currentUser.id) {
-                console.log("FCM Token generated:", token.value);
                 const { error } = await supabase
                     .from('users')
                     .update({ fcm_token: token.value })
                     .eq('id', currentUser.id);
                 
-                if (error) console.error("Error saving FCM token to Supabase:", error);
-                else console.log("FCM Token successfully saved to Supabase!");
+                if (error) {
+                    console.error("Error saving FCM token:", error);
+                } else {
+                    console.log("FCM Token saved perfectly!");
+                }
             }
         });
 
