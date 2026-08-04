@@ -1883,6 +1883,21 @@ window.setVisibility = function(val, icon, label) {
             // Optional: Automatically reload the page when connection returns to fetch fresh data
             window.location.reload(); 
         });
+
+        // 🚀 GLOBAL OFFLINE INTERCEPTOR
+// We use 'true' as the third argument to enable the "capture phase".
+// This ensures this function runs BEFORE any other click events or link navigations on the page.
+document.addEventListener('click', function(event) {
+    if (!navigator.onLine) {
+        // Stop the link from opening
+        event.preventDefault();
+        // Stop other JavaScript click handlers from running
+        event.stopPropagation(); 
+        
+        // Show your custom offline UI
+        showOfflineScreen();
+    }
+}, true);
     </script>
 </body>
 
