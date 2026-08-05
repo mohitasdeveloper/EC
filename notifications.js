@@ -79,40 +79,50 @@ function setupEventListeners() {
 // PUSH NOTIFICATIONS (Deep Linking Engine)
 // --------------------------------------------------
 async function setupPushNotifications() {
-    const Cap = window.Capacitor;
-    
-    // 🚀 CRITICAL FIX: The global injected Cap object uses `.isNative` (boolean).
-    // Using `.isNativePlatform()` throws a fatal error on remote URLs!
-    if (!Cap || !Cap.isNative || !Cap.Plugins || !Cap.Plugins.PushNotifications) {
-        console.warn("PushNotifications plugin not found or running on web.");
-        return; 
-    }
-
-    const PushNotifications = Cap.Plugins.PushNotifications;
-    const SplashScreen = Cap.Plugins.SplashScreen;
-
     try {
-        // 1. Clear ghost listeners to prevent duplicate fires
-        await PushNotifications.removeAllListeners();
+        const Cap = window.Capacitor;
+        
+        // 1. Check if Capacitor is injected properly
+        if (!Cap) {
+            console.log("No Capacitor detected. Running in standard browser.");
+            return; 
+        }
 
-        // 2. Attach the click listener FIRST before registering
-        await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-            if (SplashScreen) SplashScreen.hide().catch(()=>{});
+        const Push = Cap.Plugins.PushNotifications;
+        if (!Push) {
+            // If the user sees this alert on their phone, the Android build did not sync properly
+            alert("ERROR: PushNotifications native plugin missing! Android build needs a sync.");
+            return;
+        }
+
+        // 2. Force the Native Permission Prompt directly
+        const permStatus = await Push.requestPermissions();
+        
+        if (permStatus.receive === 'granted') {
+            await Push.register();
+        } else {
+            // If they see this, they previously hit 'Deny' and Android is blocking the prompt
+            alert("Permission Denied: Go to Android Settings -> Apps -> ECampus -> Allow Notifications.");
+        }
+
+        // 3. Clear old listeners
+        await Push.removeAllListeners();
+
+        // 4. Attach Deep Link Click Listener FIRST
+        await Push.addListener('pushNotificationActionPerformed', (action) => {
+            if (Cap.Plugins.SplashScreen) Cap.Plugins.SplashScreen.hide().catch(()=>{});
             
             const data = action.notification.data;
-            
             if (!data || !data.type) {
                 if (typeof window.openNotifications === 'function') window.openNotifications();
                 return;
             }
 
-            // --- SCENARIO A: COLD START ---
             if (typeof window.openSinglePostView !== 'function') {
                 localStorage.setItem('pending_notification_route', JSON.stringify(data));
                 return;
             }
 
-            // --- SCENARIO B: WARM START ---
             if (typeof window.closeNotifications === 'function') window.closeNotifications();
             
             setTimeout(() => {
@@ -137,30 +147,29 @@ async function setupPushNotifications() {
             }, 150);
         });
 
-        // 3. NOW Request Permissions and Register
-        let permStatus = await PushNotifications.checkPermissions();
-        if (permStatus.receive === 'prompt') {
-            permStatus = await PushNotifications.requestPermissions();
-        }
-        
-        if (permStatus.receive === 'granted') {
-            await PushNotifications.register();
-        } else {
-            console.warn("User denied push notification permissions.");
-        }
-
-        // 4. Handle incoming foreground notifications & token generation
-        await PushNotifications.addListener('registration', async (token) => {
+        // 5. Handle the FCM Token (This was missing!)
+        await Push.addListener('registration', async (token) => {
             await saveTokenToSupabase(token.value);
         });
 
-        await PushNotifications.addListener('pushNotificationReceived', (notification) => {
+        // 6. Handle Foreground Notifications
+        await Push.addListener('pushNotificationReceived', (notification) => {
             if (typeof showToast === 'function') showToast(`${notification.title}: ${notification.body}`, 'info');
-            fetchNotifications(); 
+            if (typeof fetchNotifications === 'function') fetchNotifications(); 
         });
 
     } catch (err) {
-        console.error("Push Notifications engine failed:", err);
+        // If it crashes internally, it will tell you exactly why
+        alert("Push Engine Crash: " + err.message);
+    }
+}
+
+// 🚀 RESTORED MISSING FUNCTION: Required to save the token generated in Step 5
+async function saveTokenToSupabase(token) {
+    try {
+        await supabase.from('users').update({ fcm_token: token }).eq('id', currentUser.id);
+    } catch (err) {
+        console.error("Could not save push token:", err);
     }
 }
 // -----------------------------------
