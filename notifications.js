@@ -81,9 +81,21 @@ function setupEventListeners() {
 async function setupPushNotifications() {
     const Cap = window.Capacitor;
     
-    // 🚀 THE FIX: Aggressive alert if the bridge is stripped
-    if (!Cap || !Cap.isNative || !Cap.Plugins || !Cap.Plugins.PushNotifications) {
-        alert("SYSTEM WARNING: Native Bridge Lost! Push Notifications disabled.");
+    // 🚀 GRANULAR ALERTS: Tells you exactly what part of the bridge is broken
+    if (!Cap) {
+        alert("SYSTEM WARNING: window.Capacitor is missing. The URL redirect stripped the bridge.");
+        return; 
+    }
+    if (!Cap.isNative) {
+        alert("SYSTEM WARNING: Cap.isNative is false. The app thinks it's a standard web browser.");
+        return; 
+    }
+    if (!Cap.Plugins) {
+        alert("SYSTEM WARNING: Cap.Plugins is missing.");
+        return; 
+    }
+    if (!Cap.Plugins.PushNotifications) {
+        alert("SYSTEM WARNING: Push Notifications plugin missing from Android build! Ensure you ran 'npx cap sync android'.");
         return; 
     }
 
