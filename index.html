@@ -154,7 +154,93 @@
     </div>
    <!-- 🚀 GLOBAL TOAST CONTAINER (Moved outside to fix z-index stacking over modals) -->
     <div id="toast-container" class="fixed top-[max(4.5rem,env(safe-area-inset-top))] left-1/2 -translate-x-1/2 w-full max-w-md p-4 space-y-2 z-[9999] pointer-events-none flex flex-col items-center"></div>
+<!-- ============================================== -->
+    <!-- SECURE STUDENT VERIFICATION VIEW               -->
+    <!-- ============================================== -->
+    <div id="view-verification" class="fixed inset-0 z-[9999] bg-surface dark:bg-[#121212] hidden flex-col overflow-y-auto">
+        
+        <!-- Header -->
+        <div class="px-6 py-5 flex items-center justify-between border-b border-surface-variant/40 dark:border-neutral-800 bg-surface/90 dark:bg-[#121212]/90 backdrop-blur-md sticky top-0 z-10">
+            <span style="font-family:'Courgette',cursive;" class="text-[28px] bg-gradient-to-r from-[#00C853] via-[#00A2FF] to-[#2962FF] bg-clip-text text-transparent select-none">
+                ECampus
+            </span>
+            <button class="verify-signout-btn text-[14px] font-bold text-error bg-error/10 px-4 py-1.5 rounded-full active:scale-95 transition-transform">
+                Sign Out
+            </button>
+        </div>
 
+        <div class="flex-1 px-6 py-8 max-w-screen-sm w-full mx-auto flex flex-col">
+            
+            <!-- STATE 1: FORM OR REJECTED -->
+            <div id="verify-state-form" class="hidden flex-col flex-1">
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span class="material-symbols-outlined text-[32px]">badge</span>
+                    </div>
+                    <h2 class="text-[24px] font-extrabold text-on-surface dark:text-gray-100 mb-2">Student Verification</h2>
+                    <p class="text-[14px] text-on-surface-variant dark:text-gray-400">To maintain a safe and exclusive campus network, please verify your student identity.</p>
+                </div>
+
+                <!-- Rejection Alert (Hidden by default) -->
+                <div id="verify-reject-alert" class="hidden bg-error/10 border border-error/30 rounded-2xl p-4 mb-6 text-center">
+                    <span class="material-symbols-outlined text-error text-[24px] mb-1">error</span>
+                    <h3 class="text-error font-bold text-[14px] mb-1">Verification Rejected</h3>
+                    <p id="verify-reject-reason" class="text-[13px] text-error/80 font-medium">Please re-submit your details.</p>
+                </div>
+
+                <!-- Trust Badge -->
+                <div class="bg-surface-variant/20 dark:bg-neutral-900/50 border border-surface-variant/50 dark:border-neutral-800 rounded-2xl p-4 mb-6 flex items-start gap-3">
+                    <span class="material-symbols-outlined text-primary text-[20px] mt-0.5">lock</span>
+                    <p class="text-[12px] text-on-surface-variant dark:text-gray-400 leading-snug">
+                        <strong class="text-on-surface dark:text-gray-200">Data Privacy Guarantee:</strong> Your ID is strictly used for verification. To protect your privacy, all uploaded documents are <span class="text-primary font-bold">permanently deleted</span> from our servers immediately after approval.
+                    </p>
+                </div>
+
+                <div class="space-y-4 mb-8">
+                    <div>
+                        <label class="text-[12px] font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider mb-1 block">Legal Full Name</label>
+                        <input type="text" id="verify-name" class="w-full bg-surface dark:bg-[#121212] border border-surface-variant/60 dark:border-neutral-700 rounded-xl p-3.5 text-[14px] text-on-surface dark:text-gray-100 outline-none focus:border-primary" placeholder="As it appears on your ID">
+                    </div>
+                    <div>
+                        <label class="text-[12px] font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider mb-1 block">Student ID Number</label>
+                        <input type="text" id="verify-student-id" class="w-full bg-surface dark:bg-[#121212] border border-surface-variant/60 dark:border-neutral-700 rounded-xl p-3.5 text-[14px] text-on-surface dark:text-gray-100 outline-none focus:border-primary" placeholder="e.g., 2023-BSC-104">
+                    </div>
+                    <div>
+                        <label class="text-[12px] font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider mb-1 block">Course / Major</label>
+                        <input type="text" id="verify-course" class="w-full bg-surface dark:bg-[#121212] border border-surface-variant/60 dark:border-neutral-700 rounded-xl p-3.5 text-[14px] text-on-surface dark:text-gray-100 outline-none focus:border-primary" placeholder="e.g., TY B.Sc Computer Science">
+                    </div>
+                    
+                    <div class="pt-2">
+                        <label class="text-[12px] font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider mb-1 block">College ID Card (Front)</label>
+                        <input type="file" id="id-card-upload" accept="image/*" class="hidden">
+                        <div id="id-card-preview-container" onclick="document.getElementById('id-card-upload').click()" class="w-full h-40 border-2 border-dashed border-surface-variant/80 dark:border-neutral-700 rounded-2xl flex flex-col items-center justify-center text-on-surface-variant dark:text-gray-400 cursor-pointer hover:border-primary hover:text-primary transition-colors bg-surface-variant/10 relative overflow-hidden p-2">
+                            <span class="material-symbols-outlined text-[32px] mb-2" id="verify-img-icon">add_photo_alternate</span>
+                            <span class="text-sm font-medium" id="verify-img-text">Tap to upload clear photo</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-auto">
+                    <button id="submit-verification-btn" class="w-full bg-primary text-white font-extrabold py-4 rounded-2xl active:scale-95 transition-transform shadow-lg shadow-primary/25">
+                        Submit for Verification
+                    </button>
+                </div>
+            </div>
+
+            <!-- STATE 2: PENDING REVIEW -->
+            <div id="verify-state-pending" class="hidden flex-col flex-1 items-center justify-center text-center mt-12">
+                <div class="w-24 h-24 bg-orange-500/10 text-orange-500 rounded-full flex items-center justify-center mb-6 animate-pulse">
+                    <span class="material-symbols-outlined text-[42px]">hourglass_empty</span>
+                </div>
+                <h2 class="text-[26px] font-extrabold text-on-surface dark:text-gray-100 mb-3">Under Review</h2>
+                <p class="text-[15px] text-on-surface-variant dark:text-gray-400 leading-relaxed max-w-xs">
+                    Our team is currently reviewing your credentials to ensure a safe campus environment. This usually takes less than 24 hours.
+                </p>
+                <p class="text-[14px] font-bold text-primary mt-6">We will notify you once approved.</p>
+            </div>
+
+        </div>
+    </div>
     <!-- HEADER -->
     <header class="bg-transparent safe-pt z-[50] relative">
         <div class="flex items-center px-4 h-[54px] w-full max-w-screen-md mx-auto relative">
