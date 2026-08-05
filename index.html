@@ -112,6 +112,19 @@
 .rich-text-content a { color: #006e1c; text-decoration: underline; }
 .dark .rich-text-content a { color: #78dc77; }
     </style>
+    <!-- 🚀 AGGRESSIVE SERVICE WORKER & CACHE KILLER -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for(let registration of registrations) {
+                    registration.unregister().then(() => console.log('Ghost ServiceWorker destroyed.'));
+                }
+            });
+        }
+        if ('caches' in window) {
+            caches.keys().then((keyList) => Promise.all(keyList.map((key) => caches.delete(key))));
+        }
+    </script>
 </head>
 
 <body class="bg-surface dark:bg-[#121212] text-on-surface dark:text-gray-100 antialiased mb-24 relative overflow-x-hidden transition-colors duration-300 selection:bg-primary/20 overflow-hidden overscroll-y-none">
