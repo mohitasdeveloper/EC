@@ -430,8 +430,8 @@ function initializeApp(profile) {
 
 async function updateNativeStatusBar(isDark) {
     try {
-        if (window.Capacitor && window.Capacitor.isNativePlatform()) {
-            const { StatusBar, Style } = await import('@capacitor/status-bar');
+if (window.Capacitor && window.Capacitor.isNative) {
+    const { StatusBar, Style } = await import('@capacitor/status-bar');
             const bgColor = isDark ? '#121212' : '#f8f9fa';
             const textStyle = isDark ? Style.Dark : Style.Light; 
             
