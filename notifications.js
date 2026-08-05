@@ -79,38 +79,22 @@ function setupEventListeners() {
 // PUSH NOTIFICATIONS (Deep Linking Engine)
 // --------------------------------------------------
 async function setupPushNotifications() {
+    const Cap = window.Capacitor;
+    
+    // 🚀 THE FIX: Aggressive alert if the bridge is stripped
+    if (!Cap || !Cap.isNative || !Cap.Plugins || !Cap.Plugins.PushNotifications) {
+        alert("SYSTEM WARNING: Native Bridge Lost! Push Notifications disabled.");
+        return; 
+    }
+
+    const Push = Cap.Plugins.PushNotifications;
+    const SplashScreen = Cap.Plugins.SplashScreen;
+
     try {
-        const Cap = window.Capacitor;
-        
-        // 1. Check if Capacitor is injected properly
-        if (!Cap) {
-            console.log("No Capacitor detected. Running in standard browser.");
-            return; 
-        }
-
-        const Push = Cap.Plugins.PushNotifications;
-        if (!Push) {
-            // If the user sees this alert on their phone, the Android build did not sync properly
-            alert("ERROR: PushNotifications native plugin missing! Android build needs a sync.");
-            return;
-        }
-
-        // 2. Force the Native Permission Prompt directly
-        const permStatus = await Push.requestPermissions();
-        
-        if (permStatus.receive === 'granted') {
-            await Push.register();
-        } else {
-            // If they see this, they previously hit 'Deny' and Android is blocking the prompt
-            alert("Permission Denied: Go to Android Settings -> Apps -> ECampus -> Allow Notifications.");
-        }
-
-        // 3. Clear old listeners
         await Push.removeAllListeners();
 
-        // 4. Attach Deep Link Click Listener FIRST
         await Push.addListener('pushNotificationActionPerformed', (action) => {
-            if (Cap.Plugins.SplashScreen) Cap.Plugins.SplashScreen.hide().catch(()=>{});
+            if (SplashScreen) SplashScreen.hide().catch(()=>{});
             
             const data = action.notification.data;
             if (!data || !data.type) {
@@ -147,19 +131,28 @@ async function setupPushNotifications() {
             }, 150);
         });
 
-        // 5. Handle the FCM Token (This was missing!)
+        // Request Permissions
+        let permStatus = await Push.checkPermissions();
+        if (permStatus.receive === 'prompt') {
+            permStatus = await Push.requestPermissions();
+        }
+        
+        if (permStatus.receive === 'granted') {
+            await Push.register();
+        } else {
+            alert("Permission Denied: Please enable notifications in your phone's App Settings.");
+        }
+
         await Push.addListener('registration', async (token) => {
-            await saveTokenToSupabase(token.value);
+            if (typeof saveTokenToSupabase === 'function') await saveTokenToSupabase(token.value);
         });
 
-        // 6. Handle Foreground Notifications
         await Push.addListener('pushNotificationReceived', (notification) => {
             if (typeof showToast === 'function') showToast(`${notification.title}: ${notification.body}`, 'info');
             if (typeof fetchNotifications === 'function') fetchNotifications(); 
         });
 
     } catch (err) {
-        // If it crashes internally, it will tell you exactly why
         alert("Push Engine Crash: " + err.message);
     }
 }
