@@ -367,18 +367,18 @@ async function openCameraModal() {
     if (currentCameraStream) currentCameraStream.getTracks().forEach(track => track.stop());
 
     try {
-        // 🚀 TEMP FIX: Set 'audio: false' to prevent native APK crashes until permissions are added.
+        // 🚀 Microphone enabled: 'audio: true'
         currentCameraStream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: currentFacingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
-            audio: false 
+            audio: true 
         });
         video.srcObject = currentCameraStream;
-        video.muted = true; // Safe fallback
+        video.muted = true; // Prevents acoustic feedback screeching while recording
         
         videoZoomScale = 1;
         video.style.transform = currentFacingMode === 'user' ? `scaleX(-1) scale(${videoZoomScale})` : `scale(${videoZoomScale})`;
     } catch (err) {
-        showToast('Camera access denied.', 'error');
+        showToast('Camera or Microphone access denied.', 'error');
         closeCameraModal(true);
     }
 }
