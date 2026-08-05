@@ -80,8 +80,20 @@ function setupEventListeners() {
 // --------------------------------------------------
 async function setupPushNotifications() {
     const Cap = window.Capacitor;
-    
+
+    // TEMP DEBUG — shows exactly what the app sees, no computer/adb needed.
+    // Delete this whole try/catch block once you've confirmed things work.
+    try {
+        alert(
+            'Capacitor: ' + (Cap ? 'present' : 'MISSING') +
+            ' | isNativePlatform(): ' + (Cap && Cap.isNativePlatform ? Cap.isNativePlatform() : 'n/a') +
+            ' | platform: ' + (Cap && Cap.getPlatform ? Cap.getPlatform() : 'n/a')
+        );
+    } catch (e) {}
+
     // 1. Basic Check: Are we in the Android app?
+    // Capacitor 7 removed the old `Cap.isNative` boolean property.
+    // Use the isNativePlatform() method instead.
     if (!Cap || !Cap.isNativePlatform || !Cap.isNativePlatform()) {
         console.log("Running in browser. Native Push Notifications disabled.");
         return; 
@@ -139,14 +151,21 @@ async function setupPushNotifications() {
             }, 150);
         });
 
-        // 🚀 Request Permissions
-        // 🚀 Registration & Foreground Delivery (attach listeners FIRST)
+        // 🚀 Registration & Foreground Delivery — attach listeners BEFORE register()
+        // so a fast native response can never be missed.
         await Push.addListener('registration', async (token) => {
-            if (typeof saveTokenToSupabase === 'function') await saveTokenToSupabase(token.value);
+            try {
+                if (typeof saveTokenToSupabase === 'function') await saveTokenToSupabase(token.value);
+                // TEMP DEBUG — confirms the token actually reached Supabase. Remove once confirmed.
+                alert('FCM token saved: ' + token.value.substring(0, 20) + '...');
+            } catch (e) {
+                alert('Failed to save FCM token: ' + (e && e.message ? e.message : e));
+            }
         });
 
         await Push.addListener('registrationError', (err) => {
-            console.error("Push registration error:", err);
+            console.error('Push registration error:', err);
+            alert('Push registration error: ' + JSON.stringify(err));
         });
 
         await Push.addListener('pushNotificationReceived', (notification) => {
@@ -156,8 +175,12 @@ async function setupPushNotifications() {
 
         // 🚀 Request Permissions
         let permStatus = await Push.checkPermissions();
+        // TEMP DEBUG — remove once confirmed.
+        alert('Push permission (checkPermissions): ' + permStatus.receive);
+
         if (permStatus.receive === 'prompt') {
             permStatus = await Push.requestPermissions();
+            alert('Push permission (after requestPermissions): ' + permStatus.receive);
         }
         
         if (permStatus.receive === 'granted') {
@@ -165,11 +188,13 @@ async function setupPushNotifications() {
         } else {
             console.log("Push permissions denied by user.");
         }
-        } catch (err) {
-    console.error("Push notification setup failed:", err);
-}
-}
 
+    } catch (err) {
+        console.error("Push Engine Crash: ", err);
+        // TEMP DEBUG — surfaces any crash directly on screen. Remove once confirmed.
+        try { alert('Push setup crashed: ' + (err && err.message ? err.message : err)); } catch (e) {}
+    }
+}
 // 🚀 RESTORED MISSING FUNCTION: Required to save the token generated in Step 5
 async function saveTokenToSupabase(token) {
     try {
