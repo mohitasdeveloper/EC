@@ -435,41 +435,7 @@ function initializeApp(profile) {
         switchTab('dashboard'); 
     }
 }
-    // ------------------------------------------------------------------
-    // COLD START PENDING ROUTE SYSTEM (Push Notification Deep-Linking)
-    // ------------------------------------------------------------------
-    const pendingRoute = localStorage.getItem('pending_notification_route');
-    if (pendingRoute) {
-        localStorage.removeItem('pending_notification_route');
-        try {
-            const routeData = JSON.parse(pendingRoute);
-            
-            if (routeData.type.startsWith('post_')) {
-                // Keep Dashboard running in background, but slide Post View over it
-                switchTab('dashboard'); 
-                setTimeout(() => window.openSinglePostView(routeData.target_id), 300);
-            } 
-            else if (routeData.type === 'connection_accepted' || routeData.type === 'connection_request') {
-                switchTab('dashboard');
-                setTimeout(() => window.viewUserProfile(routeData.sender_id), 300);
-            } 
-            else if (routeData.type.startsWith('hotpost_')) {
-                switchTab('dashboard');
-                setTimeout(() => {
-                    if (typeof window.showMyHotposts === 'function') window.showMyHotposts();
-                    else if (typeof window.openHotpostViewer === 'function') window.openHotpostViewer(profile.id);
-                }, 300);
-            } else {
-                switchTab('dashboard');
-            }
-        } catch(e) {
-            console.error("Route parsing error", e);
-            switchTab('dashboard');
-        }
-    } else {
-        switchTab('dashboard'); // Normal App Boot
-    }
-}
+   
 
 async function updateNativeStatusBar(isDark) {
     try {
