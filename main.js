@@ -2100,7 +2100,17 @@ window.closeCoursePicker = function() {
 };
 
 window.selectCourse = function(courseName) {
-    document.getElementById('edit-profile-course').value = courseName;
+    const editInput = document.getElementById('edit-profile-course');
+    const verifyInput = document.getElementById('verify-course');
+    const verifyView = document.getElementById('view-verification');
+    
+    // Check if the verification screen is currently open
+    if (verifyView && !verifyView.classList.contains('hidden')) {
+        if (verifyInput) verifyInput.value = courseName;
+    } else {
+        if (editInput) editInput.value = courseName;
+    }
+    
     closeCoursePicker();
 };
 
