@@ -80,39 +80,39 @@ function setupEventListeners() {
 // --------------------------------------------------
 async function setupPushNotifications() {
     const Cap = window.Capacitor;
-    if (!Cap || !Cap.isNativePlatform()) return; 
+    
+    // 🚀 CRITICAL FIX: The global injected Cap object uses `.isNative` (boolean).
+    // Using `.isNativePlatform()` throws a fatal error on remote URLs!
+    if (!Cap || !Cap.isNative || !Cap.Plugins || !Cap.Plugins.PushNotifications) {
+        console.warn("PushNotifications plugin not found or running on web.");
+        return; 
+    }
 
     const PushNotifications = Cap.Plugins.PushNotifications;
     const SplashScreen = Cap.Plugins.SplashScreen;
-    if (!PushNotifications) return;
 
     try {
         // 1. Clear ghost listeners to prevent duplicate fires
         await PushNotifications.removeAllListeners();
 
-        // 2. 🚀 CRITICAL: Attach the click listener FIRST! 
-        // If the app was killed, Capacitor holds the click in a queue. 
-        // We must attach this listener before registering, or the queued click is lost forever.
+        // 2. Attach the click listener FIRST before registering
         await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
             if (SplashScreen) SplashScreen.hide().catch(()=>{});
             
             const data = action.notification.data;
             
-            // Fallback: If no custom data payload, just go to notifications tab
             if (!data || !data.type) {
                 if (typeof window.openNotifications === 'function') window.openNotifications();
                 return;
             }
 
             // --- SCENARIO A: COLD START ---
-            // The app was killed. Window functions aren't ready yet.
             if (typeof window.openSinglePostView !== 'function') {
                 localStorage.setItem('pending_notification_route', JSON.stringify(data));
-                return; // main.js will read this localStorage variable once the DOM fully boots
+                return;
             }
 
             // --- SCENARIO B: WARM START ---
-            // The app is already running in the background. Instantly route it without reloading!
             if (typeof window.closeNotifications === 'function') window.closeNotifications();
             
             setTimeout(() => {
@@ -134,10 +134,10 @@ async function setupPushNotifications() {
                 else {
                     if (typeof window.openNotifications === 'function') window.openNotifications();
                 }
-            }, 150); // Slight delay ensures UI transitions smoothly
+            }, 150);
         });
 
-        // 3. 🚀 NOW Request Permissions and Register
+        // 3. NOW Request Permissions and Register
         let permStatus = await PushNotifications.checkPermissions();
         if (permStatus.receive === 'prompt') {
             permStatus = await PushNotifications.requestPermissions();
@@ -145,23 +145,24 @@ async function setupPushNotifications() {
         
         if (permStatus.receive === 'granted') {
             await PushNotifications.register();
+        } else {
+            console.warn("User denied push notification permissions.");
         }
 
         // 4. Handle incoming foreground notifications & token generation
         await PushNotifications.addListener('registration', async (token) => {
-            if (typeof saveTokenToSupabase === 'function') await saveTokenToSupabase(token.value);
+            await saveTokenToSupabase(token.value);
         });
 
         await PushNotifications.addListener('pushNotificationReceived', (notification) => {
             if (typeof showToast === 'function') showToast(`${notification.title}: ${notification.body}`, 'info');
-            if (typeof fetchNotifications === 'function') fetchNotifications(); 
+            fetchNotifications(); 
         });
 
     } catch (err) {
         console.error("Push Notifications engine failed:", err);
     }
 }
-
 // -----------------------------------
 // UI & FETCHING LOGIC
 // -----------------------------------
