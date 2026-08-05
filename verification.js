@@ -21,10 +21,10 @@ export function initVerification(profile) {
     view.classList.remove('hidden');
     view.classList.add('flex');
     
-    // 3. Pre-fill data if available
-    document.getElementById('verify-name').value = profile.full_name || '';
-    document.getElementById('verify-student-id').value = profile.student_id || '';
-    document.getElementById('verify-course').value = profile.course || '';
+    // We intentionally leave inputs blank per your request.
+    document.getElementById('verify-name').value = '';
+    document.getElementById('verify-student-id').value = '';
+    document.getElementById('verify-course').value = '';
 
     // 4. Render correct state
     renderState(profile.verification_status);
@@ -120,9 +120,10 @@ async function submitVerification() {
         
         const { data: uploadData, error: uploadError } = await supabase.storage
             .from('verifications')
-            .upload(fileName, compressedFile);
+            .upload(fileName, compressedFile, { upsert: true }); // Added upsert
 
-        if (uploadError) throw new Error("Image upload failed. Ensure 'verifications' bucket exists.");
+        // THIS WILL NOW SHOW THE EXACT ERROR IF IT FAILS
+        if (uploadError) throw new Error(`Upload Failed: ${uploadError.message}`);
 
         // Get the secure URL
         const { data: urlData } = supabase.storage.from('verifications').getPublicUrl(fileName);
@@ -156,6 +157,7 @@ async function submitVerification() {
 
     } catch (error) {
         console.error("Verification Error:", error);
+        // Toast now displays the REAL error to help us debug
         showToast(error.message || 'Failed to submit verification. Please try again.', 'error');
     } finally {
         btn.disabled = false;
