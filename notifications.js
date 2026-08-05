@@ -165,7 +165,7 @@ async function setupPushNotifications() {
         } else {
             console.log("Push permissions denied by user.");
         }
-}
+
 // 🚀 RESTORED MISSING FUNCTION: Required to save the token generated in Step 5
 async function saveTokenToSupabase(token) {
     try {
