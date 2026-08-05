@@ -211,12 +211,23 @@
                         <span class="material-symbols-outlined absolute right-3 top-[38px] text-on-surface-variant pointer-events-none">chevron_right</span>
                     </div>
                     
-                    <div class="pt-2">
+                   <div class="pt-2">
                         <label class="text-[12px] font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider mb-1 block">College ID Card (Front)</label>
                         <input type="file" id="id-card-upload" accept="image/*" class="hidden">
                         <div id="id-card-preview-container" onclick="document.getElementById('id-card-upload').click()" class="w-full h-40 border-2 border-dashed border-surface-variant/80 dark:border-neutral-700 rounded-2xl flex flex-col items-center justify-center text-on-surface-variant dark:text-gray-400 cursor-pointer hover:border-primary hover:text-primary transition-colors bg-surface-variant/10 relative overflow-hidden p-2">
                             <span class="material-symbols-outlined text-[32px] mb-2" id="verify-img-icon">add_photo_alternate</span>
                             <span class="text-sm font-medium" id="verify-img-text">Tap to upload clear photo</span>
+                        </div>
+                    </div>
+
+                    <!-- NEW: LIVE SELFIE SECTION -->
+                    <div class="pt-2">
+                        <label class="text-[12px] font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider mb-1 block">Live Selfie</label>
+                        <!-- capture="user" forces mobile devices to open the front camera! -->
+                        <input type="file" id="selfie-upload" accept="image/*" capture="user" class="hidden">
+                        <div id="selfie-preview-container" onclick="document.getElementById('selfie-upload').click()" class="w-full h-40 border-2 border-dashed border-surface-variant/80 dark:border-neutral-700 rounded-2xl flex flex-col items-center justify-center text-on-surface-variant dark:text-gray-400 cursor-pointer hover:border-primary hover:text-primary transition-colors bg-surface-variant/10 relative overflow-hidden p-2">
+                            <span class="material-symbols-outlined text-[32px] mb-2">face</span>
+                            <span class="text-sm font-medium">Tap to take a selfie</span>
                         </div>
                     </div>
                 </div>
