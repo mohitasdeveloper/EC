@@ -153,14 +153,14 @@
         </div>
     </div>
    <!-- 🚀 GLOBAL TOAST CONTAINER (Moved outside to fix z-index stacking over modals) -->
-    <div id="toast-container" class="fixed top-[max(4.5rem,env(safe-area-inset-top))] left-1/2 -translate-x-1/2 w-full max-w-md p-4 space-y-2 z-[9999] pointer-events-none flex flex-col items-center"></div>
-<!-- ============================================== -->
+<div id="toast-container" class="fixed top-[max(4.5rem,env(safe-area-inset-top))] left-1/2 -translate-x-1/2 w-full max-w-md p-4 space-y-2 z-[10000] pointer-events-none flex flex-col items-center"></div>
+    <!-- ============================================== -->
     <!-- SECURE STUDENT VERIFICATION VIEW               -->
     <!-- ============================================== -->
     <div id="view-verification" class="fixed inset-0 z-[9999] bg-surface dark:bg-[#121212] hidden flex-col overflow-y-auto">
         
         <!-- Header -->
-        <div class="px-6 py-5 flex items-center justify-between border-b border-surface-variant/40 dark:border-neutral-800 bg-surface/90 dark:bg-[#121212]/90 backdrop-blur-md sticky top-0 z-10">
+        <div class="px-6 pb-4 pt-[max(1.25rem,env(safe-area-inset-top))] flex items-center justify-between border-b border-surface-variant/40 dark:border-neutral-800 bg-surface/90 dark:bg-[#121212]/90 backdrop-blur-md sticky top-0 z-10">
             <span style="font-family:'Courgette',cursive;" class="text-[28px] bg-gradient-to-r from-[#00C853] via-[#00A2FF] to-[#2962FF] bg-clip-text text-transparent select-none">
                 ECampus
             </span>
@@ -1612,8 +1612,8 @@
         </div>
     </div>
 
-    <div id="modal-course-picker" class="fixed inset-0 z-[180] bg-black/40 backdrop-blur-sm hidden flex-col justify-end transition-opacity">
-        <div class="bg-surface dark:bg-[#1e1e1e] w-full max-w-screen-md mx-auto rounded-t-[32px] p-6 pb-8 relative animate-[slideUp_0.3s_ease-out] flex flex-col max-h-[85vh]">
+<div id="modal-course-picker" class="fixed inset-0 z-[10000] bg-black/40 backdrop-blur-sm hidden flex-col justify-end transition-opacity">
+    <div class="bg-surface dark:bg-[#1e1e1e] w-full max-w-screen-md mx-auto rounded-t-[32px] p-6 pb-8 relative animate-[slideUp_0.3s_ease-out] flex flex-col max-h-[85vh]">
             <button onclick="closeCoursePicker()" class="absolute top-4 right-5 w-8 h-8 bg-surface-variant/50 dark:bg-neutral-800 rounded-full flex items-center justify-center text-on-surface dark:text-gray-100 active:scale-95 transition-transform">
                 <span class="material-symbols-outlined text-[18px]">close</span>
             </button>
