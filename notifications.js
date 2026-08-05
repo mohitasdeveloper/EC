@@ -79,25 +79,11 @@ function setupEventListeners() {
 // PUSH NOTIFICATIONS (Deep Linking Engine)
 // --------------------------------------------------
 async function setupPushNotifications() {
-    // 🚀 FIX: Wait up to 2 seconds for Android to inject the Capacitor bridge
-    let retries = 0;
-    while (!window.Capacitor && retries < 20) {
-        await new Promise(r => setTimeout(r, 100)); // wait 100ms
-        retries++;
-    }
-
     const Cap = window.Capacitor;
     
-    if (!Cap) {
-        alert("SYSTEM WARNING: window.Capacitor is missing. The URL redirect stripped the bridge.");
-        return; 
-    }
-    if (!Cap.isNative) {
-        alert("SYSTEM WARNING: Cap.isNative is false. The app thinks it's a standard web browser.");
-        return; 
-    }
-    if (!Cap.Plugins || !Cap.Plugins.PushNotifications) {
-        alert("SYSTEM WARNING: Push Notifications plugin missing from Android build!");
+    // Fail silently if running on standard web browser or if permissions are denied
+    if (!Cap || !Cap.isNative || !Cap.Plugins || !Cap.Plugins.PushNotifications) {
+        console.log("Running in browser context. Native Push Notifications disabled.");
         return; 
     }
 
@@ -107,6 +93,7 @@ async function setupPushNotifications() {
     try {
         await Push.removeAllListeners();
 
+        // 🚀 Click Listener
         await Push.addListener('pushNotificationActionPerformed', (action) => {
             if (SplashScreen) SplashScreen.hide().catch(()=>{});
             
@@ -145,7 +132,7 @@ async function setupPushNotifications() {
             }, 150);
         });
 
-        // Request Permissions
+        // 🚀 Request Permissions
         let permStatus = await Push.checkPermissions();
         if (permStatus.receive === 'prompt') {
             permStatus = await Push.requestPermissions();
@@ -154,9 +141,10 @@ async function setupPushNotifications() {
         if (permStatus.receive === 'granted') {
             await Push.register();
         } else {
-            alert("Permission Denied: Please enable notifications in your phone's App Settings.");
+            console.log("Push permissions denied by user.");
         }
 
+        // 🚀 Registration & Foreground Delivery
         await Push.addListener('registration', async (token) => {
             if (typeof saveTokenToSupabase === 'function') await saveTokenToSupabase(token.value);
         });
@@ -167,7 +155,7 @@ async function setupPushNotifications() {
         });
 
     } catch (err) {
-        alert("Push Engine Crash: " + err.message);
+        console.error("Push Engine Crash: ", err);
     }
 }
 // 🚀 RESTORED MISSING FUNCTION: Required to save the token generated in Step 5
