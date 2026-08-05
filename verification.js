@@ -95,15 +95,33 @@ function handleImagePreview(e) {
 }
 
 async function submitVerification() {
-    const legalName = document.getElementById('verify-name').value.trim();
-    const studentId = document.getElementById('verify-student-id').value.trim();
-    const course = document.getElementById('verify-course').value.trim();
+    const nameInput = document.getElementById('verify-name');
+    const idInput = document.getElementById('verify-student-id');
+    const courseInput = document.getElementById('verify-course');
+    const imageContainer = document.getElementById('id-card-preview-container');
+
+    const legalName = nameInput.value.trim();
+    const studentId = idInput.value.trim();
+    const course = courseInput.value.trim();
     
-    if (!legalName || !studentId || !course) {
-        return showToast('Please fill out all text fields.', 'warning');
+    // 1. Reset all borders to normal
+    [nameInput, idInput, courseInput].forEach(el => el.classList.remove('border-error', 'dark:border-error'));
+    imageContainer.classList.remove('border-error', 'dark:border-error');
+
+    let hasError = false;
+
+    // 2. Strict Input Checking (Highlights missing fields in Red)
+    if (!legalName) { nameInput.classList.add('border-error', 'dark:border-error'); hasError = true; }
+    if (!studentId) { idInput.classList.add('border-error', 'dark:border-error'); hasError = true; }
+    if (!course) { courseInput.classList.add('border-error', 'dark:border-error'); hasError = true; }
+    
+    if (hasError) {
+        return showToast('Please fill out all highlighted text fields.', 'error');
     }
+
     if (!currentImageBlob) {
-        return showToast('Please upload a photo of your College ID.', 'warning');
+        imageContainer.classList.add('border-error', 'dark:border-error');
+        return showToast('Please upload a photo of your College ID.', 'error');
     }
 
     const btn = document.getElementById('submit-verification-btn');
@@ -111,25 +129,24 @@ async function submitVerification() {
     btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-[24px]">progress_activity</span>`;
 
     try {
-        // 1. Compress Image (Reuses global compressor from main.js)
+        // Compress Image
         const compressedFile = typeof window.compressImage === 'function' ? await window.compressImage(currentImageBlob, 1080, 0.7) : currentImageBlob;
         
-        // 2. Upload to Supabase Secure Storage Bucket ('verifications')
+        // Upload to Storage
         const fileExt = compressedFile.name.split('.').pop();
         const fileName = `${currentUser.id}_${Date.now()}.${fileExt}`;
         
         const { data: uploadData, error: uploadError } = await supabase.storage
             .from('verifications')
-            .upload(fileName, compressedFile, { upsert: true }); // Added upsert
+            .upload(fileName, compressedFile, { upsert: true });
 
-        // THIS WILL NOW SHOW THE EXACT ERROR IF IT FAILS
         if (uploadError) throw new Error(`Upload Failed: ${uploadError.message}`);
 
-        // Get the secure URL
+        // Get secure URL
         const { data: urlData } = supabase.storage.from('verifications').getPublicUrl(fileName);
         const imageUrl = urlData.publicUrl;
 
-        // 3. Upsert Verification Record
+        // Upsert Database Record
         const { error: dbError } = await supabase
             .from('student_verifications')
             .upsert({
@@ -143,7 +160,7 @@ async function submitVerification() {
 
         if (dbError) throw dbError;
 
-        // 4. Update Users Table Status
+        // Update Users Table
         const { error: userError } = await supabase
             .from('users')
             .update({ verification_status: 'pending' })
@@ -151,13 +168,11 @@ async function submitVerification() {
 
         if (userError) throw userError;
 
-        // 5. Shift UI to Pending State
         showToast('Verification submitted successfully.', 'success');
         renderState('pending');
 
     } catch (error) {
         console.error("Verification Error:", error);
-        // Toast now displays the REAL error to help us debug
         showToast(error.message || 'Failed to submit verification. Please try again.', 'error');
     } finally {
         btn.disabled = false;
