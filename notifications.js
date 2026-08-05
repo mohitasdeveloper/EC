@@ -82,7 +82,7 @@ async function setupPushNotifications() {
     const Cap = window.Capacitor;
     
     // 1. Basic Check: Are we in the Android app?
-    if (!Cap || !Cap.isNative) {
+    if (!Cap || !Cap.isNativePlatform || !Cap.isNativePlatform()) {
         console.log("Running in browser. Native Push Notifications disabled.");
         return; 
     }
@@ -140,6 +140,21 @@ async function setupPushNotifications() {
         });
 
         // 🚀 Request Permissions
+        // 🚀 Registration & Foreground Delivery (attach listeners FIRST)
+        await Push.addListener('registration', async (token) => {
+            if (typeof saveTokenToSupabase === 'function') await saveTokenToSupabase(token.value);
+        });
+
+        await Push.addListener('registrationError', (err) => {
+            console.error("Push registration error:", err);
+        });
+
+        await Push.addListener('pushNotificationReceived', (notification) => {
+            if (typeof showToast === 'function') showToast(`${notification.title}: ${notification.body}`, 'info');
+            if (typeof fetchNotifications === 'function') fetchNotifications(); 
+        });
+
+        // 🚀 Request Permissions
         let permStatus = await Push.checkPermissions();
         if (permStatus.receive === 'prompt') {
             permStatus = await Push.requestPermissions();
@@ -150,18 +165,7 @@ async function setupPushNotifications() {
         } else {
             console.log("Push permissions denied by user.");
         }
-
-        // 🚀 Registration & Foreground Delivery
-        await Push.addListener('registration', async (token) => {
-            if (typeof saveTokenToSupabase === 'function') await saveTokenToSupabase(token.value);
-        });
-
-        await Push.addListener('pushNotificationReceived', (notification) => {
-            if (typeof showToast === 'function') showToast(`${notification.title}: ${notification.body}`, 'info');
-            if (typeof fetchNotifications === 'function') fetchNotifications(); 
-        });
-
-    } catch (err) {
+      catch (err) {
         console.error("Push Engine Crash: ", err);
     }
 }
