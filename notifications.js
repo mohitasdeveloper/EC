@@ -81,21 +81,28 @@ function setupEventListeners() {
 async function setupPushNotifications() {
     const Cap = window.Capacitor;
     
-    // Fail silently if running on standard web browser or if permissions are denied
-    if (!Cap || !Cap.isNative || !Cap.Plugins || !Cap.Plugins.PushNotifications) {
-        console.log("Running in browser context. Native Push Notifications disabled.");
+    // 1. Basic Check: Are we in the Android app?
+    if (!Cap || !Cap.isNative) {
+        console.log("Running in browser. Native Push Notifications disabled.");
         return; 
     }
 
-    const Push = Cap.Plugins.PushNotifications;
-    const SplashScreen = Cap.Plugins.SplashScreen;
-
     try {
+        // 🚀 THE MAGIC BRIDGE: Manually link the native Android Java plugins!
+        // This bypasses the need for NPM bundlers on your GitHub Pages site.
+        const Push = Cap.registerPlugin('PushNotifications');
+        const Splash = Cap.registerPlugin('SplashScreen');
+
+        if (!Push) {
+            console.error("Failed to register PushNotifications plugin.");
+            return;
+        }
+
         await Push.removeAllListeners();
 
         // 🚀 Click Listener
         await Push.addListener('pushNotificationActionPerformed', (action) => {
-            if (SplashScreen) SplashScreen.hide().catch(()=>{});
+            if (Splash) Splash.hide().catch(()=>{});
             
             const data = action.notification.data;
             if (!data || !data.type) {
