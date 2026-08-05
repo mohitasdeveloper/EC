@@ -79,39 +79,40 @@ function setupEventListeners() {
 // PUSH NOTIFICATIONS (Deep Linking Engine)
 // --------------------------------------------------
 async function setupPushNotifications() {
-    // 1. SAFEGUARD: Wait for Android to inject the Capacitor bridge
-    if (!window.Capacitor || !window.Capacitor.Plugins || !window.Capacitor.Plugins.PushNotifications) {
-        console.log("Capacitor bridge not ready yet. Retrying in 500ms...");
-        setTimeout(setupPushNotifications, 500);
-        return;
-    }
-
     const Cap = window.Capacitor;
-    if (!Cap.isNativePlatform()) return; 
+    if (!Cap || !Cap.isNativePlatform()) return; 
 
     const PushNotifications = Cap.Plugins.PushNotifications;
     const SplashScreen = Cap.Plugins.SplashScreen;
+    if (!PushNotifications) return;
 
     try {
-        // 2. Clear ghost listeners
+        // 1. Clear ghost listeners to prevent duplicate fires
         await PushNotifications.removeAllListeners();
 
-        // 3. Attach click listener FIRST (Deep Linking Engine)
+        // 2. 🚀 CRITICAL: Attach the click listener FIRST! 
+        // If the app was killed, Capacitor holds the click in a queue. 
+        // We must attach this listener before registering, or the queued click is lost forever.
         await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
             if (SplashScreen) SplashScreen.hide().catch(()=>{});
             
             const data = action.notification.data;
             
+            // Fallback: If no custom data payload, just go to notifications tab
             if (!data || !data.type) {
                 if (typeof window.openNotifications === 'function') window.openNotifications();
                 return;
             }
 
+            // --- SCENARIO A: COLD START ---
+            // The app was killed. Window functions aren't ready yet.
             if (typeof window.openSinglePostView !== 'function') {
                 localStorage.setItem('pending_notification_route', JSON.stringify(data));
-                return;
+                return; // main.js will read this localStorage variable once the DOM fully boots
             }
 
+            // --- SCENARIO B: WARM START ---
+            // The app is already running in the background. Instantly route it without reloading!
             if (typeof window.closeNotifications === 'function') window.closeNotifications();
             
             setTimeout(() => {
@@ -133,51 +134,22 @@ async function setupPushNotifications() {
                 else {
                     if (typeof window.openNotifications === 'function') window.openNotifications();
                 }
-            }, 150);
+            }, 150); // Slight delay ensures UI transitions smoothly
         });
 
-        // 4. THE PERMISSION PROMPT LOGIC
+        // 3. 🚀 NOW Request Permissions and Register
         let permStatus = await PushNotifications.checkPermissions();
-        
-        // Force the prompt if the user hasn't explicitly said 'granted'
-        if (permStatus.receive !== 'granted') {
+        if (permStatus.receive === 'prompt') {
             permStatus = await PushNotifications.requestPermissions();
         }
         
         if (permStatus.receive === 'granted') {
-            // Create Android Notification Channel
-            try {
-                await PushNotifications.createChannel({
-                    id: 'default',
-                    name: 'ECampus Notifications',
-                    description: 'General campus updates',
-                    importance: 5,
-                    visibility: 1,
-                    vibration: true
-                });
-            } catch (channelErr) {
-                console.error("Error creating notification channel:", channelErr);
-            }
-
             await PushNotifications.register();
-        } else {
-            console.log("Push permissions were denied by the user.");
         }
 
-        // 5. Handle Token Registration & Save to Supabase
+        // 4. Handle incoming foreground notifications & token generation
         await PushNotifications.addListener('registration', async (token) => {
-            if (currentUser && currentUser.id) {
-                const { error } = await supabase
-                    .from('users')
-                    .update({ fcm_token: token.value })
-                    .eq('id', currentUser.id);
-                
-                if (error) {
-                    console.error("Error saving FCM token:", error);
-                } else {
-                    console.log("FCM Token saved perfectly!");
-                }
-            }
+            if (typeof saveTokenToSupabase === 'function') await saveTokenToSupabase(token.value);
         });
 
         await PushNotifications.addListener('pushNotificationReceived', (notification) => {
@@ -189,6 +161,7 @@ async function setupPushNotifications() {
         console.error("Push Notifications engine failed:", err);
     }
 }
+
 // -----------------------------------
 // UI & FETCHING LOGIC
 // -----------------------------------
