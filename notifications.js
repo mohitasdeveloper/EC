@@ -79,9 +79,15 @@ function setupEventListeners() {
 // PUSH NOTIFICATIONS (Deep Linking Engine)
 // --------------------------------------------------
 async function setupPushNotifications() {
+    // 🚀 FIX: Wait up to 2 seconds for Android to inject the Capacitor bridge
+    let retries = 0;
+    while (!window.Capacitor && retries < 20) {
+        await new Promise(r => setTimeout(r, 100)); // wait 100ms
+        retries++;
+    }
+
     const Cap = window.Capacitor;
     
-    // 🚀 GRANULAR ALERTS: Tells you exactly what part of the bridge is broken
     if (!Cap) {
         alert("SYSTEM WARNING: window.Capacitor is missing. The URL redirect stripped the bridge.");
         return; 
@@ -90,12 +96,8 @@ async function setupPushNotifications() {
         alert("SYSTEM WARNING: Cap.isNative is false. The app thinks it's a standard web browser.");
         return; 
     }
-    if (!Cap.Plugins) {
-        alert("SYSTEM WARNING: Cap.Plugins is missing.");
-        return; 
-    }
-    if (!Cap.Plugins.PushNotifications) {
-        alert("SYSTEM WARNING: Push Notifications plugin missing from Android build! Ensure you ran 'npx cap sync android'.");
+    if (!Cap.Plugins || !Cap.Plugins.PushNotifications) {
+        alert("SYSTEM WARNING: Push Notifications plugin missing from Android build!");
         return; 
     }
 
@@ -168,7 +170,6 @@ async function setupPushNotifications() {
         alert("Push Engine Crash: " + err.message);
     }
 }
-
 // 🚀 RESTORED MISSING FUNCTION: Required to save the token generated in Step 5
 async function saveTokenToSupabase(token) {
     try {
