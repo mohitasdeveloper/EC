@@ -116,13 +116,16 @@
 
 <body class="bg-surface dark:bg-[#121212] text-on-surface dark:text-gray-100 antialiased mb-24 relative overflow-x-hidden transition-colors duration-300 selection:bg-primary/20 overflow-hidden overscroll-y-none">
 
-  <!-- Offline Screen Overlay -->
-    <div id="offline-overlay" class="fixed inset-0 bg-white dark:bg-[#121212] z-[9999] hidden flex-col items-center justify-center text-center px-6">
-        
-        <h2 class="text-3xl font-black text-gray-900 dark:text-gray-100 mb-3">You're Offline</h2>
-        <p class="text-gray-500 dark:text-gray-400 mb-8 font-medium max-w-sm">It looks like you've lost your internet connection. Please check your network.</p>
-        
-        <!-- The icon and retry button have been completely removed -->
+<!-- ========================================== -->
+    <!-- NATIVE OFFLINE OVERLAY                     -->
+    <!-- ========================================== -->
+    <div id="offline-overlay" class="fixed inset-0 z-[99999] bg-surface dark:bg-[#121212] hidden flex-col items-center justify-center text-center px-6">
+        <div class="text-[42px] font-extrabold mb-2 bg-gradient-to-r from-[#00C853] via-[#00A2FF] to-[#2962FF] bg-clip-text text-transparent leading-none" style="font-family: 'Courgette', cursive;">ECampus</div>
+        <h2 class="text-[20px] font-bold text-on-surface dark:text-gray-100 mb-2">You're Offline</h2>
+        <p class="text-[14px] text-on-surface-variant dark:text-gray-400 mb-8 font-medium max-w-[280px] leading-snug">We couldn't connect to the campus servers. Please check your internet connection.</p>
+        <button onclick="window.location.reload()" class="bg-primary text-white border-none py-4 px-9 text-[15px] font-bold rounded-full shadow-[0_8px_24px_rgba(0,110,28,0.4)] active:scale-95 transition-transform">
+            Try Again
+        </button>
     </div>
 
       <div id="ptr-container" class="fixed top-0 left-1/2 z-[9999] flex items-center justify-center gap-2 bg-surface dark:bg-[#1e1e1e] border border-surface-variant/50 dark:border-neutral-800 shadow-[0_10px_40px_rgba(0,0,0,0.3)] rounded-full px-5 py-2.5 opacity-0 pointer-events-none" style="transform: translate(-50%, -100px); will-change: transform, opacity;">
@@ -1853,51 +1856,47 @@ window.setVisibility = function(val, icon, label) {
         };
 
 
-    const offlineOverlay = document.getElementById('offline-overlay');
+   // ==========================================
+        // NATIVE OFFLINE INTERCEPTOR SCRIPT
+        // ==========================================
+        const offlineOverlay = document.getElementById('offline-overlay');
 
-        // Function to show the offline screen
         function showOfflineScreen() {
-            offlineOverlay.classList.remove('hidden');
-            offlineOverlay.classList.add('flex');
+            if (offlineOverlay) {
+                offlineOverlay.classList.remove('hidden');
+                offlineOverlay.classList.add('flex');
+            }
         }
 
-        // Function to hide the offline screen
         function hideOfflineScreen() {
-            offlineOverlay.classList.add('hidden');
-            offlineOverlay.classList.remove('flex');
+            if (offlineOverlay) {
+                offlineOverlay.classList.add('hidden');
+                offlineOverlay.classList.remove('flex');
+            }
         }
 
-        // 1. Check the connection instantly when the app first opens
+        // 1. Instant check on boot
         if (!navigator.onLine) {
             showOfflineScreen();
         }
 
-        // 2. Listen for the exact moment the phone loses internet
-        window.addEventListener('offline', () => {
-            showOfflineScreen();
-        });
+        // 2. Network drop listener
+        window.addEventListener('offline', showOfflineScreen);
 
-        // 3. Listen for the exact moment the internet comes back
+        // 3. Network restored listener
         window.addEventListener('online', () => {
             hideOfflineScreen();
-            // Optional: Automatically reload the page when connection returns to fetch fresh data
             window.location.reload(); 
         });
 
-        // 🚀 GLOBAL OFFLINE INTERCEPTOR
-// We use 'true' as the third argument to enable the "capture phase".
-// This ensures this function runs BEFORE any other click events or link navigations on the page.
-document.addEventListener('click', function(event) {
-    if (!navigator.onLine) {
-        // Stop the link from opening
-        event.preventDefault();
-        // Stop other JavaScript click handlers from running
-        event.stopPropagation(); 
-        
-        // Show your custom offline UI
-        showOfflineScreen();
-    }
-}, true);
+        // 4. Block accidental clicks if offline
+        document.addEventListener('click', function(event) {
+            if (!navigator.onLine) {
+                event.preventDefault();
+                event.stopPropagation(); 
+                showOfflineScreen();
+            }
+        }, true);
     </script>
 </body>
 
