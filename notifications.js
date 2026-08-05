@@ -100,10 +100,16 @@ async function setupPushNotifications() {
     }
 
     try {
-        // 🚀 THE MAGIC BRIDGE: Manually link the native Android Java plugins!
-        // This bypasses the need for NPM bundlers on your GitHub Pages site.
-        const Push = Cap.registerPlugin('PushNotifications');
-        const Splash = Cap.registerPlugin('SplashScreen');
+        // 🚀 Access the natively-registered plugins.
+        // This site has no bundler, so we can't use the `registerPlugin()`
+        // import-time helper — instead we read the plugin proxies Capacitor
+        // automatically exposes on window.Capacitor.Plugins for exactly
+        // this "no bundler" scenario.
+        const Push = Cap.Plugins && Cap.Plugins.PushNotifications;
+        const Splash = Cap.Plugins && Cap.Plugins.SplashScreen;
+
+        // TEMP DEBUG — remove once confirmed.
+        alert('Push plugin found: ' + (Push ? 'yes' : 'NO - check capacitor.plugins.json / native registration'));
 
         if (!Push) {
             console.error("Failed to register PushNotifications plugin.");
