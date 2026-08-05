@@ -368,6 +368,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     currentUserProfile = profile;
+
+    // 🚀 THE LOCKDOWN INTERCEPTOR: Check Verification Status
+    if (profile.verification_status !== 'verified') {
+        // Load and initialize the verification lockdown screen
+        import('./verification.js').then(module => {
+            module.initVerification(profile);
+        });
+        return; // HALT MAIN APP INITIALIZATION completely
+    }
+
+    // If verified, proceed normally
     initializeApp(profile);
 });
 
@@ -392,6 +403,38 @@ function initializeApp(profile) {
     setupAppBackButton();
     initPullToRefresh(); 
 
+    // COLD START PENDING ROUTE SYSTEM
+    const pendingRoute = localStorage.getItem('pending_notification_route');
+    if (pendingRoute) {
+        localStorage.removeItem('pending_notification_route');
+        try {
+            const routeData = JSON.parse(pendingRoute);
+            
+            if (routeData.type.startsWith('post_')) {
+                switchTab('dashboard'); 
+                setTimeout(() => window.openSinglePostView(routeData.target_id), 300);
+            } 
+            else if (routeData.type === 'connection_accepted' || routeData.type === 'connection_request') {
+                switchTab('dashboard');
+                setTimeout(() => window.viewUserProfile(routeData.sender_id), 300);
+            } 
+            else if (routeData.type.startsWith('hotpost_')) {
+                switchTab('dashboard');
+                setTimeout(() => {
+                    if (typeof window.showMyHotposts === 'function') window.showMyHotposts();
+                    else if (typeof window.openHotpostViewer === 'function') window.openHotpostViewer(profile.id);
+                }, 300);
+            } else {
+                switchTab('dashboard');
+            }
+        } catch(e) {
+            console.error("Route parsing error", e);
+            switchTab('dashboard');
+        }
+    } else {
+        switchTab('dashboard'); 
+    }
+}
     // ------------------------------------------------------------------
     // COLD START PENDING ROUTE SYSTEM (Push Notification Deep-Linking)
     // ------------------------------------------------------------------
