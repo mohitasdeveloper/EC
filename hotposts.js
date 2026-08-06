@@ -124,7 +124,6 @@ function setupEventListeners() {
     document.getElementById('switch-hotpost-camera-btn')?.addEventListener('click', switchCamera);
     document.getElementById('submit-hotpost-btn')?.addEventListener('click', submitHotpost);
 
-    // 🚀 FIX: The 'Aa' button should ALWAYS spawn a new text block, just like Instagram.
     document.getElementById('add-text-hotpost-btn')?.addEventListener('click', () => {
         document.querySelectorAll('.text-widget').forEach(el => el.classList.remove('active'));
         activeTextId = null;
@@ -132,7 +131,6 @@ function setupEventListeners() {
         activateTextTool(null);
     });
     
-    // 🚀 FIX: Restored the missing Draw Tool listener!
     document.getElementById('doodle-hotpost-btn')?.addEventListener('click', toggleDrawMode);
     document.getElementById('undo-doodle-btn')?.addEventListener('click', undoLastDoodle);
     
@@ -150,7 +148,6 @@ function setupEventListeners() {
         updateTextUIPreview();
     });
 
-    // 🚀 NEW ALIGNMENT TOGGLE
     document.getElementById('toggle-text-align-btn')?.addEventListener('click', (e) => {
         const btn = e.currentTarget.querySelector('span');
         if (currentTextAlign === 'center') {
@@ -166,7 +163,6 @@ function setupEventListeners() {
         updateTextUIPreview();
     });
 
-    // 🚀 INJECT FONTS & COLORS (Fixed Target Bubbling)
     const colorPicker = document.getElementById('text-color-picker');
     if (colorPicker) {
         colorPicker.innerHTML = TEXT_COLORS.map(color => `
@@ -174,7 +170,7 @@ function setupEventListeners() {
         `).join('');
         colorPicker.querySelectorAll('.text-color-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                currentTextColor = e.currentTarget.dataset.color; // Forces target to the button
+                currentTextColor = e.currentTarget.dataset.color; 
                 updateTextUIPreview();
             });
         });
@@ -187,19 +183,17 @@ function setupEventListeners() {
         `).join('');
         fontPicker.querySelectorAll('.text-font-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const idx = e.currentTarget.dataset.fontindex; // Forces target to the button
+                const idx = e.currentTarget.dataset.fontindex; 
                 currentTextFont = TEXT_FONTS[idx].value;
                 updateTextUIPreview();
             });
         });
     }
+    
     setupVideoZoomPhysics();
     setupEditorTouchPhysics();
     setupViewerTouchPhysics();
 
-    // =========================================================================
-    // 🚀 NEW SMART POINTER ENGINE (Double Tap, Hold-to-Hide, Navigate)
-    // =========================================================================
     document.getElementById('close-hotpost-viewer-btn')?.addEventListener('click', closeHotpostViewer);
     document.getElementById('hotpost-reply-btn')?.addEventListener('click', handleReplyToHotpost);
     document.getElementById('hotpost-like-btn')?.addEventListener('click', handleLikeHotpost);
@@ -219,11 +213,9 @@ function setupEventListeners() {
         const currentTime = new Date().getTime();
         const tapLength = currentTime - lastTapTime;
         
-        // 1. Detect Double Tap (Like)
         if (tapLength < 300 && tapLength > 0) {
             clearTimeout(storyTouchTimer);
             const likeBtn = document.getElementById('hotpost-like-btn');
-            // Only like if it's not our own story
             if (likeBtn && currentViewerState.userId !== currentUser.id) {
                 handleLikeHotpost({ stopPropagation: () => {}, currentTarget: likeBtn });
                 window.showDoubleTapHeart(e.clientX, e.clientY);
@@ -233,7 +225,6 @@ function setupEventListeners() {
         }
         lastTapTime = currentTime;
 
-        // 2. Detect Long Press (Hide UI)
         storyTouchTimer = setTimeout(() => {
             isStoryHolding = true;
             window.toggleViewerUI(false); 
@@ -245,10 +236,8 @@ function setupEventListeners() {
         resumeStory();
         
         if (isStoryHolding) {
-            // It was a long press, just restore UI, do not navigate
             window.toggleViewerUI(true); 
         } else {
-            // It was a quick tap, navigate!
             if (e.target.id === 'hotpost-nav-next') nextStory();
             if (e.target.id === 'hotpost-nav-prev') prevStory();
         }
@@ -270,7 +259,6 @@ function setupEventListeners() {
     
     replyInput?.addEventListener('focus', pauseStory);
     replyInput?.addEventListener('blur', resumeStory);
-    // =========================================================================
 
     document.getElementById('details-tab-viewers')?.addEventListener('click', () => switchDetailsTab('viewers'));
     document.getElementById('details-tab-likes')?.addEventListener('click', () => switchDetailsTab('likes'));
@@ -282,41 +270,66 @@ function setupEventListeners() {
         showCustomConfirm("Delete Hotpost?", "This will permanently remove this post from your story.", executeDeleteHotpost);
     });
 
-    // 🚀 NEW: Bulletproof Hold-to-Record Physics
+    // ---------------------------------------------------------
+    // 🚀 NEW LOGIC FROM STEP 2A: MUTE BUTTON AND CAPTURE PHYSICS
+    // ---------------------------------------------------------
+
+    // 🚀 NEW: Mute/Unmute Video Preview
+    document.getElementById('hotpost-mute-btn')?.addEventListener('click', (e) => {
+        const vidEl = document.getElementById('hotpost-preview-video');
+        const icon = e.currentTarget.querySelector('span');
+        vidEl.muted = !vidEl.muted;
+        icon.textContent = vidEl.muted ? 'volume_off' : 'volume_up';
+    });
+
+    // 🚀 NEW: Bulletproof Hold-to-Record Physics using Pointer Events
     const captureBtn = document.getElementById('capture-hotpost-btn');
     let pressTimer = null;
     let isPressing = false;
+    let didStartVideo = false;
 
     const startPress = (e) => {
-        if (e.cancelable) e.preventDefault();
+        if (e.cancelable) e.preventDefault(); 
         if (isPressing) return;
         isPressing = true;
+        didStartVideo = false;
         
-        // Wait exactly 250ms. If finger is still down, it's a video. Start recording.
+        // Give immediate visual feedback that button is pressed
+        document.getElementById('capture-inner-circle').classList.add('scale-90');
+
         pressTimer = setTimeout(() => { 
-            if (isPressing) startRecording(); 
-        }, 250); 
+            if (isPressing) {
+                didStartVideo = true;
+                startRecording(); 
+            }
+        }, 300); // Wait 300ms before switching from Photo to Video mode
     };
     
     const endPress = (e) => {
-        if (e.cancelable) e.preventDefault();
+        if (e.cancelable) e.preventDefault(); 
+        if (!isPressing) return;
         isPressing = false;
+        clearTimeout(pressTimer);
         
-        if (isRecording) {
+        document.getElementById('capture-inner-circle').classList.remove('scale-90');
+        
+        if (didStartVideo) {
             stopRecording(); // It was a long press, stop video.
         } else {
-            clearTimeout(pressTimer); // It was a short tap, cancel video start.
-            capturePhoto(); // Instantly take photo.
+            capturePhoto(); // It was a quick tap, snap photo instantly.
         }
+        didStartVideo = false;
     };
 
-    captureBtn?.addEventListener('mousedown', startPress);
-    captureBtn?.addEventListener('mouseup', endPress);
-    captureBtn?.addEventListener('mouseleave', endPress); // Failsafe if mouse dragged away
-    captureBtn?.addEventListener('touchstart', startPress, {passive: false});
-    captureBtn?.addEventListener('touchend', endPress, {passive: false});
-    captureBtn?.addEventListener('touchcancel', endPress, {passive: false});
-    
+    if (captureBtn) {
+        captureBtn.addEventListener('pointerdown', startPress);
+        captureBtn.addEventListener('pointerup', endPress);
+        captureBtn.addEventListener('pointerleave', endPress);
+        captureBtn.addEventListener('pointercancel', endPress);
+    }
+
+    // ---------------------------------------------------------
+
     // 🚀 NEW: Bulletproof Gallery Input (Memory Safe, Handles Images & Videos)
     document.getElementById('hotpost-gallery-input')?.addEventListener('change', (e) => {
         const file = e.target.files[0];
@@ -362,7 +375,6 @@ function setupEventListeners() {
             reader.readAsDataURL(file);
         }
         
-        // Reset input so the user can select the same file again if needed
         e.target.value = '';
     });
 }
@@ -483,19 +495,20 @@ function startRecording() {
     recordedChunks = [];
     currentMediaType = 'video';
     
-    // UI Animations
-    document.getElementById('capture-inner-circle').classList.replace('bg-white', 'bg-red-500');
+    // UI Animations: Switch to Purple and scale down
+    document.getElementById('capture-inner-circle').classList.replace('bg-white', 'bg-purple-500');
     document.getElementById('capture-inner-circle').classList.add('scale-50');
+    
     const ring = document.getElementById('capture-progress-ring');
     ring.classList.remove('hidden');
-    ring.querySelector('circle').style.transition = 'stroke-dashoffset 15s linear';
+    // 🚀 FIX: 30 Second Timer transition
+    ring.querySelector('circle').style.transition = 'stroke-dashoffset 30s linear';
     void ring.offsetWidth; // Force Reflow
     ring.querySelector('circle').style.strokeDashoffset = '0';
 
-    // 🚀 FIX: Dynamically select codec. Safari needs mp4/h264, Android uses webm
     let options = { mimeType: 'video/webm;codecs=vp8,opus' };
     if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-        options = { mimeType: 'video/mp4' }; // iOS Fallback
+        options = { mimeType: 'video/mp4' }; 
     }
 
     try { 
@@ -506,18 +519,15 @@ function startRecording() {
 
     mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
     mediaRecorder.onstop = () => {
-        // 🚀 FIX: Wrap the blob in the EXACT mimeType it was recorded in to prevent corruption
         const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
         currentPhotoBlob = blob;
         
-        // 🚀 FIX: Track memory allocation
         if (currentPreviewObjectURL) URL.revokeObjectURL(currentPreviewObjectURL);
         currentPreviewObjectURL = URL.createObjectURL(blob);
         
         const videoEl = document.getElementById('hotpost-preview-video');
         videoEl.src = currentPreviewObjectURL;
         
-        // 🚀 FIX: onloadeddata is 10x more reliable on mobile than onloadedmetadata
         videoEl.onloadeddata = () => {
              videoEl.play().catch(e => console.error("Playback blocked:", e));
              showPreviewUI();
@@ -526,16 +536,19 @@ function startRecording() {
     };
 
     mediaRecorder.start();
-    recordingTimer = setTimeout(() => { if (isRecording) stopRecording(); }, 15000); // 15s Limit
+    // 🚀 FIX: 30 Second Limit
+    recordingTimer = setTimeout(() => { if (isRecording) stopRecording(); }, 30000); 
 }
+
 function stopRecording() {
     isRecording = false;
     clearTimeout(recordingTimer);
     if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
     
-    // UI Reset is handled in resetCameraUI, but do it here for smooth instant UX
-    document.getElementById('capture-inner-circle').classList.replace('bg-red-500', 'bg-white');
+    // UI Reset
+    document.getElementById('capture-inner-circle').classList.replace('bg-purple-500', 'bg-white');
     document.getElementById('capture-inner-circle').classList.remove('scale-50');
+    
     const ring = document.getElementById('capture-progress-ring');
     if (ring) {
         ring.classList.add('hidden');
@@ -572,7 +585,6 @@ function capturePhoto() {
 }
 
 function resetCameraUI() {
-    // 🚀 FIX: Prevent massive memory leaks by destroying old preview blobs
     if (currentPreviewObjectURL) {
         URL.revokeObjectURL(currentPreviewObjectURL);
         currentPreviewObjectURL = null;
@@ -584,9 +596,11 @@ function resetCameraUI() {
     document.getElementById('preview-ui').classList.add('hidden');
     document.getElementById('switch-hotpost-camera-btn').classList.remove('hidden');
     document.getElementById('editor-tools-container').classList.add('hidden');
+    document.getElementById('hotpost-mute-btn').classList.add('hidden'); // 🚀 Hide mute
+    document.getElementById('undo-doodle-btn').classList.add('hidden'); // 🚀 Hide undo
     
     currentPhotoBlob = null;
-    currentMediaType = 'image'; // Reset to image
+    currentMediaType = 'image'; 
     videoZoomScale = 1;
     const video = document.getElementById('hotpost-camera-feed');
     if(video) video.style.transform = currentFacingMode === 'user' ? `scaleX(-1) scale(1)` : `scale(1)`;
@@ -602,7 +616,7 @@ function resetCameraUI() {
     }
     if(previewVideo) {
         previewVideo.pause();
-        previewVideo.removeAttribute('src'); // 🚀 FIX: Wipe src to stop ghost playback
+        previewVideo.removeAttribute('src'); 
         previewVideo.load();
         previewVideo.classList.add('hidden');
         previewVideo.style.filter = FILTER_LIST[0].css;
@@ -622,8 +636,7 @@ function resetCameraUI() {
     document.querySelectorAll('.text-widget').forEach(el => el.remove());
     textElements = []; activeTextId = null; activeTextIdForTouch = null;
 
-    // 🚀 FIX: Reset Capture Button UI safely
-    document.getElementById('capture-inner-circle').classList.replace('bg-red-500', 'bg-white');
+    document.getElementById('capture-inner-circle').classList.replace('bg-purple-500', 'bg-white');
     document.getElementById('capture-inner-circle').classList.remove('scale-50');
     const ring = document.getElementById('capture-progress-ring');
     if (ring) {
@@ -632,7 +645,6 @@ function resetCameraUI() {
         ring.querySelector('circle').style.strokeDashoffset = '245';
     }
 }
-
 
 function showPreviewUI() {
     document.getElementById('hotpost-camera-feed').classList.add('hidden');
@@ -646,12 +658,21 @@ function showPreviewUI() {
     
     if (currentMediaType === 'video') {
         document.getElementById('hotpost-preview-img').classList.add('hidden');
-        document.getElementById('hotpost-preview-video').classList.remove('hidden');
+        const vidEl = document.getElementById('hotpost-preview-video');
+        vidEl.classList.remove('hidden');
+        
+        // 🚀 Ensure audio plays and show the Mute toggle button
+        vidEl.muted = false;
+        const muteBtn = document.getElementById('hotpost-mute-btn');
+        muteBtn.classList.remove('hidden');
+        muteBtn.querySelector('span').textContent = 'volume_up';
     } else {
         document.getElementById('hotpost-preview-video').classList.add('hidden');
         document.getElementById('hotpost-preview-img').classList.remove('hidden');
+        document.getElementById('hotpost-mute-btn').classList.add('hidden');
     }
 }
+
 
 // ==========================================
 // EDITOR: FONT & TEXT ENGINE
@@ -859,14 +880,16 @@ function toggleDrawMode() {
     const colorPicker = document.getElementById('doodle-color-picker');
     const slider = document.getElementById('doodle-size-slider');
     const penBtn = document.getElementById('doodle-hotpost-btn');
+    const undoBtn = document.getElementById('undo-doodle-btn'); // 🚀 NEW
     
     if (isDrawMode) {
         colorPicker.classList.remove('hidden');
-        colorPicker.classList.add('flex', 'z-[200]'); // 🚀 FIX: Forced overlay priority
+        colorPicker.classList.add('flex', 'z-[200]'); 
         slider.classList.remove('hidden');
         slider.classList.add('z-[200]');
         penBtn.classList.replace('bg-black/40', 'bg-white');
         penBtn.classList.replace('text-white', 'text-black');
+        if (undoBtn) undoBtn.classList.remove('hidden'); // Show Undo
     } else {
         colorPicker.classList.add('hidden');
         colorPicker.classList.remove('flex', 'z-[200]');
@@ -874,6 +897,7 @@ function toggleDrawMode() {
         slider.classList.remove('z-[200]');
         penBtn.classList.replace('bg-white', 'bg-black/40');
         penBtn.classList.replace('text-black', 'text-white');
+        if (undoBtn) undoBtn.classList.add('hidden'); // Hide Undo
     }
 }
 
