@@ -1789,9 +1789,11 @@ function playUserStories(userIndex, postIndex = 0) {
     const post = userData.posts[currentViewerState.postIndex];
 
     const progressContainer = document.getElementById('hotpost-progress-bars');
+    
+    // 🚀 NEW: Initialize width to w-0 for unplayed posts so JS can scale it
     progressContainer.innerHTML = userData.posts.map((p, index) => `
         <div class="flex-1 bg-white/30 rounded-full overflow-hidden">
-            <div class="progress-bar-inner h-full bg-white rounded-full ${index < postIndex ? 'w-full' : ''}" data-index="${index}"></div>
+            <div class="progress-bar-inner h-full bg-white rounded-full ${index < postIndex ? 'w-full' : 'w-0'}" data-index="${index}"></div>
         </div>
     `).join('');
 
@@ -1857,7 +1859,10 @@ function playUserStories(userIndex, postIndex = 0) {
 
     clearTimeout(currentViewerState.storyTimer);
     const activeBar = progressContainer.querySelector(`.progress-bar-inner[data-index="${postIndex}"]`);
-    if (activeBar) activeBar.style.animation = 'none';
+    if (activeBar) {
+        activeBar.style.animation = 'none';
+        activeBar.style.width = '0%';
+    }
 
     const imgEl = document.getElementById('hotpost-viewer-image');
     const vidEl = document.getElementById('hotpost-viewer-video');
@@ -1871,38 +1876,36 @@ function playUserStories(userIndex, postIndex = 0) {
     vidEl.classList.add('hidden');
     vidEl.pause();
     
-    // 🚀 FIX: Hard reset video event listeners to prevent duplicate triggers
+    // Hard reset video events
     vidEl.onloadeddata = null;
+    vidEl.ontimeupdate = null;
     vidEl.onended = null;
     
     if (post.media_type === 'video' || post.media_url.includes('.mp4') || post.media_url.includes('.webm')) {
         vidEl.classList.remove('hidden');
         vidEl.src = post.media_url; 
         
-        // 🚀 FIX: Use onloadeddata instead of oncanplay
         vidEl.onloadeddata = () => {
             vidEl.style.opacity = '1';
             recordView(post.id);
             vidEl.play();
-            
-            currentViewerState.storyDuration = (vidEl.duration * 1000) || 15000;
-            currentViewerState.remainingDuration = currentViewerState.storyDuration;
-            
-            if (activeBar) {
-                activeBar.style.animation = `fill-progress ${currentViewerState.storyDuration}ms linear forwards`;
-                activeBar.classList.add('active');
-            }
-            
-            currentViewerState.animationStartTime = performance.now();
-            
-            // 🚀 FIX: Sync transition exactly with video end
-            vidEl.onended = () => nextStory();
-            
-            // Failsafe timer (1 second buffer) just in case the video errors out
-            currentViewerState.storyTimer = setTimeout(() => {
-                if (!vidEl.paused && vidEl.currentTime >= vidEl.duration - 0.5) nextStory();
-            }, currentViewerState.storyDuration + 1000);
+            if (activeBar) activeBar.classList.add('active');
         };
+
+        // 🚀 NEW: Bind progress bar exactly to real video time
+        vidEl.ontimeupdate = () => {
+            if (activeBar && vidEl.duration) {
+                const percentage = (vidEl.currentTime / vidEl.duration) * 100;
+                activeBar.style.width = `${percentage}%`;
+            }
+        };
+
+        // 🚀 NEW: Only move to next story when the video actually finishes
+        vidEl.onended = () => {
+            if (activeBar) activeBar.style.width = '100%';
+            nextStory();
+        };
+
     } else {
         imgEl.classList.remove('hidden');
         const optimizedUrl = typeof window.optimizeImageUrl === 'function' ? window.optimizeImageUrl(post.media_url, 'hotpost') : post.media_url;
@@ -1979,13 +1982,20 @@ function prevStory() {
 function pauseStory() {
     clearTimeout(currentViewerState.storyTimer);
     const vidEl = document.getElementById('hotpost-viewer-video');
-    if (!vidEl.classList.contains('hidden')) vidEl.pause();
+    
+    // Pause video playback (which stops the JS progress bar automatically)
+    if (!vidEl.classList.contains('hidden')) {
+        vidEl.pause();
+    }
     
     const activeBar = document.querySelector('#hotpost-progress-bars .progress-bar-inner.active');
     if (activeBar) {
-        const elapsedTime = performance.now() - currentViewerState.animationStartTime;
-        currentViewerState.remainingDuration -= elapsedTime;
-        activeBar.style.animationPlayState = 'paused';
+        // Pause CSS animation ONLY if it's an image
+        if (activeBar.style.animationName && activeBar.style.animationName !== 'none') {
+            const elapsedTime = performance.now() - currentViewerState.animationStartTime;
+            currentViewerState.remainingDuration -= elapsedTime;
+            activeBar.style.animationPlayState = 'paused';
+        }
     }
 }
 
@@ -1994,14 +2004,21 @@ function resumeStory() {
     if (!document.getElementById('modal-story-details').classList.contains('hidden')) return; 
 
     const vidEl = document.getElementById('hotpost-viewer-video');
-    if (!vidEl.classList.contains('hidden')) vidEl.play();
-
-    const activeBar = document.querySelector('#hotpost-progress-bars .progress-bar-inner.active');
-    if (activeBar) activeBar.style.animationPlayState = 'running';
     
-    currentViewerState.animationStartTime = performance.now(); 
-    clearTimeout(currentViewerState.storyTimer);
-    currentViewerState.storyTimer = setTimeout(nextStory, currentViewerState.remainingDuration);
+    // Resume video playback
+    if (!vidEl.classList.contains('hidden')) {
+        vidEl.play();
+    } else {
+        // Resume image CSS animation
+        const activeBar = document.querySelector('#hotpost-progress-bars .progress-bar-inner.active');
+        if (activeBar && activeBar.style.animationName && activeBar.style.animationName !== 'none') {
+            activeBar.style.animationPlayState = 'running';
+        }
+        
+        currentViewerState.animationStartTime = performance.now(); 
+        clearTimeout(currentViewerState.storyTimer);
+        currentViewerState.storyTimer = setTimeout(nextStory, currentViewerState.remainingDuration);
+    }
 }
     
 // ==========================================
