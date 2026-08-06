@@ -2915,3 +2915,150 @@ window.closeSinglePostView = function() {
     setTimeout(() => modal.classList.replace('flex', 'hidden'), 300);
 };
 
+// ========================================================
+// FEEDBACK & SUPPORT ENGINE
+// ========================================================
+let currentFeedbackBlob = null;
+
+// Handle Image Preview
+document.getElementById('feedback-image-upload')?.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const container = document.getElementById('feedback-image-preview-container');
+    const reader = new FileReader();
+
+    reader.onload = (event) => {
+        currentFeedbackBlob = file;
+        container.innerHTML = `
+            <img src="${event.target.result}" class="w-full h-full object-cover rounded-xl">
+            <button type="button" class="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 hover:bg-black/80 transition-colors z-10" onclick="event.stopPropagation(); document.getElementById('feedback-image-upload').value=''; currentFeedbackBlob=null; document.getElementById('feedback-image-preview-container').innerHTML='<span class=\\'material-symbols-outlined text-[28px] mb-1\\'>add_photo_alternate</span><span class=\\'text-xs font-medium\\'>Tap to upload image</span>';">
+                <span class="material-symbols-outlined text-[18px]">close</span>
+            </button>
+        `;
+    };
+    reader.readAsDataURL(file);
+});
+
+// Submit Feedback
+window.submitSupportFeedback = async function() {
+    const type = document.getElementById('feedback-type').value;
+    const description = document.getElementById('feedback-description').value.trim();
+    const btn = document.getElementById('btn-submit-feedback');
+
+    if (!description) return showToast('Please enter a description.', 'warning');
+
+    btn.disabled = true;
+    btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-[24px]">progress_activity</span>`;
+
+    try {
+        let mediaUrl = null;
+
+        // Upload to Cloudinary if image attached
+        if (currentFeedbackBlob) {
+            const compressedFile = typeof compressImage === 'function' ? await compressImage(currentFeedbackBlob, 1080, 0.7) : currentFeedbackBlob;
+            const formData = new FormData();
+            formData.append('file', compressedFile);
+            formData.append('upload_preset', CLOUDINARY_AVATARS_PRESET); // Using existing preset
+
+            const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error.message);
+            mediaUrl = data.secure_url;
+        }
+
+        // Insert into Database
+        const { error } = await supabase.from('user_feedbacks').insert({
+            user_id: currentUserProfile.id,
+            type: type,
+            description: description,
+            media_url: mediaUrl
+        });
+
+        if (error) throw error;
+
+        showToast('Successfully submitted! Our team will review it.', 'success');
+        
+        // Reset Form
+        document.getElementById('feedback-description').value = '';
+        currentFeedbackBlob = null;
+        document.getElementById('feedback-image-preview-container').innerHTML = `<span class="material-symbols-outlined text-[28px] mb-1">add_photo_alternate</span><span class="text-xs font-medium">Tap to upload image</span>`;
+        window.closeSettingsSubPanel('settings-submit-feedback-panel');
+
+    } catch (error) {
+        console.error("Feedback error:", error);
+        showToast('Failed to submit. Please try again.', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Submit';
+    }
+};
+
+// Fetch Support History
+window.fetchSupportHistory = async function() {
+    const container = document.getElementById('support-history-container');
+    container.innerHTML = `<div class="w-full flex justify-center py-8"><span class="material-symbols-outlined animate-spin text-primary text-[32px]">progress_activity</span></div>`;
+
+    try {
+        const { data, error } = await supabase
+            .from('user_feedbacks')
+            .select('*')
+            .eq('user_id', currentUserProfile.id)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (data.length === 0) {
+            container.innerHTML = `
+                <div class="py-16 flex flex-col items-center justify-center opacity-40 text-on-surface-variant">
+                    <span class="material-symbols-outlined text-[42px] mb-2">history</span>
+                    <p class="text-sm font-semibold">No past support requests.</p>
+                </div>`;
+            return;
+        }
+
+        container.innerHTML = data.map(ticket => {
+            let statusBadge = '';
+            if (ticket.status === 'pending') statusBadge = `<span class="bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase">Pending</span>`;
+            else if (ticket.status === 'in_progress') statusBadge = `<span class="bg-blue-500/10 text-blue-600 dark:text-blue-500 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase">In Progress</span>`;
+            else statusBadge = `<span class="bg-green-500/10 text-green-600 dark:text-green-500 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase">Resolved</span>`;
+
+            const imgHtml = ticket.media_url ? `<img src="${typeof optimizeImageUrl === 'function' ? optimizeImageUrl(ticket.media_url, 'feed') : ticket.media_url}" class="w-full h-32 object-cover rounded-xl mt-3 border border-surface-variant/40 dark:border-neutral-800">` : '';
+
+            const replyHtml = ticket.admin_reply ? `
+                <div class="mt-4 bg-primary/10 border border-primary/20 rounded-xl p-3 relative">
+                    <div class="flex items-center gap-1.5 text-primary mb-1">
+                        <span class="material-symbols-outlined text-[16px]">support_agent</span>
+                        <span class="text-[12px] font-bold uppercase tracking-wider">Support Reply</span>
+                    </div>
+                    <p class="text-[13.5px] text-on-surface dark:text-gray-100 whitespace-pre-wrap">${ticket.admin_reply}</p>
+                </div>
+            ` : '';
+
+            return `
+                <div class="bg-surface-container-lowest dark:bg-neutral-900/40 border border-surface-variant/50 dark:border-neutral-800 p-4 rounded-2xl shadow-sm mb-4 animate-fadeIn">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-on-surface-variant text-[18px]">${ticket.type === 'issue' ? 'bug_report' : 'feedback'}</span>
+                            <span class="text-[13px] font-bold text-on-surface dark:text-gray-200 capitalize">${ticket.type}</span>
+                        </div>
+                        ${statusBadge}
+                    </div>
+                    
+                    <p class="text-[14px] text-on-surface-variant dark:text-gray-400 whitespace-pre-wrap">${ticket.description}</p>
+                    
+                    ${imgHtml}
+                    ${replyHtml}
+                    
+                    <p class="text-[11px] font-medium text-on-surface-variant/60 dark:text-gray-500 mt-3 pt-3 border-t border-surface-variant/30 dark:border-neutral-800">
+                        Submitted on ${new Date(ticket.created_at).toLocaleDateString()}
+                    </p>
+                </div>
+            `;
+        }).join('');
+
+    } catch (err) {
+        console.error(err);
+        container.innerHTML = `<p class="text-sm text-center py-4 text-error">Failed to load history.</p>`;
+    }
+};
