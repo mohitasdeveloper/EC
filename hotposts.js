@@ -1112,12 +1112,11 @@ async function submitHotpost() {
     renderHotpostCircles(); 
     closeCameraModal(true);
     
-    // 🚀 FIX 1: Yield the main thread! 
-    // This allows the browser to paint the "Uploading..." spinner UI before it freezes during canvas processing.
     await new Promise(resolve => setTimeout(resolve, 50));
     
     try {
         let finalMediaUrl = '';
+        let finalOverlayUrl = null; // 🚀 NEW: Track overlay separately
         
         // --- HELPER: DRAWS TEXT & DOODLES ---
         const drawOverlaysToCanvas = (ctx, finalWidth, finalHeight, scaleFactor) => {
@@ -1216,8 +1215,6 @@ async function submitHotpost() {
         // --- MEDIA PROCESSING PIPELINE ---
         if (currentMediaType === 'video') {
             
-            // 1. Bake Text & Doodles into a Transparent PNG
-            let overlayPublicId = null;
             const hasOverlays = textElements.length > 0 || doodlePaths.length > 0;
 
             if (hasOverlays) {
@@ -1230,7 +1227,7 @@ async function submitHotpost() {
                     const ctx = canvas.getContext('2d');
                     
                     drawOverlaysToCanvas(ctx, canvas.width, canvas.height, scaleFactor);
-                    canvas.toBlob(resolve, 'image/png'); // MUST be PNG for transparency
+                    canvas.toBlob(resolve, 'image/png'); 
                 });
 
                 const overlayForm = new FormData();
@@ -1241,7 +1238,8 @@ async function submitHotpost() {
                 const overData = await overRes.json();
                 if (overData.error) throw new Error(overData.error.message);
                 
-                overlayPublicId = overData.public_id.replace(/\//g, ':');
+                // 🚀 NEW: Save raw URL directly instead of passing to Cloudinary
+                finalOverlayUrl = overData.secure_url; 
             }
 
             // 2. Upload Video
@@ -1254,24 +1252,10 @@ async function submitHotpost() {
             const vidData = await vidRes.json();
             if (vidData.error) throw new Error(vidData.error.message);
 
-            finalMediaUrl = vidData.secure_url;
-
-            // 3. Cloudinary Magic: Merge the video and overlay dynamically!
-            if (overlayPublicId) {
-                // 🚀 FIX 2: Apply aggressive compression (q_auto:eco, vc_auto) to the composite video!
-                finalMediaUrl = finalMediaUrl.replace('/upload/', `/upload/l_${overlayPublicId},w_1.0,h_1.0,fl_relative/fl_layer_apply,q_auto:eco,vc_auto/`);
-            } else {
-                // 🚀 FIX 2: Even if there are no overlays, compress the raw video payload heavily!
-                finalMediaUrl = finalMediaUrl.replace('/upload/', `/upload/q_auto:eco,vc_auto/`);
-            }
-
-            // 🚀 FIX 3: EAGER CLOUDINARY GENERATION
-            // Pinging the URL immediately forces Cloudinary to build the video file on their servers now, 
-            // ensuring it is fully processed and ready to play by the time the user clicks to view it.
-            fetch(finalMediaUrl, { method: 'HEAD', mode: 'no-cors' }).catch(() => {});
+            // 🚀 NEW: Just apply basic compression without rendering overlays
+            finalMediaUrl = vidData.secure_url.replace('/upload/', `/upload/q_auto:eco,vc_auto/`);
 
         } else {
-            
             // ORIGINAL IMAGE BAKE LOGIC
             const finalBlob = await new Promise((resolve, reject) => {
                 try {
@@ -1325,7 +1309,6 @@ async function submitHotpost() {
             const data = await res.json();
             if (data.error) throw new Error(data.error.message);
             
-            // 🚀 FIX: Apply basic auto-compression for Images to save bandwidth
             finalMediaUrl = data.secure_url.replace('/upload/', '/upload/q_auto:eco,f_auto/');
         }
 
@@ -1333,6 +1316,7 @@ async function submitHotpost() {
         const { data: newHotpost, error } = await supabase.from('hotposts').insert({
             user_id: currentUser.id,
             media_url: finalMediaUrl,
+            caption: finalOverlayUrl, // 🚀 NEW: Save overlay in caption column
             media_type: currentMediaType, 
             visibility: visibility,
             allow_rewatch: allowRewatch
@@ -1413,7 +1397,7 @@ async function fetchHotposts() {
         let query = supabase
             .from('hotposts')
             .select(`
-                id, created_at, media_url, visibility, user_id, allow_rewatch, media_type,
+                id, created_at, media_url, caption, visibility, user_id, allow_rewatch, media_type,
                 users!inner ( id, full_name, profile_img_url, tick_type, is_deleted, is_deactivated ),
                 hotpost_views ( viewer_id )
             `)
@@ -1790,7 +1774,6 @@ function playUserStories(userIndex, postIndex = 0) {
 
     const progressContainer = document.getElementById('hotpost-progress-bars');
     
-    // 🚀 NEW: Initialize width to w-0 for unplayed posts so JS can scale it
     progressContainer.innerHTML = userData.posts.map((p, index) => `
         <div class="flex-1 bg-white/30 rounded-full overflow-hidden">
             <div class="progress-bar-inner h-full bg-white rounded-full ${index < postIndex ? 'w-full' : 'w-0'}" data-index="${index}"></div>
@@ -1866,17 +1849,20 @@ function playUserStories(userIndex, postIndex = 0) {
 
     const imgEl = document.getElementById('hotpost-viewer-image');
     const vidEl = document.getElementById('hotpost-viewer-video');
+    const overlayEl = document.getElementById('hotpost-viewer-overlay'); // 🚀 NEW
     
     imgEl.style.opacity = '0';
     imgEl.style.transition = 'opacity 0.2s ease';
     vidEl.style.opacity = '0';
     vidEl.style.transition = 'opacity 0.2s ease';
+    overlayEl.style.opacity = '0'; // 🚀 NEW
     
     imgEl.classList.add('hidden');
     vidEl.classList.add('hidden');
-    vidEl.pause();
+    overlayEl.classList.add('hidden'); // 🚀 NEW
+    overlayEl.src = '';
     
-    // Hard reset video events
+    vidEl.pause();
     vidEl.onloadeddata = null;
     vidEl.ontimeupdate = null;
     vidEl.onended = null;
@@ -1885,14 +1871,20 @@ function playUserStories(userIndex, postIndex = 0) {
         vidEl.classList.remove('hidden');
         vidEl.src = post.media_url; 
         
+        // 🚀 NEW: Stack the overlay if it exists
+        if (post.caption) {
+            overlayEl.src = post.caption;
+            overlayEl.classList.remove('hidden');
+        }
+        
         vidEl.onloadeddata = () => {
             vidEl.style.opacity = '1';
+            if (post.caption) overlayEl.style.opacity = '1'; // Show overlay
             recordView(post.id);
             vidEl.play();
             if (activeBar) activeBar.classList.add('active');
         };
 
-        // 🚀 NEW: Bind progress bar exactly to real video time
         vidEl.ontimeupdate = () => {
             if (activeBar && vidEl.duration) {
                 const percentage = (vidEl.currentTime / vidEl.duration) * 100;
@@ -1900,7 +1892,6 @@ function playUserStories(userIndex, postIndex = 0) {
             }
         };
 
-        // 🚀 NEW: Only move to next story when the video actually finishes
         vidEl.onended = () => {
             if (activeBar) activeBar.style.width = '100%';
             nextStory();
