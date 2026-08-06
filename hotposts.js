@@ -124,7 +124,7 @@ function setupEventListeners() {
     document.getElementById('switch-hotpost-camera-btn')?.addEventListener('click', switchCamera);
     document.getElementById('submit-hotpost-btn')?.addEventListener('click', submitHotpost);
 
-// 🚀 FIX: The 'Aa' button should ALWAYS spawn a new text block, just like Instagram.
+    // 🚀 FIX: The 'Aa' button should ALWAYS spawn a new text block, just like Instagram.
     document.getElementById('add-text-hotpost-btn')?.addEventListener('click', () => {
         document.querySelectorAll('.text-widget').forEach(el => el.classList.remove('active'));
         activeTextId = null;
@@ -150,7 +150,7 @@ function setupEventListeners() {
         updateTextUIPreview();
     });
 
-   // 🚀 NEW ALIGNMENT TOGGLE
+    // 🚀 NEW ALIGNMENT TOGGLE
     document.getElementById('toggle-text-align-btn')?.addEventListener('click', (e) => {
         const btn = e.currentTarget.querySelector('span');
         if (currentTextAlign === 'center') {
@@ -166,9 +166,7 @@ function setupEventListeners() {
         updateTextUIPreview();
     });
 
-    
-
-   // 🚀 INJECT FONTS & COLORS (Fixed Target Bubbling)
+    // 🚀 INJECT FONTS & COLORS (Fixed Target Bubbling)
     const colorPicker = document.getElementById('text-color-picker');
     if (colorPicker) {
         colorPicker.innerHTML = TEXT_COLORS.map(color => `
@@ -199,9 +197,10 @@ function setupEventListeners() {
     setupEditorTouchPhysics();
     setupViewerTouchPhysics();
 
+    // =========================================================================
+    // 🚀 NEW SMART POINTER ENGINE (Double Tap, Hold-to-Hide, Navigate)
+    // =========================================================================
     document.getElementById('close-hotpost-viewer-btn')?.addEventListener('click', closeHotpostViewer);
-    document.getElementById('hotpost-nav-next')?.addEventListener('click', nextStory);
-    document.getElementById('hotpost-nav-prev')?.addEventListener('click', prevStory);
     document.getElementById('hotpost-reply-btn')?.addEventListener('click', handleReplyToHotpost);
     document.getElementById('hotpost-like-btn')?.addEventListener('click', handleLikeHotpost);
 
@@ -209,16 +208,69 @@ function setupEventListeners() {
     const navPrev = document.getElementById('hotpost-nav-prev');
     const replyInput = document.getElementById('hotpost-reply-input');
     
+    let storyTouchTimer = null;
+    let isStoryHolding = false;
+    let lastTapTime = 0;
+
+    const handleStoryPointerDown = (e) => {
+        pauseStory();
+        isStoryHolding = false;
+
+        const currentTime = new Date().getTime();
+        const tapLength = currentTime - lastTapTime;
+        
+        // 1. Detect Double Tap (Like)
+        if (tapLength < 300 && tapLength > 0) {
+            clearTimeout(storyTouchTimer);
+            const likeBtn = document.getElementById('hotpost-like-btn');
+            // Only like if it's not our own story
+            if (likeBtn && currentViewerState.userId !== currentUser.id) {
+                handleLikeHotpost({ stopPropagation: () => {}, currentTarget: likeBtn });
+                window.showDoubleTapHeart(e.clientX, e.clientY);
+            }
+            lastTapTime = 0; 
+            return;
+        }
+        lastTapTime = currentTime;
+
+        // 2. Detect Long Press (Hide UI)
+        storyTouchTimer = setTimeout(() => {
+            isStoryHolding = true;
+            window.toggleViewerUI(false); 
+        }, 200);
+    };
+
+    const handleStoryPointerUp = (e) => {
+        clearTimeout(storyTouchTimer);
+        resumeStory();
+        
+        if (isStoryHolding) {
+            // It was a long press, just restore UI, do not navigate
+            window.toggleViewerUI(true); 
+        } else {
+            // It was a quick tap, navigate!
+            if (e.target.id === 'hotpost-nav-next') nextStory();
+            if (e.target.id === 'hotpost-nav-prev') prevStory();
+        }
+        isStoryHolding = false;
+    };
+
     [navNext, navPrev].forEach(el => {
         if (el) {
-            el.addEventListener('pointerdown', pauseStory);
-            el.addEventListener('pointerup', resumeStory);
-            el.addEventListener('pointerleave', resumeStory);
+            el.addEventListener('pointerdown', handleStoryPointerDown);
+            el.addEventListener('pointerup', handleStoryPointerUp);
+            el.addEventListener('pointerleave', () => {
+                clearTimeout(storyTouchTimer);
+                if (isStoryHolding) window.toggleViewerUI(true);
+                resumeStory();
+                isStoryHolding = false;
+            });
         }
     });
     
     replyInput?.addEventListener('focus', pauseStory);
     replyInput?.addEventListener('blur', resumeStory);
+    // =========================================================================
 
     document.getElementById('details-tab-viewers')?.addEventListener('click', () => switchDetailsTab('viewers'));
     document.getElementById('details-tab-likes')?.addEventListener('click', () => switchDetailsTab('likes'));
@@ -265,7 +317,7 @@ function setupEventListeners() {
     captureBtn?.addEventListener('touchend', endPress, {passive: false});
     captureBtn?.addEventListener('touchcancel', endPress, {passive: false});
     
-   // 🚀 NEW: Bulletproof Gallery Input (Memory Safe, Handles Images & Videos)
+    // 🚀 NEW: Bulletproof Gallery Input (Memory Safe, Handles Images & Videos)
     document.getElementById('hotpost-gallery-input')?.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -314,6 +366,7 @@ function setupEventListeners() {
         e.target.value = '';
     });
 }
+
 function showCustomConfirm(title, message, onConfirm) {
     pauseStory();
     const modal = document.getElementById('modal-confirm-action');
@@ -2276,4 +2329,44 @@ window.downloadCurrentMedia = function() {
         console.error("Save Error:", err);
         showToast('Failed to save media.', 'error');
     }
+};
+// ==========================================
+// VIEWER UI HELPERS (Fades & Animations)
+// ==========================================
+window.toggleViewerUI = function(show) {
+    // Select all the UI overlays that block the view
+    const elementsToToggle = [
+        document.getElementById('hotpost-progress-bars'),
+        document.getElementById('close-hotpost-viewer-btn'),
+        document.getElementById('hotpost-viewer-bottom-gradient'),
+        document.querySelector('#hotpost-viewer-content .absolute.top-0.left-0.right-0.h-32'), // Top shadow
+        document.querySelector('#hotpost-viewer-content .absolute.top-\\[max\\(1\\.5rem\\,calc\\(env\\(safe-area-inset-top\\)\\+1rem\\)\\)\\]') // User info
+    ];
+
+    elementsToToggle.forEach(el => {
+        if (!el) return;
+        el.style.transition = 'opacity 0.2s ease-in-out';
+        el.style.opacity = show ? '1' : '0';
+    });
+};
+
+window.showDoubleTapHeart = function(x, y) {
+    const viewer = document.getElementById('hotpost-viewer-content');
+    if (!viewer) return;
+
+    const heart = document.createElement('span');
+    heart.className = 'material-symbols-outlined absolute text-white drop-shadow-2xl z-[100] pointer-events-none';
+    heart.style.fontVariationSettings = "'FILL' 1";
+    heart.style.fontSize = '90px';
+    heart.textContent = 'favorite';
+    
+    // Center the heart exactly where the user tapped
+    heart.style.left = `${x - 45}px`;
+    heart.style.top = `${y - 45}px`;
+    heart.style.animation = 'storyDoubleTapHeart 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards';
+
+    viewer.appendChild(heart);
+
+    // Clean up DOM after animation
+    setTimeout(() => heart.remove(), 800);
 };
