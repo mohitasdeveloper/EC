@@ -1490,9 +1490,14 @@
                 <div class="w-12 h-12"></div> 
             </div>
             
-            <!-- Preview State -->
-            <div id="preview-ui" class="hidden justify-end items-center w-full pointer-events-auto">
-                <!-- 🚀 REMOVED RETAKE BUTTON AS REQUESTED -->
+           <!-- Preview State -->
+            <div id="preview-ui" class="hidden justify-between items-center w-full pointer-events-auto">
+                
+                <!-- 🚀 NEW: Save to Device Button -->
+                <button onclick="window.downloadCurrentMedia()" class="flex items-center justify-center w-12 h-12 bg-black/50 backdrop-blur-md text-white border border-white/20 rounded-full shadow-lg active:scale-95 transition-colors">
+                    <span class="material-symbols-outlined text-[24px]">download</span>
+                </button>
+
                 <div class="flex items-center gap-2">
                     <!-- 🚀 DEFAULT ALLOW REWATCH -->
                     <button id="hotpost-rewatch-toggle" data-val="true" onclick="toggleRewatchSetting()" class="flex items-center justify-center w-12 h-12 bg-black/50 backdrop-blur-md text-white border border-white/20 rounded-full shadow-lg active:scale-95 transition-colors">
