@@ -865,15 +865,16 @@ function setupEditorTouchPhysics() {
     
     let touchMode = 'idle'; 
     let startX = 0, startY = 0;
-    let initialObjWidth = 0;
     let widgetCenterX = 0, widgetCenterY = 0;
+    let hasMovedSignificantly = false; // 🚀 NEW: Touch tolerance
 
     const getPinchDistance = (touches) => {
         return Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
     };
 
     container.addEventListener('touchstart', (e) => {
-        // 🚀 STRICT LOCK 1: If Draw Mode is ON, block all other gestures immediately
+        hasMovedSignificantly = false; // Reset threshold
+
         if (isDrawMode) {
             touchMode = 'draw';
             isDrawing = true;
@@ -887,14 +888,11 @@ function setupEditorTouchPhysics() {
         const handle = e.target.closest('.text-handle');
         const widget = e.target.closest('.text-widget');
 
-        // 🚀 STRICT LOCK 2: If touching a Text Handle, block Background & Widget dragging
         if (handle) {
             e.stopPropagation(); 
             touchMode = handle.dataset.action; 
-            
             activeTextIdForTouch = widget.id;
             activeTextId = widget.id;
-
             startX = e.touches[0].clientX;
             startY = e.touches[0].clientY;
 
@@ -925,7 +923,6 @@ function setupEditorTouchPhysics() {
             return;
         }
         
-        // 🚀 STRICT LOCK 3: If touching a Text Widget, block Background swiping
         if (widget) {
             e.stopPropagation();
             const wasAlreadyActive = widget.classList.contains('active');
@@ -950,7 +947,6 @@ function setupEditorTouchPhysics() {
             return;
         }
         
-        // 🚀 4. Background Touch Actions (Clear Text Selection, Zoom, Pan, Swipe)
         activeTextId = null;
         activeTextIdForTouch = null;
         document.querySelectorAll('.text-widget').forEach(el => el.classList.remove('active'));
@@ -972,41 +968,42 @@ function setupEditorTouchPhysics() {
     }, { passive: false });
 
     container.addEventListener('touchmove', (e) => {
-        if (e.cancelable) e.preventDefault(); // Prevents iOS bounce scrolling while editing
+        if (e.cancelable) e.preventDefault(); 
         if (touchMode === 'idle') return;
 
         const currentX = e.touches[0].clientX;
         const currentY = e.touches[0].clientY;
         const rect = container.getBoundingClientRect();
 
+        // 🚀 NEW: 10px Deadzone to prevent accidental jitter
+        if (Math.abs(currentX - startX) > 10 || Math.abs(currentY - startY) > 10) {
+            hasMovedSignificantly = true;
+        }
+
         if (touchMode === 'scale') {
             const tObj = textElements.find(t => t.id === activeTextIdForTouch);
             const currentDist = Math.hypot(currentX - widgetCenterX, currentY - widgetCenterY);
             const scaleChange = currentDist / initialPinchDist;
-            tObj.scale = Math.max(0.3, Math.min(6.0, initialTextScale * scaleChange));
+            // Smoother scaling limit
+            tObj.scale = Math.max(0.4, Math.min(8.0, initialTextScale * scaleChange)); 
             
             const widgetEl = document.getElementById(activeTextIdForTouch);
             if(widgetEl) widgetEl.style.transform = `translate(-50%, -50%) scale(${tObj.scale})`;
             return;
         }
 
-        if (touchMode === 'drag_text' && activeTextIdForTouch) {
-            const deltaXpx = currentX - startX;
-            const deltaYpx = currentY - startY;
-
-            if (Math.abs(deltaXpx) > 5 || Math.abs(deltaYpx) > 5) {
-                const widgetEl = document.getElementById(activeTextIdForTouch);
-                if (widgetEl) widgetEl.dataset.dragged = 'true';
-            }
+        if (touchMode === 'drag_text' && activeTextIdForTouch && hasMovedSignificantly) {
+            const widgetEl = document.getElementById(activeTextIdForTouch);
+            if (widgetEl) widgetEl.dataset.dragged = 'true';
 
             const tObj = textElements.find(t => t.id === activeTextIdForTouch);
             if (tObj) {
-                const deltaX = deltaXpx / rect.width;
-                const deltaY = deltaYpx / rect.height;
-                tObj.x = Math.max(-0.2, Math.min(1.2, textInitialObjX + deltaX)); 
-                tObj.y = Math.max(-0.2, Math.min(1.2, textInitialObjY + deltaY));
+                const deltaX = (currentX - startX) / rect.width;
+                const deltaY = (currentY - startY) / rect.height;
+                // Allow dragging slightly off-screen without breaking layout
+                tObj.x = Math.max(-0.5, Math.min(1.5, textInitialObjX + deltaX)); 
+                tObj.y = Math.max(-0.5, Math.min(1.5, textInitialObjY + deltaY));
                 
-                const widgetEl = document.getElementById(activeTextIdForTouch);
                 if(widgetEl) {
                     widgetEl.style.left = `${tObj.x * 100}%`;
                     widgetEl.style.top = `${tObj.y * 100}%`;
@@ -1024,7 +1021,7 @@ function setupEditorTouchPhysics() {
             return;
         }
 
-        if (touchMode === 'pan_bg') {
+        if (touchMode === 'pan_bg' && hasMovedSignificantly) {
             imgTransform.x += currentX - bgDragStartX;
             imgTransform.y += currentY - bgDragStartY;
             bgDragStartX = currentX;
@@ -1052,7 +1049,7 @@ function setupEditorTouchPhysics() {
     container.addEventListener('touchend', (e) => {
         if (touchMode === 'drag_text' && activeTextIdForTouch) {
             const widgetEl = document.getElementById(activeTextIdForTouch);
-            // Open editor ONLY if they tapped it without dragging
+            // Open editor ONLY if they tapped it without dragging significantly
             if (widgetEl && widgetEl.dataset.wasActive === 'true' && widgetEl.dataset.dragged === 'false') {
                 activateTextTool(activeTextIdForTouch);
             }
@@ -1063,11 +1060,12 @@ function setupEditorTouchPhysics() {
             if (currentPath.length > 1) doodlePaths.push({ color: currentDoodleColor, width: currentDoodleWidth, points: [...currentPath] });
             currentPath = [];
         }
-        else if (touchMode === 'swipe' && !isDrawMode) {
+        else if (touchMode === 'swipe' && !isDrawMode && hasMovedSignificantly) {
             const endX = e.changedTouches[0].clientX;
             const deltaX = endX - startX;
 
-            if (Math.abs(deltaX) > 60) {
+            // 🚀 NEW: Increased swipe threshold so users don't accidentally switch filters
+            if (Math.abs(deltaX) > 80) { 
                 if (deltaX < 0) currentFilterIndex = (currentFilterIndex + 1) % FILTER_LIST.length; 
                 else currentFilterIndex = (currentFilterIndex - 1 + FILTER_LIST.length) % FILTER_LIST.length; 
                 
@@ -2252,3 +2250,30 @@ window.refreshHotposts = fetchHotposts;
 // 🚀 FIX: Expose these functions to the global window object
 window.closeActivityPanel = closeActivityPanel;
 window.closeHotpostViewer = closeHotpostViewer;
+
+// ==========================================
+// SAVE TO DEVICE ENGINE
+// ==========================================
+window.downloadCurrentMedia = function() {
+    if (!currentPhotoBlob) {
+        showToast('No media to save.', 'warning');
+        return;
+    }
+    
+    try {
+        const url = URL.createObjectURL(currentPhotoBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        // Automatically assign correct extension
+        a.download = currentMediaType === 'video' ? `Hotpost_${Date.now()}.mp4` : `Hotpost_${Date.now()}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        showToast('Saved to camera roll!', 'success');
+    } catch (err) {
+        console.error("Save Error:", err);
+        showToast('Failed to save media.', 'error');
+    }
+};
