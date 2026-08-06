@@ -523,7 +523,7 @@
                 </div>
             </details>
 
-           <!-- SECTION 4: HELP & SUPPORT -->
+<!-- SECTION 4: HELP & SUPPORT -->
             <details class="group bg-surface-variant/10 dark:bg-neutral-900/30 rounded-2xl border border-surface-variant/30 dark:border-neutral-800 overflow-hidden">
                 <summary class="flex items-center justify-between p-4 cursor-pointer list-none transition-colors hover:bg-surface-variant/20 dark:hover:bg-neutral-800/50">
                     <div class="flex items-center gap-3 text-on-surface dark:text-gray-200">
@@ -545,6 +545,27 @@
 
                     <a href="https://ecampus.mohitmali.in/help.html" target="_blank" class="w-full flex items-center justify-between p-3 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[14px]">
                         <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[20px]">help_center</span> External Help Center</div>
+                        <span class="material-symbols-outlined text-[18px] text-on-surface-variant">open_in_new</span>
+                    </a>
+                </div>
+            </details>
+            
+            <!-- SECTION 5: ABOUT -->
+            <details class="group bg-surface-variant/10 dark:bg-neutral-900/30 rounded-2xl border border-surface-variant/30 dark:border-neutral-800 overflow-hidden">
+                <summary class="flex items-center justify-between p-4 cursor-pointer list-none transition-colors hover:bg-surface-variant/20 dark:hover:bg-neutral-800/50">
+                    <div class="flex items-center gap-3 text-on-surface dark:text-gray-200">
+                        <span class="material-symbols-outlined text-[24px]">info</span>
+                        <span class="text-[15px] font-bold">About</span>
+                    </div>
+                    <span class="material-symbols-outlined text-[20px] text-on-surface-variant transition-transform duration-300 group-open:rotate-180">expand_more</span>
+                </summary>
+                <div class="px-2 pb-2 bg-surface-variant/5 dark:bg-black/20 space-y-1 animate-fadeIn">
+                    <a href="https://ecampus.mohitmali.in/privacy.html" target="_blank" class="w-full flex items-center justify-between p-3 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[14px]">
+                        <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[20px]">privacy_tip</span> Privacy Policy</div>
+                        <span class="material-symbols-outlined text-[18px] text-on-surface-variant">open_in_new</span>
+                    </a>
+                    <a href="https://ecampus.mohitmali.in/terms.html" target="_blank" class="w-full flex items-center justify-between p-3 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[14px]">
+                        <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[20px]">description</span> Terms of Service</div>
                         <span class="material-symbols-outlined text-[18px] text-on-surface-variant">open_in_new</span>
                     </a>
                 </div>
@@ -699,56 +720,6 @@
                 <input type="text" id="delete-confirm-input" oninput="document.getElementById('btn-delete-final').disabled = (this.value !== 'DELETE');" placeholder="Type DELETE" class="w-full bg-surface-variant/30 dark:bg-neutral-900/50 border border-error/50 rounded-xl p-3.5 text-[14px] outline-none focus:border-error text-error font-bold placeholder-error/50">
             </div>
             <button id="btn-delete-final" disabled onclick="executeDeleteAccount()" class="w-full bg-error text-white font-bold py-3.5 rounded-xl active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">Permanently Delete Account</button>
-        </div>
-    </div>
-
-    <!-- SUB-PANEL: SUBMIT FEEDBACK/ISSUE -->
-    <div id="settings-submit-feedback-panel" class="absolute inset-y-0 right-0 w-full max-w-screen-md mx-auto flex flex-col transition-transform duration-300 translate-x-full bg-surface dark:bg-[#121212] z-30">
-        <div class="pt-[max(1rem,env(safe-area-inset-top))] pb-4 border-b border-surface-variant/40 dark:border-neutral-800 flex items-center px-5 shrink-0 bg-surface/90 dark:bg-[#121212]/90 backdrop-blur-xl z-10">
-            <button onclick="closeSettingsSubPanel('settings-submit-feedback-panel')" class="p-2 -ml-2 rounded-full hover:bg-surface-variant/50 text-on-surface dark:text-gray-100 transition-colors flex items-center justify-center">
-                <span class="material-symbols-outlined text-[28px]">arrow_back</span>
-            </button>
-            <h2 class="text-xl font-extrabold ml-2 text-on-surface dark:text-gray-100 tracking-tight">Submit Feedback</h2>
-        </div>
-        <div class="flex-1 overflow-y-auto px-5 py-6 space-y-4">
-            <div>
-                <label class="text-[12px] font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider mb-1 block">What are you reporting?</label>
-                <select id="feedback-type" class="w-full bg-surface dark:bg-[#121212] border border-surface-variant/60 dark:border-neutral-700 rounded-xl p-3.5 text-[14px] text-on-surface dark:text-gray-100 outline-none focus:border-primary">
-                    <option value="issue">Report a Bug / Issue</option>
-                    <option value="feedback">General Feedback / Idea</option>
-                </select>
-            </div>
-
-            <div>
-                <label class="text-[12px] font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider mb-1 block">Description</label>
-                <textarea id="feedback-description" rows="5" class="w-full bg-surface dark:bg-[#121212] border border-surface-variant/60 dark:border-neutral-700 rounded-xl p-3.5 text-[14px] text-on-surface dark:text-gray-100 outline-none focus:border-primary resize-none" placeholder="Please provide details..."></textarea>
-            </div>
-
-            <div>
-                <label class="text-[12px] font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider mb-1 block">Attach Screenshot (Optional)</label>
-                <input type="file" id="feedback-image-upload" accept="image/*" class="hidden">
-                <div id="feedback-image-preview-container" onclick="document.getElementById('feedback-image-upload').click()" class="w-full h-32 border-2 border-dashed border-surface-variant/80 dark:border-neutral-700 rounded-xl flex flex-col items-center justify-center text-on-surface-variant dark:text-gray-400 cursor-pointer hover:border-primary hover:text-primary transition-colors bg-surface-variant/10 relative overflow-hidden p-2">
-                    <span class="material-symbols-outlined text-[28px] mb-1">add_photo_alternate</span>
-                    <span class="text-xs font-medium">Tap to upload image</span>
-                </div>
-            </div>
-
-            <button id="btn-submit-feedback" onclick="window.submitSupportFeedback()" class="w-full bg-primary text-white font-extrabold py-4 rounded-2xl active:scale-95 transition-transform shadow-lg shadow-primary/25 mt-4">
-                Submit
-            </button>
-        </div>
-    </div>
-
-    <!-- SUB-PANEL: SUPPORT HISTORY -->
-    <div id="settings-support-history-panel" class="absolute inset-y-0 right-0 w-full max-w-screen-md mx-auto flex flex-col transition-transform duration-300 translate-x-full bg-surface dark:bg-[#121212] z-30">
-        <div class="pt-[max(1rem,env(safe-area-inset-top))] pb-4 border-b border-surface-variant/40 dark:border-neutral-800 flex items-center px-5 shrink-0 bg-surface/90 dark:bg-[#121212]/90 backdrop-blur-xl z-10">
-            <button onclick="closeSettingsSubPanel('settings-support-history-panel')" class="p-2 -ml-2 rounded-full hover:bg-surface-variant/50 text-on-surface dark:text-gray-100 transition-colors flex items-center justify-center">
-                <span class="material-symbols-outlined text-[28px]">arrow_back</span>
-            </button>
-            <h2 class="text-xl font-extrabold ml-2 text-on-surface dark:text-gray-100 tracking-tight">Support History</h2>
-        </div>
-        <div class="flex-1 overflow-y-auto px-5 bg-surface dark:bg-[#121212] hide-scrollbar pb-20">
-            <div id="support-history-container" class="w-full space-y-4 pt-4"></div>
         </div>
     </div>
 
