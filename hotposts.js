@@ -283,53 +283,54 @@ function setupEventListeners() {
     });
 
   // 🚀 NEW: Bulletproof Snapchat-Style Capture Physics
+  // 🚀 NEW: Absolute Bulletproof Touch/Mouse Hybrid Physics
     const captureBtn = document.getElementById('capture-hotpost-btn');
     let pressTimer = null;
     let isPressing = false;
     let didStartVideo = false;
 
     const startPress = (e) => {
+        // Prevent ghost mouse events from firing twice on mobile
+        if (e.type === 'touchstart') e.preventDefault(); 
+        
         if (isPressing) return;
         isPressing = true;
         didStartVideo = false;
-        
-        // 🚀 THIS IS THE MAGIC! It locks the pointer to this button even if you drag your finger away
-        if (e.pointerId) {
-            captureBtn.setPointerCapture(e.pointerId);
-        }
 
-        // Wait 300ms. If you let go before this, it takes a photo. If you hold, it starts video.
         pressTimer = setTimeout(() => { 
             if (isPressing) {
                 didStartVideo = true;
                 startRecording(); 
             }
-        }, 300); 
+        }, 300); // 300ms hold required for video
     };
     
     const endPress = (e) => {
+        if (e.type === 'touchend' || e.type === 'touchcancel') e.preventDefault();
+        
         if (!isPressing) return;
         isPressing = false;
         clearTimeout(pressTimer);
         
-        if (e.pointerId) {
-            captureBtn.releasePointerCapture(e.pointerId);
-        }
-        
         if (didStartVideo) {
-            stopRecording(); // It was a long press, stop video.
+            stopRecording(); 
         } else {
-            capturePhoto(); // It was a quick tap, snap photo instantly.
+            capturePhoto(); // Instant photo snap!
         }
         didStartVideo = false;
     };
 
     if (captureBtn) {
-        // We only need these two events now because setPointerCapture handles dragging away!
-        captureBtn.addEventListener('pointerdown', startPress);
-        captureBtn.addEventListener('pointerup', endPress);
+        // We use passive: false to allow e.preventDefault() to work correctly
+        captureBtn.addEventListener('touchstart', startPress, { passive: false });
+        captureBtn.addEventListener('touchend', endPress, { passive: false });
+        captureBtn.addEventListener('touchcancel', endPress, { passive: false });
+        
+        // Desktop fallbacks
+        captureBtn.addEventListener('mousedown', startPress);
+        captureBtn.addEventListener('mouseup', endPress);
+        captureBtn.addEventListener('mouseleave', endPress);
     }
-    
     // ---------------------------------------------------------
 
     // 🚀 NEW: Bulletproof Gallery Input (Memory Safe, Handles Images & Videos)
@@ -434,13 +435,13 @@ async function openCameraModal() {
     if (currentCameraStream) currentCameraStream.getTracks().forEach(track => track.stop());
 
     try {
-        // 🚀 Microphone enabled: 'audio: true'
+        // 🚀 FIX: Reduced resolution to 720p. 1080p causes severe real-time encoding lag on mobile devices!
         currentCameraStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: currentFacingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
+            video: { facingMode: currentFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
             audio: true 
         });
         video.srcObject = currentCameraStream;
-        video.muted = true; // Prevents acoustic feedback screeching while recording
+        video.muted = true; 
         
         videoZoomScale = 1;
         video.style.transform = currentFacingMode === 'user' ? `scaleX(-1) scale(${videoZoomScale})` : `scale(${videoZoomScale})`;
@@ -490,35 +491,32 @@ function setupVideoZoomPhysics() {
         }
     }, { passive: false });
 }
-
 function startRecording() {
     if (!currentCameraStream) return;
     isRecording = true;
     recordedChunks = [];
     currentMediaType = 'video';
     
-    // UI Animations: Switch to Purple, shrink slightly
     const innerCircle = document.getElementById('capture-inner-circle');
     innerCircle.classList.remove('bg-white');
-    innerCircle.style.backgroundColor = '#a855f7'; // Purple inner
-    innerCircle.classList.add('scale-75'); // Shrink while recording
+    innerCircle.style.backgroundColor = '#a855f7'; 
+    innerCircle.classList.add('scale-75'); 
     
     const ring = document.getElementById('capture-progress-ring');
     ring.classList.remove('opacity-0');
     
     const circle = ring.querySelector('circle');
-    // Force reflow to ensure animation restarts perfectly
     circle.style.transition = 'none';
     circle.style.strokeDashoffset = '239';
     void circle.offsetWidth; 
     
-    // 30 Second Timer transition matching exactly to the timeout
     circle.style.transition = 'stroke-dashoffset 30s linear';
     circle.style.strokeDashoffset = '0';
 
-    let options = { mimeType: 'video/webm;codecs=vp8,opus' };
+    // 🚀 FIX: Added a videoBitrate cap to prevent massive file sizes and lag
+    let options = { mimeType: 'video/webm;codecs=vp8,opus', videoBitsPerSecond: 2500000 };
     if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-        options = { mimeType: 'video/mp4' }; 
+        options = { mimeType: 'video/mp4', videoBitsPerSecond: 2500000 }; 
     }
 
     try { 
@@ -527,7 +525,10 @@ function startRecording() {
         mediaRecorder = new MediaRecorder(currentCameraStream); 
     }
 
-    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
+    mediaRecorder.ondataavailable = (e) => { 
+        if (e.data && e.data.size > 0) recordedChunks.push(e.data); 
+    };
+    
     mediaRecorder.onstop = () => {
         const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
         currentPhotoBlob = blob;
@@ -545,8 +546,8 @@ function startRecording() {
         }
     };
 
-    mediaRecorder.start();
-    // Force stop exactly at 30 seconds
+    // 🚀 FIX: Process data every 500ms instead of hoarding memory at the end
+    mediaRecorder.start(500); 
     recordingTimer = setTimeout(() => { if (isRecording) stopRecording(); }, 30000); 
 }
 
