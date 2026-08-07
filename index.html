@@ -1477,19 +1477,31 @@
         </div>
 
         <div class="absolute bottom-[max(2.5rem,env(safe-area-inset-bottom))] z-50 w-full px-6 pointer-events-none">
-           <!-- Capture State -->
-            <div id="capture-ui" class="flex items-center justify-between pointer-events-auto">
+          <!-- Capture State -->
+            <div id="capture-ui" class="flex items-center justify-between pointer-events-auto w-full">
                 <button onclick="document.getElementById('hotpost-gallery-input').click()" class="w-12 h-12 bg-black/40 backdrop-blur-md border border-white/20 rounded-full flex items-center justify-center text-white active:scale-95 transition-transform shadow-lg">
                     <span class="material-symbols-outlined text-[24px]">photo_library</span>
                 </button>
                 <input type="file" id="hotpost-gallery-input" accept="image/*,video/mp4,video/quicktime,video/webm" class="hidden">
-               <button id="capture-hotpost-btn" class="w-[84px] h-[84px] rounded-full bg-transparent border-[4px] border-white backdrop-blur-sm flex items-center justify-center active:scale-95 transition-all shadow-[0_0_20px_rgba(0,0,0,0.3)] relative touch-none">
-                    <div id="capture-inner-circle" class="w-[68px] h-[68px] bg-white rounded-full transition-all duration-300"></div>
-                    <!-- 🚀 FIX: Changed to Purple (#a855f7) -->
-                    <svg id="capture-progress-ring" class="absolute inset-0 w-full h-full -rotate-90 hidden pointer-events-none">
-                        <circle cx="42" cy="42" r="39" stroke="#a855f7" stroke-width="4" fill="none" stroke-dasharray="245" stroke-dashoffset="245" class="transition-all duration-100 ease-linear"></circle>
+                
+                <!-- 🚀 SNAPCHAT STYLE CAPTURE BUTTON -->
+                <button id="capture-hotpost-btn" class="w-[84px] h-[84px] rounded-full flex items-center justify-center relative touch-none outline-none active:scale-95 transition-transform">
+                    
+                    <!-- Idle Ring (Translucent White) -->
+                    <svg class="absolute inset-0 w-full h-full pointer-events-none drop-shadow-md">
+                        <circle cx="42" cy="42" r="37" stroke="rgba(255,255,255,0.35)" stroke-width="6" fill="rgba(0,0,0,0.1)"></circle>
                     </svg>
+                    
+                    <!-- Active Progress Ring (Purple) -->
+                    <svg id="capture-progress-ring" class="absolute inset-0 w-full h-full -rotate-90 pointer-events-none hidden">
+                        <!-- Circumference is ~233 (2 * pi * 37) -->
+                        <circle cx="42" cy="42" r="37" stroke="#a855f7" stroke-width="6" fill="transparent" stroke-dasharray="233" stroke-dashoffset="233" class="transition-all duration-100 ease-linear" stroke-linecap="round"></circle>
+                    </svg>
+
+                    <!-- Inner Circle (White -> Shrinks to Purple) -->
+                    <div id="capture-inner-circle" class="w-[66px] h-[66px] bg-white rounded-full transition-all duration-300 pointer-events-none shadow-sm"></div>
                 </button>
+                
                 <div class="w-12 h-12"></div> 
             </div>
             
