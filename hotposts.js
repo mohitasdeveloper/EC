@@ -282,7 +282,7 @@ function setupEventListeners() {
         icon.textContent = vidEl.muted ? 'volume_off' : 'volume_up';
     });
 
-// 🚀 NEW: Absolute Bulletproof Touch/Mouse Hybrid Physics
+// 🚀 Absolute Bulletproof Touch/Mouse Hybrid Physics
     const captureBtn = document.getElementById('capture-hotpost-btn');
     let pressTimer = null;
     let isPressing = false;
@@ -296,15 +296,19 @@ function setupEventListeners() {
         isPressing = true;
         isRecordingVideo = false;
 
+        // 🚀 NEW: Premium haptic "click" when touching the button
+        if (navigator.vibrate) navigator.vibrate(50); 
+
         if (e.touches) {
             startCaptureY = e.touches[0].clientY;
             initialCaptureZoom = videoZoomScale;
         }
 
-        // Trigger video strictly after 300ms hold
         pressTimer = setTimeout(() => { 
             if (isPressing) {
                 isRecordingVideo = true;
+                // 🚀 NEW: Double haptic tick to confirm video started
+                if (navigator.vibrate) navigator.vibrate([50, 50, 50]); 
                 startRecording(); 
             }
         }, 300); 
@@ -314,7 +318,6 @@ function setupEventListeners() {
         if (!isPressing) return;
         if (e.cancelable) e.preventDefault();
         
-        // 🚀 Allow zoom drag EVEN before video officially starts (true Snapchat feel)
         if (e.touches) {
             const currentY = e.touches[0].clientY;
             const deltaY = startCaptureY - currentY; 
@@ -333,8 +336,9 @@ function setupEventListeners() {
         
         if (isRecordingVideo) {
             stopRecording(); 
+            if (navigator.vibrate) navigator.vibrate(50); // Haptic stop
         } else {
-            capturePhoto(); // Guaranteed single tap photo!
+            capturePhoto(); 
         }
         isRecordingVideo = false;
     };
@@ -397,6 +401,23 @@ function setupEventListeners() {
         }
         
         e.target.value = '';
+    });
+
+    // 🚀 NEW: Hardware Volume Button Shutter (Pro Feature)
+    window.addEventListener('keydown', (e) => {
+        const cameraModal = document.getElementById('modal-hotpost-camera');
+        const previewUI = document.getElementById('preview-ui');
+        
+        // Only trigger if Camera is open AND we are NOT in the review screen
+        if (!cameraModal.classList.contains('hidden') && previewUI.classList.contains('hidden')) {
+            if (e.key === 'VolumeUp' || e.key === 'VolumeDown') {
+                e.preventDefault(); // Stop the phone volume slider from showing up
+                if (!isRecordingVideo) {
+                    if (navigator.vibrate) navigator.vibrate(50);
+                    capturePhoto();
+                }
+            }
+        }
     });
 }
 
@@ -485,6 +506,7 @@ function setupVideoZoomPhysics() {
     const video = document.getElementById('hotpost-camera-feed');
     let initialY = 0;
     let initialZoom = 1;
+    let lastTapTime = 0; // 🚀 For tracking double-taps
 
     const getPinchDistance = (touches) => {
         return Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
@@ -517,6 +539,21 @@ function setupVideoZoomPhysics() {
             }
         }
     }, { passive: false });
+
+    // 🚀 NEW: Double-Tap to Flip Camera Muscle Memory
+    video.addEventListener('touchend', (e) => {
+        if (document.getElementById('preview-ui').classList.contains('hidden')) {
+            const currentTime = new Date().getTime();
+            const tapLength = currentTime - lastTapTime;
+            
+            // If tapped twice within 300ms
+            if (tapLength < 300 && tapLength > 0 && e.changedTouches.length === 1) {
+                switchCamera();
+                if (navigator.vibrate) navigator.vibrate(50); // Haptic tick
+            }
+            lastTapTime = currentTime;
+        }
+    }, { passive: true });
 }
 
 let isHardwareZoomActive = false;
