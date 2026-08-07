@@ -282,39 +282,39 @@ function setupEventListeners() {
         icon.textContent = vidEl.muted ? 'volume_off' : 'volume_up';
     });
 
-// 🚀 NEW: Absolute Bulletproof Touch/Mouse Hybrid Physics with Hardware Zoom
+// 🚀 NEW: Absolute Bulletproof Touch/Mouse Hybrid Physics
     const captureBtn = document.getElementById('capture-hotpost-btn');
     let pressTimer = null;
     let isPressing = false;
-    let didStartVideo = false;
+    let isRecordingVideo = false;
     let startCaptureY = 0;
     let initialCaptureZoom = 1;
 
     const startPress = (e) => {
-        if (e.type === 'touchstart') e.preventDefault(); 
-        
+        if (e.type === 'touchstart' && e.cancelable) e.preventDefault(); 
         if (isPressing) return;
         isPressing = true;
-        didStartVideo = false;
+        isRecordingVideo = false;
 
         if (e.touches) {
             startCaptureY = e.touches[0].clientY;
             initialCaptureZoom = videoZoomScale;
         }
 
+        // Trigger video strictly after 300ms hold
         pressTimer = setTimeout(() => { 
             if (isPressing) {
-                didStartVideo = true;
+                isRecordingVideo = true;
                 startRecording(); 
             }
         }, 300); 
     };
     
-    // Route button drag data into the hardware zoom engine
     const movePress = (e) => {
-        if (!isPressing || !didStartVideo) return;
+        if (!isPressing) return;
         if (e.cancelable) e.preventDefault();
         
+        // 🚀 Allow zoom drag EVEN before video officially starts (true Snapchat feel)
         if (e.touches) {
             const currentY = e.touches[0].clientY;
             const deltaY = startCaptureY - currentY; 
@@ -323,18 +323,20 @@ function setupEventListeners() {
     };
 
     const endPress = (e) => {
-        if (e.type === 'touchend' || e.type === 'touchcancel') e.preventDefault();
+        if (e.type === 'touchend' || e.type === 'touchcancel') {
+            if (e.cancelable) e.preventDefault();
+        }
         
         if (!isPressing) return;
         isPressing = false;
         clearTimeout(pressTimer);
         
-        if (didStartVideo) {
+        if (isRecordingVideo) {
             stopRecording(); 
         } else {
-            capturePhoto(); 
+            capturePhoto(); // Guaranteed single tap photo!
         }
-        didStartVideo = false;
+        isRecordingVideo = false;
     };
 
     if (captureBtn) {
@@ -504,32 +506,46 @@ function setupVideoZoomPhysics() {
             if (e.cancelable) e.preventDefault();
 
             if (e.touches.length === 2) {
-                // Pinch zoom
                 const currentDist = getPinchDistance(e.touches);
                 const scaleChange = currentDist / initialVideoPinchDist;
-                videoZoomScale = Math.max(1.0, Math.min(4.0, videoZoomScale * scaleChange));
+                updateCameraZoom(videoZoomScale * scaleChange);
                 initialVideoPinchDist = currentDist;
             } else if (e.touches.length === 1) {
-                // Snapchat style: Swipe up/down to zoom
                 const currentY = e.touches[0].clientY;
-                const deltaY = initialY - currentY; // Positive when swiping up
-                const scaleChange = deltaY * 0.015; // Zoom sensitivity multiplier
-                videoZoomScale = Math.max(1.0, Math.min(4.0, initialZoom + scaleChange));
+                const deltaY = initialY - currentY; 
+                updateCameraZoom(initialZoom + (deltaY * 0.015));
             }
-
-            video.style.transform = currentFacingMode === 'user' 
-                ? `scaleX(-1) scale(${videoZoomScale})` 
-                : `scale(${videoZoomScale})`;
         }
     }, { passive: false });
 }
+
 let isHardwareZoomActive = false;
 
 function updateCameraZoom(newScale) {
     videoZoomScale = Math.max(1.0, Math.min(4.0, newScale));
     const video = document.getElementById('hotpost-camera-feed');
+    
+    if (currentCameraStream) {
+        const track = currentCameraStream.getVideoTracks()[0];
+        const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+        
+        if (capabilities.zoom) {
+            isHardwareZoomActive = true;
+            const min = capabilities.zoom.min || 1;
+            const max = capabilities.zoom.max || 4;
+            const targetZoom = min + ((videoZoomScale - 1) / 3) * (max - min);
+            
+            track.applyConstraints({ advanced: [{ zoom: targetZoom }] }).catch(e => console.warn(e));
+            
+            // Clear software zoom so it doesn't double-zoom
+            if(video) video.style.transform = currentFacingMode === 'user' ? `scaleX(-1)` : `scale(1)`;
+            return;
+        }
+    }
+    
+    // Fallback: Pure software CSS zoom
+    isHardwareZoomActive = false;
     if(video) {
-        // Pure software visual zoom during capture
         video.style.transform = currentFacingMode === 'user' 
             ? `scaleX(-1) scale(${videoZoomScale})` 
             : `scale(${videoZoomScale})`;
@@ -545,13 +561,12 @@ function capturePhoto() {
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
 
-    // Mirror the canvas if using the front camera
     if (currentFacingMode === 'user') {
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
     }
 
-    // Capture the RAW, unzoomed frame. Zoom is handled in the Review UI & Bake step.
+    // Capture raw frame
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     canvas.toBlob((blob) => {
@@ -562,9 +577,10 @@ function capturePhoto() {
             const previewImg = document.getElementById('hotpost-preview-img');
             previewImg.src = URL.createObjectURL(blob);
             
-            // 🚀 Carry over the zoom from capture directly to the review UI!
-            imgTransform = { scale: videoZoomScale, x: 0, y: 0 };
-            previewImg.style.transform = `translate(0px, 0px) scale(${videoZoomScale})`;
+            // 🚀 Carry over software zoom. If hardware zoom worked, image is ALREADY zoomed (scale 1).
+            const reviewScale = isHardwareZoomActive ? 1 : videoZoomScale;
+            imgTransform = { scale: reviewScale, x: 0, y: 0 };
+            previewImg.style.transform = `translate(0px, 0px) scale(${reviewScale})`;
             
             showPreviewUI();
             initDoodleCanvas();
@@ -572,7 +588,6 @@ function capturePhoto() {
         baseImageObj.src = URL.createObjectURL(blob);
     }, 'image/webp', 0.9);
 }
-
 function startRecording() {
     if (!currentCameraStream) return;
     isRecording = true;
@@ -611,7 +626,7 @@ function startRecording() {
         if (e.data && e.data.size > 0) recordedChunks.push(e.data); 
     };
     
-    mediaRecorder.onstop = () => {
+   mediaRecorder.onstop = () => {
         const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
         currentPhotoBlob = blob;
         
@@ -621,15 +636,14 @@ function startRecording() {
         const videoEl = document.getElementById('hotpost-preview-video');
         videoEl.src = currentPreviewObjectURL;
         
-        videoEl.onloadeddata = () => {
-            // 🚀 Carry over capture zoom to the video review screen!
-            imgTransform = { scale: videoZoomScale, x: 0, y: 0 };
-            videoEl.style.transform = `translate(0px, 0px) scale(${videoZoomScale})`;
-             
-            videoEl.play().catch(e => console.error("Playback blocked:", e));
-            showPreviewUI();
-            initDoodleCanvas();
-        }
+        // 🚀 Instantly apply zoom to prevent UI flicker/failure on mobile
+        const reviewScale = isHardwareZoomActive ? 1 : videoZoomScale;
+        imgTransform = { scale: reviewScale, x: 0, y: 0 };
+        videoEl.style.transform = `translate(0px, 0px) scale(${reviewScale})`;
+        
+        videoEl.play().catch(e => console.error("Playback blocked:", e));
+        showPreviewUI();
+        initDoodleCanvas();
     };
     // 🚀 FIX: Process data every 500ms instead of hoarding memory at the end
     mediaRecorder.start(500); 
@@ -1412,16 +1426,15 @@ async function submitHotpost() {
             const vidData = await vidRes.json();
             if (vidData.error) throw new Error(vidData.error.message);
 
-            // 🚀 Bake the zoom natively in Cloudinary via Server-Side Cropping
+            // 🚀 Bake software zoom into final video via Server-Side Cropping
             let cropString = 'q_auto:eco,vc_auto';
-            if (imgTransform.scale > 1.0) {
-                // Calculate percentage to crop (e.g., 2.0x zoom = 50% (0.500) of screen)
+            if (!isHardwareZoomActive && imgTransform.scale > 1.0) {
                 const cropRatio = (1 / imgTransform.scale).toFixed(3);
-                cropString = `c_crop,g_center,h_${cropRatio},w_${cropRatio}/c_scale,w_iw/${cropString}`;
+                // 🚀 fl_relative is REQUIRED for percentages to work in Cloudinary
+                cropString = `c_crop,g_center,w_${cropRatio},h_${cropRatio},fl_relative/${cropString}`;
             }
 
             finalMediaUrl = vidData.secure_url.replace('/upload/', `/upload/${cropString}/`);
-
         } else {
             // ORIGINAL IMAGE BAKE LOGIC
             const finalBlob = await new Promise((resolve, reject) => {
