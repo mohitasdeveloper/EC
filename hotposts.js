@@ -282,12 +282,13 @@ function setupEventListeners() {
         icon.textContent = vidEl.muted ? 'volume_off' : 'volume_up';
     });
 
-  // 🚀 NEW: Bulletproof Snapchat-Style Capture Physics
-  // 🚀 NEW: Absolute Bulletproof Touch/Mouse Hybrid Physics
+ // 🚀 NEW: Absolute Bulletproof Touch/Mouse Hybrid Physics with Snapchat Zoom
     const captureBtn = document.getElementById('capture-hotpost-btn');
     let pressTimer = null;
     let isPressing = false;
     let didStartVideo = false;
+    let startCaptureY = 0;
+    let initialCaptureZoom = 1;
 
     const startPress = (e) => {
         // Prevent ghost mouse events from firing twice on mobile
@@ -297,6 +298,12 @@ function setupEventListeners() {
         isPressing = true;
         didStartVideo = false;
 
+        // Track starting Y position for zoom
+        if (e.touches) {
+            startCaptureY = e.touches[0].clientY;
+            initialCaptureZoom = videoZoomScale;
+        }
+
         pressTimer = setTimeout(() => { 
             if (isPressing) {
                 didStartVideo = true;
@@ -305,6 +312,25 @@ function setupEventListeners() {
         }, 300); // 300ms hold required for video
     };
     
+    // 🚀 NEW: Drag up from button to zoom during recording
+    const movePress = (e) => {
+        if (!isPressing || !didStartVideo) return;
+        if (e.cancelable) e.preventDefault();
+        
+        if (e.touches) {
+            const currentY = e.touches[0].clientY;
+            const deltaY = startCaptureY - currentY; // Positive = moving up
+            videoZoomScale = Math.max(1.0, Math.min(4.0, initialCaptureZoom + (deltaY * 0.015)));
+
+            const video = document.getElementById('hotpost-camera-feed');
+            if(video) {
+                video.style.transform = currentFacingMode === 'user'
+                    ? `scaleX(-1) scale(${videoZoomScale})`
+                    : `scale(${videoZoomScale})`;
+            }
+        }
+    };
+
     const endPress = (e) => {
         if (e.type === 'touchend' || e.type === 'touchcancel') e.preventDefault();
         
@@ -321,8 +347,9 @@ function setupEventListeners() {
     };
 
     if (captureBtn) {
-        // We use passive: false to allow e.preventDefault() to work correctly
+        // Use passive: false to allow e.preventDefault() to work correctly
         captureBtn.addEventListener('touchstart', startPress, { passive: false });
+        captureBtn.addEventListener('touchmove', movePress, { passive: false }); // Bound drag physics
         captureBtn.addEventListener('touchend', endPress, { passive: false });
         captureBtn.addEventListener('touchcancel', endPress, { passive: false });
         
@@ -465,31 +492,84 @@ function switchCamera() {
 
 function setupVideoZoomPhysics() {
     const video = document.getElementById('hotpost-camera-feed');
-    
+    let initialY = 0;
+    let initialZoom = 1;
+
     const getPinchDistance = (touches) => {
         return Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
     };
 
     video.addEventListener('touchstart', (e) => {
-        if (e.touches.length === 2 && document.getElementById('preview-ui').classList.contains('hidden')) {
-            initialVideoPinchDist = getPinchDistance(e.touches);
+        if (document.getElementById('preview-ui').classList.contains('hidden')) {
+            if (e.touches.length === 2) {
+                initialVideoPinchDist = getPinchDistance(e.touches);
+            } else if (e.touches.length === 1) {
+                initialY = e.touches[0].clientY;
+                initialZoom = videoZoomScale;
+            }
         }
     }, { passive: true });
 
     video.addEventListener('touchmove', (e) => {
-        if (e.touches.length === 2 && document.getElementById('preview-ui').classList.contains('hidden')) {
+        if (document.getElementById('preview-ui').classList.contains('hidden')) {
             if (e.cancelable) e.preventDefault();
-            const currentDist = getPinchDistance(e.touches);
-            const scaleChange = currentDist / initialVideoPinchDist;
-            
-            videoZoomScale = Math.max(1.0, Math.min(4.0, videoZoomScale * scaleChange));
-            initialVideoPinchDist = currentDist; 
+
+            if (e.touches.length === 2) {
+                // Pinch zoom
+                const currentDist = getPinchDistance(e.touches);
+                const scaleChange = currentDist / initialVideoPinchDist;
+                videoZoomScale = Math.max(1.0, Math.min(4.0, videoZoomScale * scaleChange));
+                initialVideoPinchDist = currentDist;
+            } else if (e.touches.length === 1) {
+                // Snapchat style: Swipe up/down to zoom
+                const currentY = e.touches[0].clientY;
+                const deltaY = initialY - currentY; // Positive when swiping up
+                const scaleChange = deltaY * 0.015; // Zoom sensitivity multiplier
+                videoZoomScale = Math.max(1.0, Math.min(4.0, initialZoom + scaleChange));
+            }
 
             video.style.transform = currentFacingMode === 'user' 
                 ? `scaleX(-1) scale(${videoZoomScale})` 
                 : `scale(${videoZoomScale})`;
         }
     }, { passive: false });
+}
+function capturePhoto() {
+    if (!currentCameraStream) return;
+
+    const video = document.getElementById('hotpost-camera-feed');
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+
+    // Mirror the canvas if using the front camera so it looks natural
+    if (currentFacingMode === 'user') {
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+    }
+
+    // Apply the current zoom scale to the captured photo
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.scale(videoZoomScale, videoZoomScale);
+    ctx.translate(-canvas.width / 2, -canvas.height / 2);
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob((blob) => {
+        currentPhotoBlob = blob;
+        currentMediaType = 'image';
+        baseImageObj = new Image();
+        baseImageObj.onload = () => {
+            const previewImg = document.getElementById('hotpost-preview-img');
+            previewImg.src = URL.createObjectURL(blob);
+            imgTransform = { scale: 1, x: 0, y: 0 };
+            previewImg.style.transform = `translate(0px, 0px) scale(1)`;
+            showPreviewUI();
+            initDoodleCanvas();
+        };
+        baseImageObj.src = URL.createObjectURL(blob);
+    }, 'image/webp', 0.9);
 }
 function startRecording() {
     if (!currentCameraStream) return;
