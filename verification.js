@@ -16,18 +16,27 @@ export function initVerification(profile) {
     if (mainContent) mainContent.style.display = 'none';
     
     const view = document.getElementById('view-verification');
-    view.classList.remove('hidden');
-    view.classList.add('flex');
+    if (view) {
+        view.classList.remove('hidden');
+        view.classList.add('flex');
+    }
     
-    document.getElementById('verify-name').value = '';
-    document.getElementById('verify-student-id').value = '';
-    document.getElementById('verify-course').value = '';
+    // 🚀 CRASH-PROOF FIX: Safely clear inputs only if they exist
+    const nameInput = document.getElementById('verify-name');
+    const idInput = document.getElementById('verify-student-id');
+    const courseInput = document.getElementById('verify-course');
+    
+    if (nameInput) nameInput.value = '';
+    if (idInput) idInput.value = '';
+    if (courseInput) courseInput.value = '';
 
     renderState(profile.verification_status);
     
-    // Only listen for the ID Card upload now
-    document.getElementById('id-card-upload').addEventListener('change', (e) => handleImagePreview(e, 'id-card-preview-container'));
-    document.getElementById('submit-verification-btn').addEventListener('click', submitVerification);
+    const uploadBtn = document.getElementById('id-card-upload');
+    if (uploadBtn) uploadBtn.addEventListener('change', (e) => handleImagePreview(e, 'id-card-preview-container'));
+    
+    const submitBtn = document.getElementById('submit-verification-btn');
+    if (submitBtn) submitBtn.addEventListener('click', submitVerification);
     
     document.querySelectorAll('.verify-signout-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
@@ -38,16 +47,24 @@ export function initVerification(profile) {
 }
 
 function renderState(status) {
-    document.getElementById('verify-state-form').classList.add('hidden');
-    document.getElementById('verify-state-pending').classList.add('hidden');
+    const formState = document.getElementById('verify-state-form');
+    const pendingState = document.getElementById('verify-state-pending');
     
-    if (status === 'unverified' || status === 'rejected') {
-        document.getElementById('verify-state-form').classList.remove('hidden');
-        document.getElementById('verify-state-form').classList.add('flex');
+    if (formState) formState.classList.add('hidden');
+    if (pendingState) pendingState.classList.add('hidden');
+    
+    // 🚀 CRASH-PROOF FIX: If status is 'pending', show pending. Otherwise, default to showing the form.
+    if (status === 'pending') {
+        if (pendingState) {
+            pendingState.classList.remove('hidden');
+            pendingState.classList.add('flex');
+        }
+    } else {
+        if (formState) {
+            formState.classList.remove('hidden');
+            formState.classList.add('flex');
+        }
         if (status === 'rejected') fetchRejectionReason();
-    } else if (status === 'pending') {
-        document.getElementById('verify-state-pending').classList.remove('hidden');
-        document.getElementById('verify-state-pending').classList.add('flex');
     }
 }
 
@@ -55,18 +72,23 @@ async function fetchRejectionReason() {
     try {
         const { data } = await supabase.from('student_verifications').select('rejection_reason').eq('user_id', currentUser.id).single();
         if (data && data.rejection_reason) {
-            document.getElementById('verify-reject-alert').classList.remove('hidden');
-            document.getElementById('verify-reject-reason').textContent = data.rejection_reason;
+            const alertBox = document.getElementById('verify-reject-alert');
+            const reasonText = document.getElementById('verify-reject-reason');
+            if (alertBox && reasonText) {
+                alertBox.classList.remove('hidden');
+                reasonText.textContent = data.rejection_reason;
+            }
         }
     } catch (e) { console.error(e); }
 }
 
-// Cleaned up Image Previewer (Only handles ID card)
 function handleImagePreview(e, containerId) {
     const file = e.target.files[0];
     if (!file) return;
 
     const container = document.getElementById(containerId);
+    if (!container) return;
+
     const reader = new FileReader();
 
     reader.onload = (event) => {
@@ -92,6 +114,8 @@ async function submitVerification() {
     const courseInput = document.getElementById('verify-course');
     const imageContainer = document.getElementById('id-card-preview-container');
 
+    if (!nameInput || !idInput || !courseInput || !imageContainer) return;
+
     const legalName = nameInput.value.trim();
     const studentId = idInput.value.trim();
     const course = courseInput.value.trim();
@@ -111,21 +135,20 @@ async function submitVerification() {
     }
 
     const btn = document.getElementById('submit-verification-btn');
-    btn.disabled = true;
-    btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-[24px]">progress_activity</span>`;
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-[24px]">progress_activity</span>`;
+    }
 
     try {
-        // Compress ID Image
         const compressedId = typeof window.compressImage === 'function' ? await window.compressImage(currentImageBlob, 1080, 0.7) : currentImageBlob;
         
-        // Upload ID Card to Supabase
         const idFileName = `${currentUser.id}_id_${Date.now()}.${compressedId.name.split('.').pop()}`;
         const { error: idUploadError } = await supabase.storage.from('verifications').upload(idFileName, compressedId, { upsert: true });
         if (idUploadError) throw new Error(`ID Upload Failed: ${idUploadError.message}`);
         
         const idUrl = supabase.storage.from('verifications').getPublicUrl(idFileName).data.publicUrl;
 
-        // Upsert Database Record (Selfie removed)
         const { error: dbError } = await supabase.from('student_verifications').upsert({
             user_id: currentUser.id,
             legal_name: legalName,
@@ -137,7 +160,6 @@ async function submitVerification() {
         
         if (dbError) throw dbError;
 
-        // Update Users Table Status
         const { error: userError } = await supabase.from('users').update({ verification_status: 'pending' }).eq('id', currentUser.id);
         if (userError) throw userError;
 
@@ -147,7 +169,9 @@ async function submitVerification() {
     } catch (error) {
         showToast(error.message || 'Failed to submit verification. Please try again.', 'error');
     } finally {
-        btn.disabled = false;
-        btn.innerHTML = 'Submit for Verification';
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = 'Submit for Verification';
+        }
     }
 }
