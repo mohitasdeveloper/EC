@@ -282,7 +282,7 @@ function setupEventListeners() {
         icon.textContent = vidEl.muted ? 'volume_off' : 'volume_up';
     });
 
- // 🚀 NEW: Absolute Bulletproof Touch/Mouse Hybrid Physics with Snapchat Zoom
+// 🚀 NEW: Absolute Bulletproof Touch/Mouse Hybrid Physics with Hardware Zoom
     const captureBtn = document.getElementById('capture-hotpost-btn');
     let pressTimer = null;
     let isPressing = false;
@@ -291,14 +291,12 @@ function setupEventListeners() {
     let initialCaptureZoom = 1;
 
     const startPress = (e) => {
-        // Prevent ghost mouse events from firing twice on mobile
         if (e.type === 'touchstart') e.preventDefault(); 
         
         if (isPressing) return;
         isPressing = true;
         didStartVideo = false;
 
-        // Track starting Y position for zoom
         if (e.touches) {
             startCaptureY = e.touches[0].clientY;
             initialCaptureZoom = videoZoomScale;
@@ -309,25 +307,18 @@ function setupEventListeners() {
                 didStartVideo = true;
                 startRecording(); 
             }
-        }, 300); // 300ms hold required for video
+        }, 300); 
     };
     
-    // 🚀 NEW: Drag up from button to zoom during recording
+    // Route button drag data into the hardware zoom engine
     const movePress = (e) => {
         if (!isPressing || !didStartVideo) return;
         if (e.cancelable) e.preventDefault();
         
         if (e.touches) {
             const currentY = e.touches[0].clientY;
-            const deltaY = startCaptureY - currentY; // Positive = moving up
-            videoZoomScale = Math.max(1.0, Math.min(4.0, initialCaptureZoom + (deltaY * 0.015)));
-
-            const video = document.getElementById('hotpost-camera-feed');
-            if(video) {
-                video.style.transform = currentFacingMode === 'user'
-                    ? `scaleX(-1) scale(${videoZoomScale})`
-                    : `scale(${videoZoomScale})`;
-            }
+            const deltaY = startCaptureY - currentY; 
+            updateCameraZoom(initialCaptureZoom + (deltaY * 0.015));
         }
     };
 
@@ -341,19 +332,17 @@ function setupEventListeners() {
         if (didStartVideo) {
             stopRecording(); 
         } else {
-            capturePhoto(); // Instant photo snap!
+            capturePhoto(); 
         }
         didStartVideo = false;
     };
 
     if (captureBtn) {
-        // Use passive: false to allow e.preventDefault() to work correctly
         captureBtn.addEventListener('touchstart', startPress, { passive: false });
-        captureBtn.addEventListener('touchmove', movePress, { passive: false }); // Bound drag physics
+        captureBtn.addEventListener('touchmove', movePress, { passive: false }); 
         captureBtn.addEventListener('touchend', endPress, { passive: false });
         captureBtn.addEventListener('touchcancel', endPress, { passive: false });
         
-        // Desktop fallbacks
         captureBtn.addEventListener('mousedown', startPress);
         captureBtn.addEventListener('mouseup', endPress);
         captureBtn.addEventListener('mouseleave', endPress);
@@ -534,6 +523,40 @@ function setupVideoZoomPhysics() {
         }
     }, { passive: false });
 }
+let isHardwareZoomActive = false;
+
+function updateCameraZoom(newScale) {
+    videoZoomScale = Math.max(1.0, Math.min(4.0, newScale));
+    const video = document.getElementById('hotpost-camera-feed');
+    
+    if (currentCameraStream) {
+        const track = currentCameraStream.getVideoTracks()[0];
+        const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+        
+        // 1. Try Hardware Zoom (Physically zooms the camera lens for perfect videos)
+        if (capabilities.zoom) {
+            isHardwareZoomActive = true;
+            const min = capabilities.zoom.min || 1;
+            const max = capabilities.zoom.max || 4;
+            const targetZoom = min + ((videoZoomScale - 1) / 3) * (max - min);
+            
+            track.applyConstraints({ advanced: [{ zoom: targetZoom }] }).catch(e => console.warn("Zoom not supported:", e));
+            
+            // Clear CSS transform so we don't double-zoom visually
+            if(video) video.style.transform = currentFacingMode === 'user' ? `scaleX(-1)` : `scale(1)`;
+            return;
+        }
+    }
+    
+    // 2. Fallback: CSS Software Zoom (Visual preview only, baked via Canvas for photos)
+    isHardwareZoomActive = false;
+    if(video) {
+        video.style.transform = currentFacingMode === 'user' 
+            ? `scaleX(-1) scale(${videoZoomScale})` 
+            : `scale(${videoZoomScale})`;
+    }
+}
+
 function capturePhoto() {
     if (!currentCameraStream) return;
 
@@ -543,16 +566,18 @@ function capturePhoto() {
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
 
-    // Mirror the canvas if using the front camera so it looks natural
+    // Mirror the canvas if using the front camera
     if (currentFacingMode === 'user') {
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
     }
 
-    // Apply the current zoom scale to the captured photo
-    ctx.translate(canvas.width / 2, canvas.height / 2);
-    ctx.scale(videoZoomScale, videoZoomScale);
-    ctx.translate(-canvas.width / 2, -canvas.height / 2);
+    // Apply software canvas zoom ONLY if hardware zoom failed (prevents double-zooming)
+    if (!isHardwareZoomActive) {
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.scale(videoZoomScale, videoZoomScale);
+        ctx.translate(-canvas.width / 2, -canvas.height / 2);
+    }
 
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
