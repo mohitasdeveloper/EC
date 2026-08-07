@@ -3,7 +3,6 @@ import { showToast } from './ui.js';
 
 let currentUser = null;
 let currentImageBlob = null;
-let currentSelfieBlob = null; // NEW: Selfie Blob
 
 export function initVerification(profile) {
     currentUser = profile;
@@ -26,9 +25,8 @@ export function initVerification(profile) {
 
     renderState(profile.verification_status);
     
-    // NEW: Listeners for both ID and Selfie
-    document.getElementById('id-card-upload').addEventListener('change', (e) => handleImagePreview(e, 'id-card-preview-container', 'id'));
-    document.getElementById('selfie-upload').addEventListener('change', (e) => handleImagePreview(e, 'selfie-preview-container', 'selfie'));
+    // Only listen for the ID Card upload now
+    document.getElementById('id-card-upload').addEventListener('change', (e) => handleImagePreview(e, 'id-card-preview-container'));
     document.getElementById('submit-verification-btn').addEventListener('click', submitVerification);
     
     document.querySelectorAll('.verify-signout-btn').forEach(btn => {
@@ -63,8 +61,8 @@ async function fetchRejectionReason() {
     } catch (e) { console.error(e); }
 }
 
-// NEW: Reusable Image Previewer
-function handleImagePreview(e, containerId, type) {
+// Cleaned up Image Previewer (Only handles ID card)
+function handleImagePreview(e, containerId) {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -72,16 +70,15 @@ function handleImagePreview(e, containerId, type) {
     const reader = new FileReader();
 
     reader.onload = (event) => {
-        if (type === 'id') currentImageBlob = file;
-        if (type === 'selfie') currentSelfieBlob = file;
+        currentImageBlob = file;
 
-        const icon = type === 'id' ? 'add_photo_alternate' : 'face';
-        const text = type === 'id' ? 'Tap to upload clear photo' : 'Tap to take a selfie';
-        const inputId = type === 'id' ? 'id-card-upload' : 'selfie-upload';
+        const icon = 'add_photo_alternate';
+        const text = 'Tap to upload clear photo';
+        const inputId = 'id-card-upload';
 
         container.innerHTML = `
             <img src="${event.target.result}" class="w-full h-full object-cover rounded-xl">
-            <button type="button" class="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 hover:bg-black/80 transition-colors z-10" onclick="event.stopPropagation(); document.getElementById('${inputId}').value=''; if('${type}' === 'id') currentImageBlob=null; else currentSelfieBlob=null; document.getElementById('${containerId}').innerHTML='<span class=\\'material-symbols-outlined text-[32px] mb-2\\'>${icon}</span><span class=\\'text-sm font-medium\\'>${text}</span>';">
+            <button type="button" class="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 hover:bg-black/80 transition-colors z-10" onclick="event.stopPropagation(); document.getElementById('${inputId}').value=''; currentImageBlob=null; document.getElementById('${containerId}').innerHTML='<span class=\\'material-symbols-outlined text-[32px] mb-2\\'>${icon}</span><span class=\\'text-sm font-medium\\'>${text}</span>';">
                 <span class="material-symbols-outlined text-[18px]">close</span>
             </button>
         `;
@@ -94,13 +91,12 @@ async function submitVerification() {
     const idInput = document.getElementById('verify-student-id');
     const courseInput = document.getElementById('verify-course');
     const imageContainer = document.getElementById('id-card-preview-container');
-    const selfieContainer = document.getElementById('selfie-preview-container');
 
     const legalName = nameInput.value.trim();
     const studentId = idInput.value.trim();
     const course = courseInput.value.trim();
     
-    [nameInput, idInput, courseInput, imageContainer, selfieContainer].forEach(el => el.classList.remove('border-error', 'dark:border-error'));
+    [nameInput, idInput, courseInput, imageContainer].forEach(el => el.classList.remove('border-error', 'dark:border-error'));
 
     let hasError = false;
     if (!legalName) { nameInput.classList.add('border-error', 'dark:border-error'); hasError = true; }
@@ -113,45 +109,35 @@ async function submitVerification() {
         imageContainer.classList.add('border-error', 'dark:border-error');
         return showToast('Please upload a photo of your College ID.', 'error');
     }
-    if (!currentSelfieBlob) {
-        selfieContainer.classList.add('border-error', 'dark:border-error');
-        return showToast('Please take a live selfie.', 'error');
-    }
 
     const btn = document.getElementById('submit-verification-btn');
     btn.disabled = true;
     btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-[24px]">progress_activity</span>`;
 
     try {
-        // Compress both images
+        // Compress ID Image
         const compressedId = typeof window.compressImage === 'function' ? await window.compressImage(currentImageBlob, 1080, 0.7) : currentImageBlob;
-        const compressedSelfie = typeof window.compressImage === 'function' ? await window.compressImage(currentSelfieBlob, 1080, 0.7) : currentSelfieBlob;
         
-        // Upload ID Card
+        // Upload ID Card to Supabase
         const idFileName = `${currentUser.id}_id_${Date.now()}.${compressedId.name.split('.').pop()}`;
         const { error: idUploadError } = await supabase.storage.from('verifications').upload(idFileName, compressedId, { upsert: true });
         if (idUploadError) throw new Error(`ID Upload Failed: ${idUploadError.message}`);
+        
         const idUrl = supabase.storage.from('verifications').getPublicUrl(idFileName).data.publicUrl;
 
-        // Upload Selfie
-        const selfieFileName = `${currentUser.id}_selfie_${Date.now()}.${compressedSelfie.name.split('.').pop()}`;
-        const { error: selfieUploadError } = await supabase.storage.from('verifications').upload(selfieFileName, compressedSelfie, { upsert: true });
-        if (selfieUploadError) throw new Error(`Selfie Upload Failed: ${selfieUploadError.message}`);
-        const selfieUrl = supabase.storage.from('verifications').getPublicUrl(selfieFileName).data.publicUrl;
-
-        // Upsert Database Record with both URLs
+        // Upsert Database Record (Selfie removed)
         const { error: dbError } = await supabase.from('student_verifications').upsert({
             user_id: currentUser.id,
             legal_name: legalName,
             student_id: studentId,
             course: course,
             id_card_url: idUrl,
-            selfie_url: selfieUrl,
             status: 'pending'
         }, { onConflict: 'user_id' });
+        
         if (dbError) throw dbError;
 
-        // Update Users Table
+        // Update Users Table Status
         const { error: userError } = await supabase.from('users').update({ verification_status: 'pending' }).eq('id', currentUser.id);
         if (userError) throw userError;
 
