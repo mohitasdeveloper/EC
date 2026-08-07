@@ -294,7 +294,7 @@ function setupEventListeners() {
         isPressing = true;
         didStartVideo = false;
         
-        // Give immediate visual feedback that button is pressed
+        // Give tactile feedback: shrink slightly when touched
         document.getElementById('capture-inner-circle').classList.add('scale-90');
 
         pressTimer = setTimeout(() => { 
@@ -302,7 +302,7 @@ function setupEventListeners() {
                 didStartVideo = true;
                 startRecording(); 
             }
-        }, 300); // Wait 300ms before switching from Photo to Video mode
+        }, 300); 
     };
     
     const endPress = (e) => {
@@ -314,9 +314,9 @@ function setupEventListeners() {
         document.getElementById('capture-inner-circle').classList.remove('scale-90');
         
         if (didStartVideo) {
-            stopRecording(); // It was a long press, stop video.
+            stopRecording(); 
         } else {
-            capturePhoto(); // It was a quick tap, snap photo instantly.
+            capturePhoto(); 
         }
         didStartVideo = false;
     };
@@ -327,7 +327,7 @@ function setupEventListeners() {
         captureBtn.addEventListener('pointerleave', endPress);
         captureBtn.addEventListener('pointercancel', endPress);
     }
-
+    
     // ---------------------------------------------------------
 
     // 🚀 NEW: Bulletproof Gallery Input (Memory Safe, Handles Images & Videos)
@@ -495,13 +495,15 @@ function startRecording() {
     recordedChunks = [];
     currentMediaType = 'video';
     
-    // UI Animations: Switch to Purple and scale down
-    document.getElementById('capture-inner-circle').classList.replace('bg-white', 'bg-purple-500');
-    document.getElementById('capture-inner-circle').classList.add('scale-50');
+    // UI Animations: Switch to Purple, shrink heavily
+    const innerCircle = document.getElementById('capture-inner-circle');
+    innerCircle.classList.remove('bg-white');
+    innerCircle.style.backgroundColor = '#a855f7'; // Purple
+    innerCircle.classList.add('scale-50');
     
     const ring = document.getElementById('capture-progress-ring');
     ring.classList.remove('hidden');
-    // 🚀 FIX: 30 Second Timer transition
+    // 30 Second Timer transition
     ring.querySelector('circle').style.transition = 'stroke-dashoffset 30s linear';
     void ring.offsetWidth; // Force Reflow
     ring.querySelector('circle').style.strokeDashoffset = '0';
@@ -536,7 +538,7 @@ function startRecording() {
     };
 
     mediaRecorder.start();
-    // 🚀 FIX: 30 Second Limit
+    // 30 Second Limit
     recordingTimer = setTimeout(() => { if (isRecording) stopRecording(); }, 30000); 
 }
 
@@ -546,42 +548,17 @@ function stopRecording() {
     if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
     
     // UI Reset
-    document.getElementById('capture-inner-circle').classList.replace('bg-purple-500', 'bg-white');
-    document.getElementById('capture-inner-circle').classList.remove('scale-50');
+    const innerCircle = document.getElementById('capture-inner-circle');
+    innerCircle.style.backgroundColor = ''; 
+    innerCircle.classList.add('bg-white');
+    innerCircle.classList.remove('scale-50', 'scale-90');
     
     const ring = document.getElementById('capture-progress-ring');
     if (ring) {
         ring.classList.add('hidden');
         ring.querySelector('circle').style.transition = 'none';
-        ring.querySelector('circle').style.strokeDashoffset = '245';
+        ring.querySelector('circle').style.strokeDashoffset = '233'; // Matches new circumference
     }
-}
-
-function capturePhoto() {
-    const video = document.getElementById('hotpost-camera-feed');
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-
-    if (currentFacingMode === 'user') {
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
-    }
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    canvas.toBlob(blob => {
-        currentPhotoBlob = blob;
-        baseImageObj = new Image();
-        baseImageObj.onload = () => {
-            document.getElementById('hotpost-preview-img').src = URL.createObjectURL(blob);
-            imgTransform.scale = videoZoomScale;
-            document.getElementById('hotpost-preview-img').style.transform = `translate(0px, 0px) scale(${imgTransform.scale})`;
-            showPreviewUI();
-            initDoodleCanvas();
-        };
-        baseImageObj.src = URL.createObjectURL(blob);
-    }, 'image/jpeg', 0.9);
 }
 
 function resetCameraUI() {
@@ -596,8 +573,8 @@ function resetCameraUI() {
     document.getElementById('preview-ui').classList.add('hidden');
     document.getElementById('switch-hotpost-camera-btn').classList.remove('hidden');
     document.getElementById('editor-tools-container').classList.add('hidden');
-    document.getElementById('hotpost-mute-btn').classList.add('hidden'); // 🚀 Hide mute
-    document.getElementById('undo-doodle-btn').classList.add('hidden'); // 🚀 Hide undo
+    document.getElementById('hotpost-mute-btn').classList.add('hidden'); 
+    document.getElementById('undo-doodle-btn').classList.add('hidden'); 
     
     currentPhotoBlob = null;
     currentMediaType = 'image'; 
@@ -636,16 +613,20 @@ function resetCameraUI() {
     document.querySelectorAll('.text-widget').forEach(el => el.remove());
     textElements = []; activeTextId = null; activeTextIdForTouch = null;
 
-    document.getElementById('capture-inner-circle').classList.replace('bg-purple-500', 'bg-white');
-    document.getElementById('capture-inner-circle').classList.remove('scale-50');
+    // Reset Capture Button State
+    const innerCircle = document.getElementById('capture-inner-circle');
+    if(innerCircle) {
+        innerCircle.style.backgroundColor = ''; 
+        innerCircle.classList.add('bg-white');
+        innerCircle.classList.remove('scale-50', 'scale-90');
+    }
     const ring = document.getElementById('capture-progress-ring');
     if (ring) {
         ring.classList.add('hidden');
         ring.querySelector('circle').style.transition = 'none';
-        ring.querySelector('circle').style.strokeDashoffset = '245';
+        ring.querySelector('circle').style.strokeDashoffset = '233';
     }
 }
-
 function showPreviewUI() {
     document.getElementById('hotpost-camera-feed').classList.add('hidden');
     document.getElementById('hotpost-preview-container').classList.remove('hidden');
