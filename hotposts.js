@@ -282,21 +282,23 @@ function setupEventListeners() {
         icon.textContent = vidEl.muted ? 'volume_off' : 'volume_up';
     });
 
-    // 🚀 NEW: Bulletproof Hold-to-Record Physics using Pointer Events
+  // 🚀 NEW: Bulletproof Snapchat-Style Capture Physics
     const captureBtn = document.getElementById('capture-hotpost-btn');
     let pressTimer = null;
     let isPressing = false;
     let didStartVideo = false;
 
     const startPress = (e) => {
-        if (e.cancelable) e.preventDefault(); 
         if (isPressing) return;
         isPressing = true;
         didStartVideo = false;
         
-        // Give tactile feedback: shrink slightly when touched
-        document.getElementById('capture-inner-circle').classList.add('scale-90');
+        // 🚀 THIS IS THE MAGIC! It locks the pointer to this button even if you drag your finger away
+        if (e.pointerId) {
+            captureBtn.setPointerCapture(e.pointerId);
+        }
 
+        // Wait 300ms. If you let go before this, it takes a photo. If you hold, it starts video.
         pressTimer = setTimeout(() => { 
             if (isPressing) {
                 didStartVideo = true;
@@ -306,26 +308,26 @@ function setupEventListeners() {
     };
     
     const endPress = (e) => {
-        if (e.cancelable) e.preventDefault(); 
         if (!isPressing) return;
         isPressing = false;
         clearTimeout(pressTimer);
         
-        document.getElementById('capture-inner-circle').classList.remove('scale-90');
+        if (e.pointerId) {
+            captureBtn.releasePointerCapture(e.pointerId);
+        }
         
         if (didStartVideo) {
-            stopRecording(); 
+            stopRecording(); // It was a long press, stop video.
         } else {
-            capturePhoto(); 
+            capturePhoto(); // It was a quick tap, snap photo instantly.
         }
         didStartVideo = false;
     };
 
     if (captureBtn) {
+        // We only need these two events now because setPointerCapture handles dragging away!
         captureBtn.addEventListener('pointerdown', startPress);
         captureBtn.addEventListener('pointerup', endPress);
-        captureBtn.addEventListener('pointerleave', endPress);
-        captureBtn.addEventListener('pointercancel', endPress);
     }
     
     // ---------------------------------------------------------
@@ -495,18 +497,24 @@ function startRecording() {
     recordedChunks = [];
     currentMediaType = 'video';
     
-    // UI Animations: Switch to Purple, shrink heavily
+    // UI Animations: Switch to Purple, shrink slightly
     const innerCircle = document.getElementById('capture-inner-circle');
     innerCircle.classList.remove('bg-white');
-    innerCircle.style.backgroundColor = '#a855f7'; // Purple
-    innerCircle.classList.add('scale-50');
+    innerCircle.style.backgroundColor = '#a855f7'; // Purple inner
+    innerCircle.classList.add('scale-75'); // Shrink while recording
     
     const ring = document.getElementById('capture-progress-ring');
-    ring.classList.remove('hidden');
-    // 30 Second Timer transition
-    ring.querySelector('circle').style.transition = 'stroke-dashoffset 30s linear';
-    void ring.offsetWidth; // Force Reflow
-    ring.querySelector('circle').style.strokeDashoffset = '0';
+    ring.classList.remove('opacity-0');
+    
+    const circle = ring.querySelector('circle');
+    // Force reflow to ensure animation restarts perfectly
+    circle.style.transition = 'none';
+    circle.style.strokeDashoffset = '239';
+    void circle.offsetWidth; 
+    
+    // 30 Second Timer transition matching exactly to the timeout
+    circle.style.transition = 'stroke-dashoffset 30s linear';
+    circle.style.strokeDashoffset = '0';
 
     let options = { mimeType: 'video/webm;codecs=vp8,opus' };
     if (!MediaRecorder.isTypeSupported(options.mimeType)) {
@@ -538,7 +546,7 @@ function startRecording() {
     };
 
     mediaRecorder.start();
-    // 30 Second Limit
+    // Force stop exactly at 30 seconds
     recordingTimer = setTimeout(() => { if (isRecording) stopRecording(); }, 30000); 
 }
 
@@ -551,13 +559,14 @@ function stopRecording() {
     const innerCircle = document.getElementById('capture-inner-circle');
     innerCircle.style.backgroundColor = ''; 
     innerCircle.classList.add('bg-white');
-    innerCircle.classList.remove('scale-50', 'scale-90');
+    innerCircle.classList.remove('scale-75');
     
     const ring = document.getElementById('capture-progress-ring');
     if (ring) {
-        ring.classList.add('hidden');
-        ring.querySelector('circle').style.transition = 'none';
-        ring.querySelector('circle').style.strokeDashoffset = '233'; // Matches new circumference
+        ring.classList.add('opacity-0');
+        const circle = ring.querySelector('circle');
+        circle.style.transition = 'none';
+        circle.style.strokeDashoffset = '239';
     }
 }
 
@@ -618,13 +627,16 @@ function resetCameraUI() {
     if(innerCircle) {
         innerCircle.style.backgroundColor = ''; 
         innerCircle.classList.add('bg-white');
-        innerCircle.classList.remove('scale-50', 'scale-90');
+        innerCircle.classList.remove('scale-75');
     }
     const ring = document.getElementById('capture-progress-ring');
     if (ring) {
-        ring.classList.add('hidden');
-        ring.querySelector('circle').style.transition = 'none';
-        ring.querySelector('circle').style.strokeDashoffset = '233';
+        ring.classList.add('opacity-0');
+        const circle = ring.querySelector('circle');
+        if(circle) {
+            circle.style.transition = 'none';
+            circle.style.strokeDashoffset = '239';
+        }
     }
 }
 function showPreviewUI() {
