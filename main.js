@@ -3062,3 +3062,30 @@ window.fetchSupportHistory = async function() {
         container.innerHTML = `<p class="text-sm text-center py-4 text-error">Failed to load history.</p>`;
     }
 };
+// Opens the native bottom sheet with your options
+window.openReportReasonSelector = function() {
+    const buttons = `
+        <div class="px-4 py-3 border-b border-surface-variant/40 dark:border-neutral-800 text-center">
+            <p class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Select Reason</p>
+        </div>
+        <button onclick="setReportReason('spam', 'Spam or Fake Account')" class="w-full flex items-center px-5 py-4 border-b border-surface-variant/40 dark:border-neutral-800 font-bold text-[15px] text-on-surface dark:text-gray-100 hover:bg-surface-variant/30 active:bg-surface-variant/50 transition-colors">Spam or Fake Account</button>
+        <button onclick="setReportReason('harassment', 'Harassment or Bullying')" class="w-full flex items-center px-5 py-4 border-b border-surface-variant/40 dark:border-neutral-800 font-bold text-[15px] text-on-surface dark:text-gray-100 hover:bg-surface-variant/30 active:bg-surface-variant/50 transition-colors">Harassment or Bullying</button>
+        <button onclick="setReportReason('inappropriate_content', 'Inappropriate Content')" class="w-full flex items-center px-5 py-4 font-bold text-[15px] text-on-surface dark:text-gray-100 hover:bg-surface-variant/30 active:bg-surface-variant/50 transition-colors">Inappropriate Content</button>
+    `;
+    window.openActionSheet(buttons); // Spawns the sheet
+};
+
+// Handles the selection, updates the UI, and closes the sheet
+window.setReportReason = function(value, labelText) {
+    // 1. Update the hidden input so your submitReport() function still works
+    document.getElementById('report-reason').value = value;
+    
+    // 2. Update the UI text to look active/selected
+    const label = document.getElementById('report-reason-label');
+    label.textContent = labelText;
+    label.classList.remove('text-on-surface-variant', 'dark:text-gray-400');
+    label.classList.add('text-on-surface', 'dark:text-gray-100', 'font-medium');
+    
+    // 3. Close the bottom sheet
+    window.closeActionSheet();
+};
