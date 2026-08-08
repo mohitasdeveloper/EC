@@ -784,11 +784,14 @@
         </div>
         <div class="flex-1 overflow-y-auto px-5 py-6">
             <div class="space-y-4">
-                <select id="feedback-type" class="w-full bg-surface-variant/30 dark:bg-neutral-900/50 border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3.5 text-[14px] outline-none focus:border-primary text-on-surface dark:text-white">
-                    <option value="issue">Report an Issue</option>
-                    <option value="feedback">General Feedback</option>
-                </select>
-                
+               <!-- Native-style Trigger Button -->
+<div onclick="openFeedbackTypeSelector()" class="w-full bg-surface-variant/30 dark:bg-neutral-900/50 border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3.5 text-[14px] cursor-pointer flex justify-between items-center text-on-surface dark:text-white active:scale-[0.98] transition-all">
+    <span id="feedback-type-label" class="font-medium">Report an Issue</span>
+    <span class="material-symbols-outlined text-[20px] text-on-surface-variant">expand_more</span>
+</div>
+
+<!-- Hidden input (defaults to 'issue') to store the value for the backend -->
+<input type="hidden" id="feedback-type" value="issue">
                 <textarea id="feedback-description" placeholder="Describe your issue or feedback..." class="w-full bg-surface-variant/30 dark:bg-neutral-900/50 border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3.5 text-[14px] outline-none focus:border-primary text-on-surface dark:text-white h-32 resize-none"></textarea>
                 
                 <input type="file" id="feedback-image-upload" accept="image/*" class="hidden">
