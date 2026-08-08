@@ -774,7 +774,46 @@
         </div>
     </main>
 
- 
+ <!-- DETAILED VIEW: SUBMIT FEEDBACK -->
+    <div id="settings-submit-feedback-panel" class="absolute inset-y-0 right-0 w-full max-w-screen-md mx-auto flex flex-col transition-transform duration-300 translate-x-full bg-surface dark:bg-[#121212] z-30">
+        <div class="pt-[max(1rem,env(safe-area-inset-top))] pb-4 border-b border-surface-variant/40 dark:border-neutral-800 flex items-center px-5 shrink-0 bg-surface/90 dark:bg-[#121212]/90 backdrop-blur-xl">
+            <button onclick="closeSettingsSubPanel('settings-submit-feedback-panel')" class="p-2 -ml-2 rounded-full hover:bg-surface-variant/50 text-on-surface dark:text-gray-100 transition-colors flex items-center justify-center">
+                <span class="material-symbols-outlined text-[28px]">arrow_back</span>
+            </button>
+            <h2 class="text-xl font-extrabold ml-2 text-on-surface dark:text-gray-100 tracking-tight">Submit Feedback</h2>
+        </div>
+        <div class="flex-1 overflow-y-auto px-5 py-6">
+            <div class="space-y-4">
+                <select id="feedback-type" class="w-full bg-surface-variant/30 dark:bg-neutral-900/50 border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3.5 text-[14px] outline-none focus:border-primary text-on-surface dark:text-white">
+                    <option value="issue">Report an Issue</option>
+                    <option value="feedback">General Feedback</option>
+                </select>
+                
+                <textarea id="feedback-description" placeholder="Describe your issue or feedback..." class="w-full bg-surface-variant/30 dark:bg-neutral-900/50 border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3.5 text-[14px] outline-none focus:border-primary text-on-surface dark:text-white h-32 resize-none"></textarea>
+                
+                <input type="file" id="feedback-image-upload" accept="image/*" class="hidden">
+                <div id="feedback-image-preview-container" class="w-full h-32 border-2 border-dashed border-surface-variant/80 dark:border-neutral-700 rounded-2xl flex flex-col items-center justify-center text-on-surface-variant dark:text-gray-400 cursor-pointer hover:border-primary hover:text-primary transition-colors bg-surface-variant/10 relative overflow-hidden p-2" onclick="document.getElementById('feedback-image-upload').click()">
+                    <span class="material-symbols-outlined text-[32px] mb-2">add_photo_alternate</span>
+                    <span class="text-sm font-medium">Tap to upload image</span>
+                </div>
+
+                <button id="btn-submit-feedback" onclick="submitSupportFeedback()" class="w-full bg-primary text-white font-bold py-3.5 rounded-xl active:scale-95 transition-transform">Submit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DETAILED VIEW: SUPPORT HISTORY -->
+    <div id="settings-support-history-panel" class="absolute inset-y-0 right-0 w-full max-w-screen-md mx-auto flex flex-col transition-transform duration-300 translate-x-full bg-surface dark:bg-[#121212] z-30">
+        <div class="pt-[max(1rem,env(safe-area-inset-top))] pb-4 border-b border-surface-variant/40 dark:border-neutral-800 flex items-center px-5 shrink-0 bg-surface/90 dark:bg-[#121212]/90 backdrop-blur-xl">
+            <button onclick="closeSettingsSubPanel('settings-support-history-panel')" class="p-2 -ml-2 rounded-full hover:bg-surface-variant/50 text-on-surface dark:text-gray-100 transition-colors flex items-center justify-center">
+                <span class="material-symbols-outlined text-[28px]">arrow_back</span>
+            </button>
+            <h2 class="text-xl font-extrabold ml-2 text-on-surface dark:text-gray-100 tracking-tight">Support History</h2>
+        </div>
+        <div class="flex-1 overflow-y-auto px-5 py-6">
+            <div id="support-history-container" class="space-y-4"></div>
+        </div>
+    </div>
     <!-- ============================================== -->
     <!-- DEDICATED FULL-SCREEN VIEWS -->
     <!-- ============================================== -->
