@@ -1142,12 +1142,14 @@
             <p class="text-sm text-on-surface-variant dark:text-gray-400 mb-4">Please specify why you are reporting this
                 post.</p>
             <div class="space-y-4">
-                <select id="report-reason" class="w-full bg-surface-variant/30 dark:bg-surface-variant/5 border border-surface-variant/50 dark:border-neutral-700 focus:border-primary rounded-xl px-4 py-3 text-sm outline-none dark:text-gray-100">
-    <option value="">-- Select a reason --</option>
-    <option value="spam">Spam or Fake Account</option>
-    <option value="harassment">Harassment or Bullying</option>
-    <option value="inappropriate_content">Inappropriate Content</option>
-</select>
+                <!-- Native-style Trigger Button -->
+<div onclick="openReportReasonSelector()" class="w-full bg-surface-variant/30 dark:bg-surface-variant/5 border border-surface-variant/50 dark:border-neutral-700 rounded-xl px-4 py-3.5 text-[14px] cursor-pointer flex justify-between items-center text-on-surface-variant dark:text-gray-400 active:scale-[0.98] transition-all">
+    <span id="report-reason-label">-- Select a reason --</span>
+    <span class="material-symbols-outlined text-[20px]">expand_more</span>
+</div>
+
+<!-- Hidden input to store the actual value for your backend -->
+<input type="hidden" id="report-reason" value="">
                 <textarea id="report-post-description" placeholder="Additional details..."
                     class="w-full bg-surface-variant/30 dark:bg-surface-variant/5 border border-surface-variant/50 dark:border-neutral-700 focus:border-primary rounded-xl px-4 py-3 text-sm h-24 resize-none outline-none dark:text-gray-100"></textarea>
             </div>
