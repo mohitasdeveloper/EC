@@ -3089,3 +3089,30 @@ window.setReportReason = function(value, labelText) {
     // 3. Close the bottom sheet
     window.closeActionSheet();
 };
+// Opens the native bottom sheet for Feedback Type
+window.openFeedbackTypeSelector = function() {
+    const buttons = `
+        <div class="px-4 py-3 border-b border-surface-variant/40 dark:border-neutral-800 text-center">
+            <p class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Feedback Type</p>
+        </div>
+        <button onclick="setFeedbackType('issue', 'Report an Issue')" class="w-full flex items-center gap-3 px-5 py-4 border-b border-surface-variant/40 dark:border-neutral-800 font-bold text-[15px] text-on-surface dark:text-gray-100 hover:bg-surface-variant/30 active:bg-surface-variant/50 transition-colors">
+            <span class="material-symbols-outlined text-error">bug_report</span> Report an Issue
+        </button>
+        <button onclick="setFeedbackType('feedback', 'General Feedback')" class="w-full flex items-center gap-3 px-5 py-4 font-bold text-[15px] text-on-surface dark:text-gray-100 hover:bg-surface-variant/30 active:bg-surface-variant/50 transition-colors">
+            <span class="material-symbols-outlined text-primary">feedback</span> General Feedback
+        </button>
+    `;
+    window.openActionSheet(buttons);
+};
+
+// Handles the selection and updates the UI
+window.setFeedbackType = function(value, labelText) {
+    // Update hidden input for the database submission
+    document.getElementById('feedback-type').value = value;
+    
+    // Update the visible label
+    document.getElementById('feedback-type-label').textContent = labelText;
+    
+    // Close the Action Sheet
+    window.closeActionSheet();
+};
