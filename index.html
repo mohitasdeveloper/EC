@@ -1142,14 +1142,12 @@
             <p class="text-sm text-on-surface-variant dark:text-gray-400 mb-4">Please specify why you are reporting this
                 post.</p>
             <div class="space-y-4">
-                <select id="report-post-reason"
-                    class="w-full bg-surface-variant/30 dark:bg-surface-variant/5 border border-surface-variant/50 dark:border-neutral-700 focus:border-primary rounded-xl px-4 py-3 text-sm outline-none dark:text-gray-100">
-                    <option value="">-- Select a reason --</option>
-                    <option value="spam">Spam or Misleading</option>
-                    <option value="harassment">Harassment or Hate Speech</option>
-                    <option value="inappropriate_content">Inappropriate Content</option>
-                    <option value="scam">Scam / Fraud</option>
-                </select>
+                <select id="report-reason" class="w-full bg-surface-variant/30 dark:bg-surface-variant/5 border border-surface-variant/50 dark:border-neutral-700 focus:border-primary rounded-xl px-4 py-3 text-sm outline-none dark:text-gray-100">
+    <option value="">-- Select a reason --</option>
+    <option value="spam">Spam or Fake Account</option>
+    <option value="harassment">Harassment or Bullying</option>
+    <option value="inappropriate_content">Inappropriate Content</option>
+</select>
                 <textarea id="report-post-description" placeholder="Additional details..."
                     class="w-full bg-surface-variant/30 dark:bg-surface-variant/5 border border-surface-variant/50 dark:border-neutral-700 focus:border-primary rounded-xl px-4 py-3 text-sm h-24 resize-none outline-none dark:text-gray-100"></textarea>
             </div>
