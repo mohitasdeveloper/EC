@@ -548,9 +548,12 @@ function renderPosts(posts, isRefresh = false) {
                 `;
             }
         }
-      else if (post.post_type === 'poll') {
+    else if (post.post_type === 'poll') {
             const poll = Array.isArray(post.post_polls) ? post.post_polls[0] : post.post_polls;
             if (poll) {
+                // 🚀 HOTFIX: Define currentUserId from the global currentUser object
+                const currentUserId = currentUser ? currentUser.id : null;
+                
                 const votes = post.post_poll_votes || [];
                 const totalVotes = votes.length;
                 const myVotes = votes.filter(v => v.user_id === currentUserId).map(v => v.option_id);
