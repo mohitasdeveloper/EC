@@ -2,21 +2,24 @@ import { supabase } from './supabase.js';
 
 let currentUser = null;
 let searchTimeout = null;
+let currentSearchTab = 'all';
 
 const LIST_SKELETON = `
-    <div class="flex items-center gap-3 py-3 animate-pulse">
+    <div class="flex items-start gap-4 py-3 animate-pulse">
         <div class="w-[52px] h-[52px] rounded-full shimmer-bg shrink-0"></div>
-        <div class="flex-1">
-            <div class="h-3.5 shimmer-bg rounded-md w-1/2 mb-2"></div>
-            <div class="h-2.5 shimmer-bg rounded-md w-1/3"></div>
+        <div class="flex-1 mt-1">
+            <div class="h-4 shimmer-bg rounded-md w-1/2 mb-2"></div>
+            <div class="h-3 shimmer-bg rounded-md w-3/4 mb-2"></div>
+            <div class="h-2.5 shimmer-bg rounded-md w-1/3 mt-3"></div>
         </div>
     </div>
-`.repeat(5);
+`.repeat(4);
 
 export function initSearch(user) {
     currentUser = user;
     const searchInput = document.getElementById('search-input');
     const clearBtn = document.getElementById('clear-search-btn');
+    const tabsContainer = document.getElementById('search-tabs-container');
     
     // Live Debounced Search Listener
     if (searchInput) {
@@ -31,10 +34,13 @@ export function initSearch(user) {
             }
 
             if (query.length === 0) {
+                tabsContainer.classList.add('hidden');
                 document.getElementById('search-results-container').classList.add('hidden');
                 document.getElementById('explore-users-container').classList.remove('hidden');
             } else {
                 document.getElementById('explore-users-container').classList.add('hidden');
+                tabsContainer.classList.remove('hidden');
+                
                 const resultsContainer = document.getElementById('search-results-container');
                 resultsContainer.classList.remove('hidden');
                 resultsContainer.innerHTML = LIST_SKELETON;
@@ -53,10 +59,37 @@ export function initSearch(user) {
             clearBtn.classList.add('hidden');
             clearTimeout(searchTimeout);
             
+            tabsContainer.classList.add('hidden');
             document.getElementById('search-results-container').classList.add('hidden');
             document.getElementById('explore-users-container').classList.remove('hidden');
             
             searchInput.focus(); // Keep keyboard open
+        });
+    }
+
+    // Tabs Listener
+    if (tabsContainer) {
+        tabsContainer.addEventListener('click', (e) => {
+            const btn = e.target.closest('.search-tab-btn');
+            if (!btn) return;
+
+            // Reset all tabs to inactive styles
+            document.querySelectorAll('.search-tab-btn').forEach(b => {
+                b.classList.remove('bg-on-surface', 'text-surface', 'dark:bg-white', 'dark:text-black');
+                b.classList.add('bg-surface-variant/30', 'text-on-surface-variant', 'dark:bg-neutral-800', 'dark:text-gray-300');
+            });
+            
+            // Apply active styles to clicked tab
+            btn.classList.remove('bg-surface-variant/30', 'text-on-surface-variant', 'dark:bg-neutral-800', 'dark:text-gray-300');
+            btn.classList.add('bg-on-surface', 'text-surface', 'dark:bg-white', 'dark:text-black');
+
+            currentSearchTab = btn.dataset.tab;
+
+            const query = searchInput.value.trim();
+            if (query.length > 0) {
+                document.getElementById('search-results-container').innerHTML = LIST_SKELETON;
+                performSearch(query);
+            }
         });
     }
     
@@ -67,64 +100,6 @@ function getTickHtml(tickType) {
     if (!tickType || tickType === 'none') return '';
     const colors = { blue: 'text-[#1d9bf0]', gold: 'text-[#e8b339]', green: 'text-primary', gray: 'text-surface-variant' };
     return `<span class="material-symbols-outlined text-[14px] ${colors[tickType.toLowerCase()] || colors.blue}" style="font-variation-settings: 'FILL' 1;">verified</span>`;
-}
-
-// Fetch Top 5 Pages + Top 10 Students for Suggested Section
-// Fetch Top 5 Pages + Top 10 Students for Suggested Section
-async function fetchExploreUsers() {
-    const container = document.getElementById('explore-users-container');
-    if (!container) return;
-    
-    container.innerHTML = `<h3 class="text-[14px] font-bold text-on-surface dark:text-gray-100 mb-2 mt-1">Suggested for you</h3>` + LIST_SKELETON;
-
-    try {
-        const blockedIds = await window.getBlockedUserIds(currentUser.id);
-        // Exclude ourselves and blocked users
-        const excludeIds = [currentUser.id, ...blockedIds];
-
-        // 1. Fetch Top 5 Pages
-        const { data: pages, error: pagesError } = await supabase
-            .from('users')
-            .select('id, full_name, profile_img_url, course, tick_type, role')
-            .eq('role', 'page')
-            .eq('is_deleted', false)
-            .eq('is_deactivated', false)
-            .not('id', 'in', `(${excludeIds.join(',')})`)
-            .order('connection_count', { ascending: false })
-            .limit(5);
-
-        if (pagesError) throw pagesError;
-
-        // 2. Fetch Top 10 Students (Exclude Pages)
-        const { data: students, error: studentsError } = await supabase
-            .from('users')
-            .select('id, full_name, profile_img_url, course, tick_type, role')
-            .neq('role', 'page') 
-            .eq('is_deleted', false)
-            .eq('is_deactivated', false)
-            .not('id', 'in', `(${excludeIds.join(',')})`)
-            .order('connection_count', { ascending: false })
-            .limit(10);
-
-        if (studentsError) throw studentsError;
-        
-        // 3. Combine Arrays (Pages first, then Students)
-        const combinedData = [...(pages || []), ...(students || [])];
-
-        let html = `<h3 class="text-[14px] font-bold text-on-surface dark:text-gray-100 mb-2 mt-1">Suggested for you</h3>`;
-        
-        if (combinedData.length === 0) {
-            html += `<p class="text-sm italic text-center py-4 text-on-surface-variant dark:text-gray-400">No suggestions found.</p>`;
-        } else {
-            html += renderUserList(combinedData);
-        }
-        
-        container.innerHTML = html;
-
-    } catch (err) {
-        console.error('Error fetching explore users:', err);
-        container.innerHTML = `<p class="text-sm text-center py-4 text-error">Failed to load suggestions.</p>`;
-    }
 }
 
 // Search across all users and services
@@ -144,56 +119,55 @@ async function performSearch(query) {
                 .eq('is_deleted', false)
                 .eq('is_deactivated', false)
                 .not('id', 'in', `(${excludeIds.join(',')})`)
-                .limit(10),
+                .limit(20),
             
             supabase
                 .from('page_services')
-                .select('id, title, icon_name, url, open_in_app, page_id, users!inner(full_name, is_deleted, is_deactivated)')
+                .select('id, title, description, icon_name, url, open_in_app, page_id, users!inner(full_name, is_deleted, is_deactivated)')
                 .ilike('title', `%${query}%`)
                 .eq('is_active', true)
                 .eq('users.is_deleted', false)
                 .eq('users.is_deactivated', false)
                 .not('page_id', 'in', `(${excludeIds.join(',')})`)
-                .limit(5)
+                .limit(20)
         ]);
 
         if (usersRes.error) throw usersRes.error;
         if (servicesRes.error) throw servicesRes.error;
 
-        if (usersRes.data.length === 0 && servicesRes.data.length === 0) {
-            container.innerHTML = `
-                <div class="py-12 flex flex-col items-center justify-center opacity-40 text-on-surface-variant">
-                    <span class="material-symbols-outlined text-[42px] mb-2">person_search</span>
-                    <p class="text-sm font-medium">No results found matching "${query}"</p>
-                </div>
-            `;
-            return;
-        }
+        const allUsers = usersRes.data || [];
+        const studentsData = allUsers.filter(u => u.role !== 'page');
+        const pagesData = allUsers.filter(u => u.role === 'page');
+        const servicesData = servicesRes.data || [];
 
         let html = '';
 
-        // Render Services First if any match
-        if (servicesRes.data.length > 0) {
-            html += `<h4 class="text-[12px] font-bold text-primary uppercase tracking-wider mb-2 mt-2">Services</h4>`;
-            html += servicesRes.data.map(svc => `
-                <div onclick="window.openServiceLink('${svc.url}', ${svc.open_in_app})" class="flex items-center gap-3 py-3 px-3 cursor-pointer active:scale-[0.98] transition-all bg-primary/5 border border-primary/20 rounded-2xl mb-2 hover:bg-primary/10">
-                    <div class="w-11 h-11 rounded-full bg-primary text-white flex items-center justify-center shadow-sm shrink-0">
-                        <span class="material-symbols-outlined text-[20px]">${svc.icon_name}</span>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <p class="font-extrabold text-[14px] text-on-surface dark:text-gray-100 truncate">${svc.title}</p>
-                        <p class="text-[11px] font-bold text-primary mt-[1px] truncate flex items-center gap-1">
-                            By ${svc.users.full_name} <span class="material-symbols-outlined text-[12px]">open_in_new</span>
-                        </p>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        // Render Users
-        if (usersRes.data.length > 0) {
-            if (servicesRes.data.length > 0) html += `<h4 class="text-[12px] font-bold text-on-surface-variant uppercase tracking-wider mb-2 mt-4">Profiles</h4>`;
-            html += renderUserList(usersRes.data);
+        if (currentSearchTab === 'all') {
+            if (allUsers.length === 0 && servicesData.length === 0) {
+                container.innerHTML = getEmptyStateHTML(query);
+                return;
+            }
+            if (servicesData.length > 0) {
+                html += `<h4 class="text-[13px] font-extrabold text-on-surface dark:text-gray-100 mb-2 mt-2">Services</h4>`;
+                html += renderServiceList(servicesData.slice(0, 5));
+            }
+            if (pagesData.length > 0) {
+                html += `<h4 class="text-[13px] font-extrabold text-on-surface dark:text-gray-100 mb-2 mt-4">Pages</h4>`;
+                html += renderUserList(pagesData.slice(0, 5));
+            }
+            if (studentsData.length > 0) {
+                html += `<h4 class="text-[13px] font-extrabold text-on-surface dark:text-gray-100 mb-2 mt-4">Users</h4>`;
+                html += renderUserList(studentsData.slice(0, 5));
+            }
+        } else if (currentSearchTab === 'users') {
+            if (studentsData.length === 0) return container.innerHTML = getEmptyStateHTML(query, 'Users');
+            html += renderUserList(studentsData);
+        } else if (currentSearchTab === 'pages') {
+            if (pagesData.length === 0) return container.innerHTML = getEmptyStateHTML(query, 'Pages');
+            html += renderUserList(pagesData);
+        } else if (currentSearchTab === 'services') {
+            if (servicesData.length === 0) return container.innerHTML = getEmptyStateHTML(query, 'Services');
+            html += renderServiceList(servicesData);
         }
 
         container.innerHTML = html;
@@ -203,7 +177,28 @@ async function performSearch(query) {
         container.innerHTML = `<p class="text-sm text-center py-4 text-error">Search failed.</p>`;
     }
 }
-// Universal UI Renderer ("Official Page" for pages, course/Student for students)
+
+// 🚀 NEW: The ChatGPT Style List Renderer
+function renderServiceList(services) {
+    return services.map(svc => `
+        <div onclick="window.openServiceLink('${svc.url}', ${svc.open_in_app})" class="flex items-start gap-4 py-3 cursor-pointer active:opacity-60 transition-opacity">
+            <!-- Circular Icon -->
+            <div class="w-[52px] h-[52px] rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20">
+                <span class="material-symbols-outlined text-[26px]">${svc.icon_name}</span>
+            </div>
+            <!-- Content Area -->
+            <div class="flex-1 min-w-0 flex flex-col pt-0.5">
+                <p class="font-extrabold text-[15px] text-on-surface dark:text-gray-100 truncate leading-tight">${svc.title}</p>
+                ${svc.description ? `<p class="text-[13px] text-on-surface-variant dark:text-gray-400 leading-snug line-clamp-2 mt-1 pr-2">${svc.description}</p>` : ''}
+                <p class="text-[11px] font-medium text-on-surface-variant/70 dark:text-gray-500 mt-1.5">
+                    By ${svc.users.full_name}
+                </p>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Existing User Renderer
 function renderUserList(users) {
     return users.map(user => {
         const rawAvatarUrl = user.profile_img_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&background=e1e3e4`;
@@ -230,4 +225,62 @@ function renderUserList(users) {
         </div>
         `;
     }).join('');
+}
+
+function getEmptyStateHTML(query, type = 'results') {
+    return `
+        <div class="py-12 flex flex-col items-center justify-center opacity-40 text-on-surface-variant">
+            <span class="material-symbols-outlined text-[42px] mb-2">search_off</span>
+            <p class="text-sm font-medium">No ${type.toLowerCase()} found matching "${query}"</p>
+        </div>
+    `;
+}
+
+// Fetch Top 5 Pages + Top 10 Students for Suggested Section
+async function fetchExploreUsers() {
+    const container = document.getElementById('explore-users-container');
+    if (!container) return;
+    
+    container.innerHTML = `<h3 class="text-[14px] font-bold text-on-surface dark:text-gray-100 mb-2 mt-1">Suggested for you</h3>` + LIST_SKELETON;
+
+    try {
+        const blockedIds = await window.getBlockedUserIds(currentUser.id);
+        const excludeIds = [currentUser.id, ...blockedIds];
+
+        const { data: pages } = await supabase
+            .from('users')
+            .select('id, full_name, profile_img_url, course, tick_type, role')
+            .eq('role', 'page')
+            .eq('is_deleted', false)
+            .eq('is_deactivated', false)
+            .not('id', 'in', `(${excludeIds.join(',')})`)
+            .order('connection_count', { ascending: false })
+            .limit(5);
+
+        const { data: students } = await supabase
+            .from('users')
+            .select('id, full_name, profile_img_url, course, tick_type, role')
+            .neq('role', 'page') 
+            .eq('is_deleted', false)
+            .eq('is_deactivated', false)
+            .not('id', 'in', `(${excludeIds.join(',')})`)
+            .order('connection_count', { ascending: false })
+            .limit(10);
+        
+        const combinedData = [...(pages || []), ...(students || [])];
+
+        let html = `<h3 class="text-[14px] font-bold text-on-surface dark:text-gray-100 mb-2 mt-1">Suggested for you</h3>`;
+        
+        if (combinedData.length === 0) {
+            html += `<p class="text-sm italic text-center py-4 text-on-surface-variant dark:text-gray-400">No suggestions found.</p>`;
+        } else {
+            html += renderUserList(combinedData);
+        }
+        
+        container.innerHTML = html;
+
+    } catch (err) {
+        console.error('Error fetching explore users:', err);
+        container.innerHTML = `<p class="text-sm text-center py-4 text-error">Failed to load suggestions.</p>`;
+    }
 }
