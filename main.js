@@ -369,17 +369,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     currentUserProfile = profile;
 
-    // 🚀 THE LOCKDOWN INTERCEPTOR: Check Verification Status
-    if (profile.verification_status !== 'verified') {
-        // Load and initialize the verification lockdown screen
-        import('./verification.js').then(module => {
-            module.initVerification(profile);
-        });
-        return; // HALT MAIN APP INITIALIZATION completely
-    }
+   // Initialize the verification module in the background
+    import('./verification.js').then(module => {
+        module.initVerification(profile);
+    });
 
-    // If verified, proceed normally
+    // Proceed to load the app UI (Read-Only access granted)
     initializeApp(profile);
+    
+    // Inject the Persistent Verification Banner
+    setupVerificationBanner(profile.verification_status);
 });
 
 function initializeApp(profile) {
@@ -3116,3 +3115,60 @@ window.setFeedbackType = function(value, labelText) {
     // Close the Action Sheet
     window.closeActionSheet();
 };
+// ========================================================
+// GLOBAL VERIFICATION ENGINE (Soft Restrict)
+// ========================================================
+window.checkVerification = function(actionName = 'do this') {
+    if (!currentUserProfile) return false;
+    const status = currentUserProfile.verification_status;
+    
+    if (status === 'verified') return true;
+
+    // Smart contextual messaging
+    let msg = `You must verify your student ID to ${actionName}.`;
+    if (status === 'pending') msg = `Your ID is under review. You can ${actionName} once approved.`;
+    else if (status === 'rejected') msg = `Verification rejected. Please update your details to ${actionName}.`;
+
+    import('./ui.js').then(({ showToast }) => showToast(msg, 'warning'));
+    
+    // Auto-open the verification modal
+    const verifyView = document.getElementById('view-verification');
+    if (verifyView) {
+        verifyView.classList.remove('hidden');
+        verifyView.classList.add('flex');
+    }
+    return false;
+};
+
+function setupVerificationBanner(status) {
+    const banner = document.getElementById('verification-banner');
+    const title = document.getElementById('banner-title');
+    const desc = document.getElementById('banner-desc');
+    
+    if (!banner) return;
+
+    if (status === 'verified') {
+        banner.classList.add('hidden');
+        return;
+    }
+
+    banner.classList.remove('hidden');
+    
+    if (status === 'pending') {
+        banner.className = "mx-4 mb-4 mt-2 bg-blue-500/10 border border-blue-500/30 rounded-2xl p-4 flex items-center justify-between cursor-pointer";
+        title.className = "text-[14px] font-bold text-blue-600 dark:text-blue-500 leading-tight";
+        title.textContent = "ID Under Review";
+        desc.textContent = "We are currently verifying your credentials.";
+        banner.querySelector('.material-symbols-outlined').textContent = "hourglass_empty";
+        banner.querySelector('.material-symbols-outlined').classList.replace('text-orange-500', 'text-blue-500');
+        banner.querySelector('.material-symbols-outlined:last-child').classList.replace('text-orange-500', 'text-blue-500');
+    } else if (status === 'rejected') {
+        banner.className = "mx-4 mb-4 mt-2 bg-error/10 border border-error/30 rounded-2xl p-4 flex items-center justify-between cursor-pointer";
+        title.className = "text-[14px] font-bold text-error leading-tight";
+        title.textContent = "Verification Rejected";
+        desc.textContent = "Tap here to update your details.";
+        banner.querySelector('.material-symbols-outlined').textContent = "error";
+        banner.querySelector('.material-symbols-outlined').classList.replace('text-orange-500', 'text-error');
+        banner.querySelector('.material-symbols-outlined:last-child').classList.replace('text-orange-500', 'text-error');
+    }
+}
