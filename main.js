@@ -3285,11 +3285,11 @@ window.fetchPageServices = async function(userId, isMyProfile = false) {
         // Add 'Add Link' button for owners
         if (isMyProfile) {
             html += `
-            <div onclick="window.openManageServiceModal()" class="w-[150px] min-h-[130px] rounded-[20px] border-2 border-dashed border-surface-variant dark:border-neutral-700 bg-transparent flex flex-col items-center justify-center p-4 shrink-0 snap-start cursor-pointer active:scale-[0.98] transition-all hover:border-primary/50 group">
-                <div class="w-12 h-12 rounded-full bg-surface-variant/30 dark:bg-neutral-800 text-on-surface dark:text-gray-300 flex items-center justify-center mb-2 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+            <div onclick="window.openManageServiceModal()" class="w-[180px] min-h-[150px] rounded-[24px] border-2 border-dashed border-surface-variant dark:border-neutral-700 bg-transparent flex flex-col items-center justify-center p-4 shrink-0 snap-start cursor-pointer active:scale-[0.98] transition-all hover:border-primary/50 group">
+                <div class="w-12 h-12 rounded-full bg-surface-variant/30 dark:bg-neutral-800 text-on-surface dark:text-gray-300 flex items-center justify-center mb-3 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
                     <span class="material-symbols-outlined text-[24px]">add</span>
                 </div>
-                <p class="text-[13px] font-extrabold text-on-surface-variant dark:text-gray-400 group-hover:text-primary transition-colors text-center">Add Link</p>
+                <p class="text-[14px] font-extrabold text-on-surface-variant dark:text-gray-400 group-hover:text-primary transition-colors text-center">Add New Service</p>
             </div>
             `;
         }
@@ -3297,20 +3297,29 @@ window.fetchPageServices = async function(userId, isMyProfile = false) {
         // Render actual service cards
         data.forEach(service => {
             const clickAction = isMyProfile 
-                ? `window.openManageServiceModal('${service.id}', '${service.title.replace(/'/g, "\\'")}', '${service.url}', '${service.icon_name}', ${service.open_in_app})`
+                ? `window.openManageServiceModal('${service.id}', '${service.title.replace(/'/g, "\\'")}', '${(service.description || '').replace(/'/g, "\\'")}', '${service.url}', '${service.icon_name}', ${service.open_in_app})`
                 : `window.openServiceLink('${service.url}', ${service.open_in_app})`;
 
             html += `
-            <div onclick="${clickAction}" class="w-[150px] min-h-[130px] rounded-[20px] border border-surface-variant/60 dark:border-neutral-800 bg-surface dark:bg-neutral-900 flex flex-col p-4 shrink-0 snap-start cursor-pointer active:scale-[0.98] transition-all shadow-sm hover:border-primary/40 group">
-                <div class="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-auto">
-                    <span class="material-symbols-outlined text-[20px]">${service.icon_name}</span>
+            <div onclick="${clickAction}" class="w-[180px] min-h-[150px] rounded-[24px] border border-surface-variant/60 dark:border-neutral-800 bg-surface dark:bg-neutral-900 flex flex-col p-4 shrink-0 snap-start cursor-pointer active:scale-[0.98] transition-all shadow-sm hover:shadow-md hover:border-primary/40 group text-left relative overflow-hidden">
+                
+                <!-- Icon -->
+                <div class="w-11 h-11 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-3">
+                    <span class="material-symbols-outlined text-[22px]">${service.icon_name}</span>
                 </div>
-                <div class="mt-3">
-                    <p class="text-[14px] font-extrabold text-on-surface dark:text-gray-100 leading-snug line-clamp-2 mb-1">${service.title}</p>
-                    <p class="text-[11px] font-bold text-on-surface-variant dark:text-gray-500 uppercase tracking-wider flex items-center gap-1 group-hover:text-primary transition-colors">
-                        ${isMyProfile ? 'Edit' : 'Open'} <span class="material-symbols-outlined text-[14px] transition-transform ${isMyProfile ? '' : 'group-hover:translate-x-0.5 group-hover:-translate-y-0.5'}">${isMyProfile ? 'edit' : 'call_made'}</span>
-                    </p>
+                
+                <!-- Content -->
+                <div class="flex flex-col flex-1 mb-4">
+                    <p class="text-[15px] font-extrabold text-on-surface dark:text-gray-100 leading-snug line-clamp-1 mb-1">${service.title}</p>
+                    ${service.description ? `<p class="text-[12px] font-medium text-on-surface-variant dark:text-gray-500 line-clamp-2 leading-snug">${service.description}</p>` : ''}
                 </div>
+                
+                <!-- Footer Action -->
+                <div class="mt-auto pt-3 border-t border-surface-variant/40 dark:border-neutral-800 w-full flex items-center justify-between text-[11px] font-extrabold ${isMyProfile ? 'text-on-surface-variant dark:text-gray-400' : 'text-primary'} uppercase tracking-wider">
+                    <span>${isMyProfile ? 'Edit Service' : 'Open Link'}</span>
+                    <span class="material-symbols-outlined text-[14px] transition-transform ${isMyProfile ? '' : 'group-hover:translate-x-1'}">${isMyProfile ? 'edit' : 'arrow_forward'}</span>
+                </div>
+
             </div>
             `;
         });
@@ -3323,13 +3332,14 @@ window.fetchPageServices = async function(userId, isMyProfile = false) {
 };
 
 // --- 3. Modal Controls ---
-window.openManageServiceModal = function(id = '', title = '', url = '', icon = 'link', openInApp = true) {
+window.openManageServiceModal = function(id = '', title = '', desc = '', url = '', icon = 'link', openInApp = true) {
     const modal = document.getElementById('modal-manage-service');
     const card = document.getElementById('manage-service-card');
     
-    document.getElementById('manage-service-title').textContent = id ? 'Edit Link' : 'Add Link';
+    document.getElementById('manage-service-title').textContent = id ? 'Edit Service' : 'Add Service';
     document.getElementById('service-edit-id').value = id;
     document.getElementById('service-title-input').value = title;
+    document.getElementById('service-desc-input').value = desc; // 🚀 Set Description
     document.getElementById('service-url-input').value = url;
     document.getElementById('service-icon-value').value = icon;
     document.getElementById('service-selected-icon').textContent = icon;
@@ -3370,6 +3380,7 @@ window.saveService = async function() {
     const btn = document.getElementById('service-save-btn');
     const id = document.getElementById('service-edit-id').value;
     const title = document.getElementById('service-title-input').value.trim();
+    const desc = document.getElementById('service-desc-input').value.trim(); // 🚀 Get Description
     const url = document.getElementById('service-url-input').value.trim();
     const icon = document.getElementById('service-icon-value').value;
     const openInApp = document.getElementById('service-inapp-toggle').checked;
@@ -3380,16 +3391,16 @@ window.saveService = async function() {
     btn.innerHTML = `<span class="material-symbols-outlined animate-spin">progress_activity</span>`;
 
     try {
-        const payload = { page_id: currentUserProfile.id, title, url, icon_name: icon, open_in_app: openInApp };
+        const payload = { page_id: currentUserProfile.id, title, description: desc, url, icon_name: icon, open_in_app: openInApp };
 
         if (id) {
             const { error } = await supabase.from('page_services').update(payload).eq('id', id);
             if (error) throw error;
-            import('./ui.js').then(({ showToast }) => showToast('Link updated.', 'success'));
+            import('./ui.js').then(({ showToast }) => showToast('Service updated.', 'success'));
         } else {
             const { error } = await supabase.from('page_services').insert(payload);
             if (error) throw error;
-            import('./ui.js').then(({ showToast }) => showToast('Link added!', 'success'));
+            import('./ui.js').then(({ showToast }) => showToast('Service added!', 'success'));
         }
 
         closeManageServiceModal();
@@ -3397,13 +3408,12 @@ window.saveService = async function() {
 
     } catch (error) {
         console.error(error);
-        import('./ui.js').then(({ showToast }) => showToast('Failed to save link.', 'error'));
+        import('./ui.js').then(({ showToast }) => showToast('Failed to save service.', 'error'));
     } finally {
         btn.disabled = false;
-        btn.textContent = 'Save Link';
+        btn.textContent = 'Save Service';
     }
 };
-
 window.deleteService = async function() {
     const id = document.getElementById('service-edit-id').value;
     if (!id) return;
