@@ -404,9 +404,9 @@
                 <p id="my-profile-bio" class="text-[14px] text-on-surface dark:text-gray-300 leading-snug whitespace-pre-wrap mb-4">---</p>
                 <div id="my-profile-social-links" class="flex gap-3 overflow-x-auto hide-scrollbar pb-1"></div>
                 <!-- Native Services Horizontal Scroller -->
-<div id="my-profile-services-wrapper" class="hidden mt-4">
-    <h4 class="text-[12px] font-bold text-primary uppercase tracking-wider mb-2">Services</h4>
-    <div id="my-profile-services-container" class="flex gap-3 overflow-x-auto hide-scrollbar pb-2 snap-x snap-mandatory px-1">
+<!-- Native Links Horizontal Scroller (My Profile) -->
+<div id="my-profile-services-wrapper" class="hidden mt-6 mb-2">
+    <div id="my-profile-services-container" class="flex gap-3 overflow-x-auto hide-scrollbar pb-4 pt-1 snap-x snap-mandatory px-1">
         <!-- Service Cards Inject Here -->
     </div>
 </div>
@@ -1234,10 +1234,9 @@
                 </div>
                 <p id="public-profile-bio" class="text-[13px] text-on-surface-variant dark:text-gray-400 mb-4 px-4 whitespace-pre-wrap">---</p>
                 <div class="flex gap-3 justify-center mb-6" id="public-profile-social-links"></div>
-                <!-- Native Services Horizontal Scroller (Public) -->
+                <!-- Native Links Horizontal Scroller (Public Profile) -->
 <div id="public-profile-services-wrapper" class="hidden w-full mb-6">
-    <h4 class="text-[12px] font-bold text-primary uppercase tracking-wider mb-2 text-left pl-2">Services</h4>
-    <div id="public-profile-services-container" class="flex gap-3 overflow-x-auto hide-scrollbar pb-2 snap-x snap-mandatory px-2">
+    <div id="public-profile-services-container" class="flex gap-3 overflow-x-auto hide-scrollbar pb-4 pt-1 snap-x snap-mandatory px-2">
         <!-- Service Cards Inject Here -->
     </div>
 </div>
@@ -1848,14 +1847,14 @@
         </div>
     </div>
 
-    <!-- ADD/EDIT SERVICE MODAL -->
+   <!-- ADD/EDIT LINK MODAL -->
     <div id="modal-manage-service" class="fixed inset-0 z-[600] bg-black/60 backdrop-blur-sm hidden flex-col justify-end transition-opacity duration-300 opacity-0 pointer-events-none">
         <div class="absolute inset-0 z-0" onclick="closeManageServiceModal()"></div>
         <div id="manage-service-card" class="bg-surface dark:bg-[#1e1e1e] w-full rounded-t-[32px] p-6 pb-8 relative transform translate-y-full transition-transform duration-300 max-w-screen-md mx-auto shadow-[0_-10px_40px_rgba(0,0,0,0.3)] z-10 flex flex-col max-h-[85vh]">
             <div class="w-12 h-1.5 bg-surface-variant/80 dark:bg-neutral-700 rounded-full mx-auto mb-4 shrink-0"></div>
             
             <div class="flex justify-between items-center mb-6 shrink-0">
-                <h3 id="manage-service-title" class="text-xl font-extrabold text-on-surface dark:text-gray-100">Add Service</h3>
+                <h3 id="manage-service-title" class="text-xl font-extrabold text-on-surface dark:text-gray-100">Add Link</h3>
                 <button onclick="closeManageServiceModal()" class="w-8 h-8 bg-surface-variant/50 dark:bg-neutral-800 rounded-full flex items-center justify-center text-on-surface dark:text-gray-100 active:scale-95 transition-transform">
                     <span class="material-symbols-outlined text-[18px]">close</span>
                 </button>
@@ -1874,8 +1873,8 @@
                 </div>
 
                 <div>
-                    <label class="text-[11px] font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider mb-1 block">Service Title</label>
-                    <input type="text" id="service-title-input" placeholder="e.g. Join Tech Club" maxlength="30" class="w-full bg-surface-variant/30 dark:bg-neutral-900/50 border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3.5 text-[14px] text-on-surface dark:text-gray-100 outline-none focus:border-primary">
+                    <label class="text-[11px] font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider mb-1 block">Title</label>
+                    <input type="text" id="service-title-input" placeholder="e.g. Register for Event" maxlength="35" class="w-full bg-surface-variant/30 dark:bg-neutral-900/50 border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3.5 text-[14px] text-on-surface dark:text-gray-100 outline-none focus:border-primary">
                 </div>
                 
                 <div>
@@ -1900,7 +1899,7 @@
                     <span class="material-symbols-outlined">delete</span>
                 </button>
                 <button id="service-save-btn" onclick="saveService()" class="flex-1 bg-primary text-white font-bold py-3.5 rounded-2xl active:scale-95 transition-transform shadow-lg shadow-primary/20">
-                    Save Service
+                    Save Link
                 </button>
             </div>
         </div>
@@ -1911,7 +1910,7 @@
         <div class="absolute inset-0 z-0" onclick="closeServiceIconPicker()"></div>
         <div id="service-icon-picker-card" class="bg-surface dark:bg-[#1e1e1e] w-full rounded-t-[32px] p-6 pb-8 relative transform translate-y-full transition-transform duration-300 max-w-screen-md mx-auto shadow-[0_-10px_40px_rgba(0,0,0,0.3)] z-10 flex flex-col h-[60vh]">
             <h3 class="text-lg font-extrabold text-on-surface dark:text-gray-100 mb-4 text-center shrink-0">Select Icon</h3>
-            <div id="service-icon-grid" class="flex-1 overflow-y-auto hide-scrollbar grid grid-cols-4 gap-4 pr-1 content-start">
+            <div id="service-icon-grid" class="flex-1 overflow-y-auto hide-scrollbar grid grid-cols-5 gap-3 pr-1 content-start">
                 <!-- Icons injected by JS -->
             </div>
         </div>
