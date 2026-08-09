@@ -220,6 +220,8 @@ async function uploadToCloudinary(file) {
 }
 
 async function submitPost() {
+    if (!window.checkVerification('create a post')) return;
+    
     const postType = document.getElementById('current-post-type').value;
     const contentHTML = quillEditor.root.innerHTML;
     const plainText = quillEditor.getText().trim();
@@ -552,6 +554,7 @@ window._likeLocks = window._likeLocks || {};
 
 window.handleLike = async function(postId, btnElement) {
     if (!currentUser || window._likeLocks[postId]) return; 
+    if (!window.checkVerification('like posts')) return; // 🚀 Soft Restrict Check
     window._likeLocks[postId] = true; // Lock the function
     
     const isLiked = btnElement.classList.contains('text-red-500');
@@ -616,6 +619,7 @@ window.handleLike = async function(postId, btnElement) {
 };
 
 window.handlePollVote = async function(postId, optionId, isUndo) {
+    if (!window.checkVerification('vote on polls')) return; // 🚀 Soft Restrict Check
     if (isVoting) return; 
     isVoting = true;
     
@@ -1103,8 +1107,9 @@ window.openCommentActionSheet = function(commentId, commentOwnerId) {
 };
 
 
-// 🚀 FIX: Nan Bug Fix on Submit!
 async function submitComment(postId) {
+    if (!window.checkVerification('comment on posts')) return; // 🚀 Soft Restrict Check
+    
     const input = document.getElementById('post-comment-input');
     const content = input.value.trim();
     if (!content) return;
@@ -1442,6 +1447,7 @@ window.openEventRsvps = async (postId) => {
 window.isRsvping = false;
 
 window.handleRSVP = async function(postId, isCurrentlyAttending) {
+    if (!window.checkVerification('RSVP to events')) return; // 🚀 Soft Restrict Check
     if (window.isRsvping) return;
     window.isRsvping = true;
     
