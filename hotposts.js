@@ -465,6 +465,8 @@ function attemptCloseCamera() {
 // CAMERA ENGINE
 // ==========================================
 async function openCameraModal() {
+    if (!window.checkVerification('post a story')) return; // 🚀 Soft Restrict Check
+
     const modal = document.getElementById('modal-hotpost-camera');
     const video = document.getElementById('hotpost-camera-feed');
     modal.classList.replace('hidden', 'flex');
@@ -2284,6 +2286,8 @@ async function recordView(hotpostId) {
 
 async function handleLikeHotpost(event) {
     event.stopPropagation(); 
+    if (!window.checkVerification('like stories')) return; // 🚀 Soft Restrict Check
+    
     const icon = event.currentTarget.querySelector('span');
     icon.style.fontVariationSettings = "'FILL' 1";
     icon.classList.add('text-red-500');
@@ -2294,6 +2298,8 @@ async function handleLikeHotpost(event) {
 
 async function handleReplyToHotpost(event) {
     event.stopPropagation(); 
+    if (!window.checkVerification('reply to stories')) return; // 🚀 Soft Restrict Check
+    
     const input = document.getElementById('hotpost-reply-input');
     const content = input.value.trim();
     if (!content) return;
