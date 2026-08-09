@@ -369,11 +369,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     currentUserProfile = profile;
 
-   // Initialize the verification module in the background
-    import('./verification.js').then(module => {
-        module.initVerification(profile);
+  // Initialize the verification module in the background
+    import('./verification.js').then(async module => {
+        // Let it bind its form events and upload listeners
+        await module.initVerification(profile);
+        
+        // 🚀 HOTFIX: Reverse the legacy "Hard Lockdown" UI overrides
+        setTimeout(() => {
+            // 1. Hide the full-screen modal so it doesn't show on load
+            const verifyView = document.getElementById('view-verification');
+            if (verifyView) {
+                verifyView.classList.remove('flex');
+                verifyView.classList.add('hidden');
+            }
+            
+            // 2. Forcefully un-hide the main app elements that verification.js hid
+            const mainContent = document.getElementById('main-content');
+            const header = document.querySelector('header');
+            const nav = document.querySelector('nav');
+            
+            if (mainContent) { mainContent.classList.remove('hidden'); mainContent.style.display = ''; }
+            if (header) { header.classList.remove('hidden'); header.style.display = ''; }
+            if (nav) { nav.classList.remove('hidden'); nav.style.display = ''; }
+        }, 100); // Slight delay ensures we overwrite its changes AFTER it finishes
     });
-
     // Proceed to load the app UI (Read-Only access granted)
     initializeApp(profile);
     
