@@ -164,9 +164,14 @@
             <span style="font-family:'Courgette',cursive;" class="text-[28px] bg-gradient-to-r from-[#00C853] via-[#00A2FF] to-[#2962FF] bg-clip-text text-transparent select-none">
                 ECampus
             </span>
-            <button class="verify-signout-btn text-[14px] font-bold text-error bg-error/10 px-4 py-1.5 rounded-full active:scale-95 transition-transform">
-                Sign Out
-            </button>
+         <div class="flex items-center gap-3">
+    <button class="verify-signout-btn text-[14px] font-bold text-error bg-error/10 px-4 py-1.5 rounded-full active:scale-95 transition-transform">
+        Sign Out
+    </button>
+    <button onclick="document.getElementById('view-verification').classList.replace('flex', 'hidden')" class="w-8 h-8 bg-surface-variant/50 dark:bg-neutral-800 rounded-full flex items-center justify-center text-on-surface dark:text-gray-100">
+        <span class="material-symbols-outlined text-[18px]">close</span>
+    </button>
+</div>
         </div>
 
         <div class="flex-1 px-6 py-8 max-w-screen-sm w-full mx-auto flex flex-col">
@@ -288,6 +293,17 @@
       
         <!-- DASHBOARD VIEW -->
 <div id="view-dashboard" class="tab-content active animate-fadeIn pt-2">   
+    <!-- Persistent Verification Banner -->
+<div id="verification-banner" class="hidden mx-4 mb-4 mt-2 bg-orange-500/10 border border-orange-500/30 rounded-2xl p-4 flex items-center justify-between cursor-pointer" onclick="document.getElementById('view-verification').classList.replace('hidden', 'flex')">
+    <div class="flex items-center gap-3">
+        <span class="material-symbols-outlined text-orange-500 text-[24px]">policy</span>
+        <div>
+            <h4 class="text-[14px] font-bold text-orange-600 dark:text-orange-500 leading-tight" id="banner-title">Verify Your Student ID</h4>
+            <p class="text-[12px] text-on-surface-variant dark:text-gray-400 mt-0.5" id="banner-desc">Unlock posting, likes, and connections.</p>
+        </div>
+    </div>
+    <span class="material-symbols-outlined text-orange-500">chevron_right</span>
+</div>
             <!-- HOTPOSTS -->
             <section class="mb-4">
                 <div class="flex justify-between items-center mb-3">
