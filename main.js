@@ -1585,6 +1585,11 @@ window.handleFollowAction = async function(pageId, action, btn, notifyState = tr
 // CONNECTION & BLOCKING ENGINE
 // ========================================================
 async function handleConnectionAction(targetUserId, action, btn) {
+    // 🚀 Soft Restrict Check: Block sending or accepting connection requests
+    if (['request', 'accept'].includes(action)) {
+        if (!window.checkVerification('connect with peers')) return; 
+    }
+
     const originalText = btn ? btn.innerHTML : '';
     if (btn) {
         btn.disabled = true;
