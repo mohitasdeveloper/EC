@@ -792,8 +792,9 @@ function generatePostHTML(posts, currentUserId) {
         else if (post.post_type === 'image') {
             contentHtml = `<div class="w-full bg-surface-variant/20 dark:bg-neutral-900 flex items-center justify-center border-y border-surface-variant/40 dark:border-neutral-800 mt-2"><img loading="lazy" src="${typeof optimizeImageUrl === 'function' ? optimizeImageUrl(post.media_url, 'feed') : post.media_url}" class="w-full h-auto max-h-[80vh] object-cover"></div>`;
         }
-        else if (post.post_type === 'event') {
-            const event = post.post_events && post.post_events.length > 0 ? post.post_events[0] : null;
+     else if (post.post_type === 'event') {
+            // 🚀 HOTFIX: Handle Supabase 1-to-1 object responses
+            const event = Array.isArray(post.post_events) ? post.post_events[0] : post.post_events;
             if (event) {
                 const optimizedEventMedia = typeof optimizeImageUrl === 'function' && event.event_image_url ? optimizeImageUrl(event.event_image_url, 'feed') : event.event_image_url;
                 const eventImgHtml = event.event_image_url ? `<img loading="lazy" src="${optimizedEventMedia}" class="w-full h-auto max-h-[80vh] object-cover border-y border-surface-variant/40 dark:border-neutral-800 mt-2">` : '';
@@ -804,7 +805,7 @@ function generatePostHTML(posts, currentUserId) {
                     actionHtml = `<a href="${event.register_url}" target="_blank" class="block w-full mt-3 bg-secondary text-white text-center py-2 rounded-xl text-[13px] font-bold active:scale-95 transition-transform">View Link</a>`;
                 } else if (event.enable_rsvp) {
                     const rsvps = post.post_event_rsvps || [];
-                    const isAttending = !!rsvps.find(r => r.user_id === currentUserProfile.id);
+                    const isAttending = !!rsvps.find(r => r.user_id === currentUser.id);
                     const btnClass = isAttending ? 'bg-surface-variant/50 text-on-surface dark:text-gray-100' : 'bg-primary text-white';
                     const btnText = isAttending ? '✓ Attending' : 'RSVP Now';
                     actionHtml = `<button onclick="window.handleRSVP('${post.id}', ${isAttending})" class="block w-full mt-3 ${btnClass} text-center py-2 rounded-xl text-[13px] font-bold active:scale-95 transition-all">${btnText}</button>`;
@@ -823,12 +824,13 @@ function generatePostHTML(posts, currentUserId) {
                 `;
             }
         }
-        else if (post.post_type === 'poll') {
-            const poll = post.post_polls && post.post_polls.length > 0 ? post.post_polls[0] : null;
+       else if (post.post_type === 'poll') {
+            // 🚀 HOTFIX: Handle Supabase 1-to-1 object responses
+            const poll = Array.isArray(post.post_polls) ? post.post_polls[0] : post.post_polls;
             if (poll) {
                 const votes = post.post_poll_votes || [];
                 const totalVotes = votes.length;
-                const myVotes = votes.filter(v => v.user_id === currentUserId).map(v => v.option_id);
+                const myVotes = votes.filter(v => v.user_id === currentUser.id).map(v => v.option_id);
                 const userHasVoted = myVotes.length > 0;
                 const isExpired = post.poll_expires_at && new Date(post.poll_expires_at) < new Date();
                 const showResults = userHasVoted || isExpired || post.poll_is_anon;
