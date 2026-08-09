@@ -406,7 +406,11 @@
                 <!-- Native Services Horizontal Scroller -->
 <!-- Native Links Horizontal Scroller (My Profile) -->
 <div id="my-profile-services-wrapper" class="hidden mt-6 mb-2">
-    <div id="my-profile-services-container" class="flex gap-3 overflow-x-auto hide-scrollbar pb-4 pt-1 snap-x snap-mandatory px-1">
+    <div class="flex items-center gap-2 mb-3 px-1">
+        <span class="material-symbols-outlined text-primary text-[18px]">widgets</span>
+        <h4 class="text-[13px] font-extrabold text-on-surface dark:text-gray-100 tracking-widest uppercase">Services</h4>
+    </div>
+    <div id="my-profile-services-container" class="flex gap-3 overflow-x-auto hide-scrollbar pb-4 pt-1 snap-x snap-mandatory px-1 text-left">
         <!-- Service Cards Inject Here -->
     </div>
 </div>
@@ -1234,9 +1238,13 @@
                 </div>
                 <p id="public-profile-bio" class="text-[13px] text-on-surface-variant dark:text-gray-400 mb-4 px-4 whitespace-pre-wrap">---</p>
                 <div class="flex gap-3 justify-center mb-6" id="public-profile-social-links"></div>
-                <!-- Native Links Horizontal Scroller (Public Profile) -->
-<div id="public-profile-services-wrapper" class="hidden w-full mb-6">
-    <div id="public-profile-services-container" class="flex gap-3 overflow-x-auto hide-scrollbar pb-4 pt-1 snap-x snap-mandatory px-2">
+              <!-- Native Links Horizontal Scroller (Public Profile) -->
+<div id="public-profile-services-wrapper" class="hidden w-full mb-6 text-left">
+    <div class="flex items-center gap-2 mb-3 px-2">
+        <span class="material-symbols-outlined text-primary text-[18px]">widgets</span>
+        <h4 class="text-[13px] font-extrabold text-on-surface dark:text-gray-100 tracking-widest uppercase">Services</h4>
+    </div>
+    <div id="public-profile-services-container" class="flex gap-3 overflow-x-auto hide-scrollbar pb-4 pt-1 snap-x snap-mandatory px-2 text-left">
         <!-- Service Cards Inject Here -->
     </div>
 </div>
@@ -1872,9 +1880,15 @@
                     <input type="hidden" id="service-icon-value" value="link">
                 </div>
 
-                <div>
+              <div>
                     <label class="text-[11px] font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider mb-1 block">Title</label>
                     <input type="text" id="service-title-input" placeholder="e.g. Register for Event" maxlength="35" class="w-full bg-surface-variant/30 dark:bg-neutral-900/50 border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3.5 text-[14px] text-on-surface dark:text-gray-100 outline-none focus:border-primary">
+                </div>
+                
+                <!-- 🚀 NEW: Description Field -->
+                <div>
+                    <label class="text-[11px] font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider mb-1 block">Description (Optional)</label>
+                    <input type="text" id="service-desc-input" placeholder="e.g. Fill out this form to join." maxlength="60" class="w-full bg-surface-variant/30 dark:bg-neutral-900/50 border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3.5 text-[14px] text-on-surface dark:text-gray-100 outline-none focus:border-primary">
                 </div>
                 
                 <div>
