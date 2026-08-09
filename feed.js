@@ -406,7 +406,9 @@ async function fetchPosts(isRefresh = false) {
         
         if (hasMorePosts) setupIntersectionObserver();
 
-    } catch (error) {
+   } catch (error) {
+        console.error("Supabase Feed Error:", error); // 🚀 ADD THIS LINE
+        
         if (isRefresh) {
             document.getElementById('feed-posts-container').innerHTML = `<p class="text-center py-10 text-error">Failed to load feed.</p>`;
         } else {
