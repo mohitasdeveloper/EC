@@ -97,11 +97,15 @@ export function initSearch(user) {
 }
 
 function getTickHtml(tickType) {
-    if (!tickType || tickType === 'none') return '';
-    const colors = { blue: 'text-[#1d9bf0]', gold: 'text-[#e8b339]', green: 'text-primary', gray: 'text-surface-variant' };
-    return `<span class="material-symbols-outlined text-[14px] ${colors[tickType.toLowerCase()] || colors.blue}" style="font-variation-settings: 'FILL' 1;">verified</span>`;
+    if (!tickType || tickType.toLowerCase().trim() === 'none') return '';
+    
+    // Check if the global engine exists, otherwise fallback to exact color injection
+    if (typeof window.getTickHtml === 'function') {
+        return window.getTickHtml(tickType);
+    }
+    
+    return `<span class="material-symbols-outlined text-[14px]" style="color: ${tickType.trim()}; font-variation-settings: 'FILL' 1;">verified</span>`;
 }
-
 // Search across all users and services
 async function performSearch(query) {
     const container = document.getElementById('search-results-container');
