@@ -661,7 +661,7 @@ function populateProfileUI(profile) {
     if (typeof fetchMyProfileFeed === 'function') {
         fetchMyProfileFeed(profile.id);
     }
- // Sync Native Mention Privacy Label
+// Sync Native Mention Privacy Label
     const mentionPrivacyLabel = document.getElementById('mention-privacy-label');
     if (mentionPrivacyLabel) {
         mentionPrivacyLabel.textContent = profile.mention_privacy === 'none' ? 'No One' : 'Connections';
@@ -1455,7 +1455,6 @@ async function viewUserProfile(userId) {
         renderSocialLinks(user.social_links, document.getElementById('public-profile-social-links'));
         renderProfileActions(user, connection, followRecord);
 
-       // Fetch their Posts Feed
        // Fetch their Posts Feed
         try {
             const { data: posts, error: postsError } = await supabase
@@ -3224,8 +3223,12 @@ function setupVerificationBanner(status) {
 
 const SERVICE_ICONS = [
     'link', 'language', 'shopping_cart', 'storefront', 'calendar_month', 'event_available',
-    'support_agent', 'forum', 'description', 'assignment', 'school', 'menu_book',
-    'groups', 'sports_esports', 'palette', 'code', 'movie', 'music_note', 'volunteer_activism'
+    'support_agent', 'forum', 'chat', 'description', 'assignment', 'school', 'menu_book',
+    'groups', 'sports_esports', 'palette', 'code', 'movie', 'music_note', 'volunteer_activism',
+    'article', 'confirmation_number', 'video_library', 'photo_library', 'work', 'gavel',
+    'health_and_safety', 'fitness_center', 'restaurant', 'local_cafe', 'flight', 'hotel',
+    'account_balance', 'campaign', 'podcasts', 'headset', 'mic', 'camera_alt', 'videocam',
+    'local_offer', 'payments', 'qr_code_scanner', 'star', 'emoji_events'
 ];
 
 // --- 1. Capacitor Native Link Router ---
@@ -3279,34 +3282,33 @@ window.fetchPageServices = async function(userId, isMyProfile = false) {
         wrapper.classList.remove('hidden');
         let html = '';
 
-        // Add 'Create Service' button for owners
+        // Add 'Add Link' button for owners
         if (isMyProfile) {
             html += `
-            <div onclick="window.openManageServiceModal()" class="w-[120px] min-h-[110px] rounded-2xl border-2 border-dashed border-primary/40 bg-primary/5 flex flex-col items-center justify-center p-3 shrink-0 snap-start cursor-pointer active:scale-95 transition-transform">
-                <div class="w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center mb-2">
-                    <span class="material-symbols-outlined text-[20px]">add</span>
+            <div onclick="window.openManageServiceModal()" class="w-[150px] min-h-[130px] rounded-[20px] border-2 border-dashed border-surface-variant dark:border-neutral-700 bg-transparent flex flex-col items-center justify-center p-4 shrink-0 snap-start cursor-pointer active:scale-[0.98] transition-all hover:border-primary/50 group">
+                <div class="w-12 h-12 rounded-full bg-surface-variant/30 dark:bg-neutral-800 text-on-surface dark:text-gray-300 flex items-center justify-center mb-2 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                    <span class="material-symbols-outlined text-[24px]">add</span>
                 </div>
-                <p class="text-[12px] font-bold text-primary text-center leading-tight">Add Service</p>
+                <p class="text-[13px] font-extrabold text-on-surface-variant dark:text-gray-400 group-hover:text-primary transition-colors text-center">Add Link</p>
             </div>
             `;
         }
 
         // Render actual service cards
         data.forEach(service => {
-            // If owner, clicking edits it. If viewer, clicking opens it.
             const clickAction = isMyProfile 
                 ? `window.openManageServiceModal('${service.id}', '${service.title.replace(/'/g, "\\'")}', '${service.url}', '${service.icon_name}', ${service.open_in_app})`
                 : `window.openServiceLink('${service.url}', ${service.open_in_app})`;
 
             html += `
-            <div onclick="${clickAction}" class="w-[130px] min-h-[110px] rounded-2xl border border-surface-variant/50 dark:border-neutral-800 bg-surface-container-lowest dark:bg-neutral-900/50 flex flex-col items-start justify-between p-3 shrink-0 snap-start cursor-pointer active:scale-95 transition-all shadow-sm hover:shadow-md hover:border-primary/30 relative overflow-hidden group">
-                <div class="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center shadow-sm">
-                    <span class="material-symbols-outlined text-[18px]">${service.icon_name}</span>
+            <div onclick="${clickAction}" class="w-[150px] min-h-[130px] rounded-[20px] border border-surface-variant/60 dark:border-neutral-800 bg-surface dark:bg-neutral-900 flex flex-col p-4 shrink-0 snap-start cursor-pointer active:scale-[0.98] transition-all shadow-sm hover:border-primary/40 group">
+                <div class="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-auto">
+                    <span class="material-symbols-outlined text-[20px]">${service.icon_name}</span>
                 </div>
-                <div class="mt-2 w-full">
-                    <p class="text-[13px] font-extrabold text-on-surface dark:text-gray-100 leading-tight line-clamp-2">${service.title}</p>
-                    <p class="text-[10px] font-medium text-on-surface-variant/80 dark:text-gray-500 mt-1 flex items-center gap-1 uppercase tracking-wider">
-                        ${isMyProfile ? 'Edit' : 'Open'} <span class="material-symbols-outlined text-[12px] transition-transform group-hover:translate-x-1">${isMyProfile ? 'edit' : 'arrow_forward'}</span>
+                <div class="mt-3">
+                    <p class="text-[14px] font-extrabold text-on-surface dark:text-gray-100 leading-snug line-clamp-2 mb-1">${service.title}</p>
+                    <p class="text-[11px] font-bold text-on-surface-variant dark:text-gray-500 uppercase tracking-wider flex items-center gap-1 group-hover:text-primary transition-colors">
+                        ${isMyProfile ? 'Edit' : 'Open'} <span class="material-symbols-outlined text-[14px] transition-transform ${isMyProfile ? '' : 'group-hover:translate-x-0.5 group-hover:-translate-y-0.5'}">${isMyProfile ? 'edit' : 'call_made'}</span>
                     </p>
                 </div>
             </div>
@@ -3325,7 +3327,7 @@ window.openManageServiceModal = function(id = '', title = '', url = '', icon = '
     const modal = document.getElementById('modal-manage-service');
     const card = document.getElementById('manage-service-card');
     
-    document.getElementById('manage-service-title').textContent = id ? 'Edit Service' : 'Add Service';
+    document.getElementById('manage-service-title').textContent = id ? 'Edit Link' : 'Add Link';
     document.getElementById('service-edit-id').value = id;
     document.getElementById('service-title-input').value = title;
     document.getElementById('service-url-input').value = url;
@@ -3383,11 +3385,11 @@ window.saveService = async function() {
         if (id) {
             const { error } = await supabase.from('page_services').update(payload).eq('id', id);
             if (error) throw error;
-            import('./ui.js').then(({ showToast }) => showToast('Service updated.', 'success'));
+            import('./ui.js').then(({ showToast }) => showToast('Link updated.', 'success'));
         } else {
             const { error } = await supabase.from('page_services').insert(payload);
             if (error) throw error;
-            import('./ui.js').then(({ showToast }) => showToast('Service added!', 'success'));
+            import('./ui.js').then(({ showToast }) => showToast('Link added!', 'success'));
         }
 
         closeManageServiceModal();
@@ -3395,10 +3397,10 @@ window.saveService = async function() {
 
     } catch (error) {
         console.error(error);
-        import('./ui.js').then(({ showToast }) => showToast('Failed to save service.', 'error'));
+        import('./ui.js').then(({ showToast }) => showToast('Failed to save link.', 'error'));
     } finally {
         btn.disabled = false;
-        btn.textContent = 'Save Service';
+        btn.textContent = 'Save Link';
     }
 };
 
@@ -3406,12 +3408,12 @@ window.deleteService = async function() {
     const id = document.getElementById('service-edit-id').value;
     if (!id) return;
 
-    if (!confirm("Remove this service?")) return;
+    if (!confirm("Remove this link?")) return;
 
     try {
         const { error } = await supabase.from('page_services').delete().eq('id', id);
         if (error) throw error;
-        import('./ui.js').then(({ showToast }) => showToast('Service removed.', 'success'));
+        import('./ui.js').then(({ showToast }) => showToast('Link removed.', 'success'));
         
         closeManageServiceModal();
         fetchPageServices(currentUserProfile.id, true);
@@ -3428,7 +3430,7 @@ window.openServiceIconPicker = function() {
 
     grid.innerHTML = SERVICE_ICONS.map(icon => `
         <div onclick="window.selectServiceIcon('${icon}')" class="aspect-square rounded-2xl bg-surface-variant/20 hover:bg-primary/20 hover:text-primary dark:bg-neutral-800 flex items-center justify-center cursor-pointer active:scale-90 transition-all text-on-surface dark:text-gray-200 border border-transparent hover:border-primary/30">
-            <span class="material-symbols-outlined text-[32px]">${icon}</span>
+            <span class="material-symbols-outlined text-[28px]">${icon}</span>
         </div>
     `).join('');
 
