@@ -88,7 +88,6 @@ export function initFeed(user) {
 
 document.body.addEventListener('click', (e) => {
         const commentBtn = e.target.closest('.comment-btn');
-        const pollOption = e.target.closest('.poll-option-btn');
         const profileLink = e.target.closest('.profile-link');
         const optionsBtn = e.target.closest('.post-options-btn');
         const commentOptionsBtn = e.target.closest('.comment-options-btn');
@@ -97,9 +96,7 @@ document.body.addEventListener('click', (e) => {
         // 🚀 Safely detect the post comment button
         const sendCommentBtn = e.target.closest('#send-comment-btn'); 
 
-        // Removed duplicate likeBtn listener here
         if (commentBtn) window.openCommentsModal(commentBtn.dataset.postId);
-        if (pollOption) window.handlePollVote(pollOption.dataset.postId, parseInt(pollOption.dataset.optionIndex), pollOption.dataset.isMultiple === 'true');
         if (profileLink) window.viewUserProfile(profileLink.dataset.userId);
         
         if (optionsBtn) {
@@ -549,40 +546,113 @@ function renderPosts(posts, isRefresh = false) {
                 `;
             }
         }
-       else if (post.post_type === 'poll') {
-            // 🚀 HOTFIX: Handle Supabase 1-to-1 object responses
+      else if (post.post_type === 'poll') {
             const poll = Array.isArray(post.post_polls) ? post.post_polls[0] : post.post_polls;
             if (poll) {
                 const votes = post.post_poll_votes || [];
                 const totalVotes = votes.length;
-                const myVotes = votes.filter(v => v.user_id === currentUser.id).map(v => v.option_id);
+                const myVotes = votes.filter(v => v.user_id === currentUserId).map(v => v.option_id);
                 const userHasVoted = myVotes.length > 0;
-                const isExpired = post.poll_expires_at && new Date(post.poll_expires_at) < new Date();
-                const showResults = userHasVoted || isExpired || post.poll_is_anon;
+
+                // 🚀 Advanced Deadline Engine
+                let isExpired = poll.is_ended_early;
+                if (!isExpired && poll.deadline_type === 'time' && post.expires_at) {
+                    isExpired = new Date(post.expires_at) < new Date();
+                } else if (!isExpired && poll.deadline_type === 'voter_count' && poll.deadline_count) {
+                    isExpired = totalVotes >= poll.deadline_count;
+                }
+
+                const showResults = userHasVoted || isExpired;
+                const isQuiz = poll.is_quiz;
+                const correctOptId = poll.correct_option_id;
 
                 const optionsHtml = (poll.options || []).map((opt) => {
                     const optVotes = votes.filter(v => v.option_id === opt.id).length;
                     const percentage = totalVotes === 0 ? 0 : Math.round((optVotes / totalVotes) * 100);
                     const iVotedForThis = myVotes.includes(opt.id);
                     
+                    let optBorderClass = 'border-surface-variant/50 dark:border-neutral-700';
+                    let optBgClass = 'bg-surface-variant/30 dark:bg-surface-variant/10';
+                    let checkIconHtml = '';
+
+                    // 🚀 Quiz UI Logic
+                    if (isQuiz && showResults) {
+                        if (opt.id === correctOptId) {
+                            optBorderClass = 'border-green-500';
+                            optBgClass = 'bg-green-500/10';
+                            checkIconHtml = `<span class="material-symbols-outlined text-green-500 text-[18px]">check_circle</span>`;
+                        } else if (iVotedForThis) {
+                            optBorderClass = 'border-red-500';
+                            optBgClass = 'bg-red-500/10';
+                            checkIconHtml = `<span class="material-symbols-outlined text-red-500 text-[18px]">cancel</span>`;
+                        }
+                    } else if (iVotedForThis) {
+                        optBorderClass = 'border-primary';
+                    }
+
+                    // 🚀 Multiple Choice vs Single Choice UI
+                    let selectorHtml = '';
+                    if (!isQuiz || !showResults) { 
+                        if (poll.is_multiple_choice) {
+                            // Checkbox style
+                            selectorHtml = `<div class="w-4 h-4 rounded-sm border-2 ${iVotedForThis ? 'border-primary bg-primary flex items-center justify-center' : 'border-surface-variant/80'}">${iVotedForThis ? '<span class="material-symbols-outlined text-white text-[12px] font-bold">check</span>' : ''}</div>`;
+                        } else {
+                            // Radio style
+                            selectorHtml = `<div class="w-4 h-4 rounded-full border-2 ${iVotedForThis ? 'border-primary flex items-center justify-center' : 'border-surface-variant/80'}">${iVotedForThis ? '<span class="w-2 h-2 rounded-full bg-primary"></span>' : ''}</div>`;
+                        }
+                    }
+
+                    // 🚀 Interaction & Undo Logic
+                    let clickAction = '';
+                    let cursorClass = 'cursor-default';
+                    if (!isExpired) {
+                        if (iVotedForThis && poll.can_undo_vote) {
+                            clickAction = `onclick="window.handlePollVote('${post.id}', '${opt.id}', true)"`;
+                            cursorClass = 'cursor-pointer hover:bg-surface-variant/40';
+                        } else if (!iVotedForThis && (poll.is_multiple_choice || !userHasVoted || poll.can_undo_vote)) {
+                            clickAction = `onclick="window.handlePollVote('${post.id}', '${opt.id}', false)"`;
+                            cursorClass = 'cursor-pointer hover:bg-surface-variant/40';
+                        }
+                    }
+
                     return `
-                    <div class="poll-option-btn cursor-default relative w-full bg-surface-variant/30 dark:bg-surface-variant/10 border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 overflow-hidden transition-all mb-2">
-                        <div class="poll-progress-bar absolute left-0 top-0 bottom-0 bg-primary/20 rounded-r-xl transition-all duration-700 ease-out" style="width: ${showResults ? percentage : 0}%"></div>
+                    <div ${clickAction} class="relative w-full ${optBgClass} border ${optBorderClass} rounded-xl p-3 overflow-hidden transition-all mb-2 ${cursorClass}">
+                        <div class="absolute left-0 top-0 bottom-0 bg-primary/20 rounded-r-xl transition-all duration-700 ease-out" style="width: ${showResults && !isQuiz ? percentage : 0}%"></div>
                         <div class="relative flex justify-between items-center text-[13px] font-bold text-on-surface dark:text-gray-100 z-10">
-                            <span class="flex items-center gap-2">
-                                <span class="poll-check-circle w-4 h-4 rounded-full border-2 ${iVotedForThis ? 'border-primary flex items-center justify-center' : 'border-surface-variant/80'}">${iVotedForThis ? '<span class="w-2 h-2 rounded-full bg-primary"></span>' : ''}</span>
-                                ${opt.text}
-                            </span>
-                            <span class="poll-percentage ${showResults ? 'opacity-100' : 'opacity-0'} transition-opacity">${percentage}%</span>
+                            <span class="flex items-center gap-2">${selectorHtml} ${opt.text}</span>
+                            <div class="flex items-center gap-2">
+                                ${checkIconHtml}
+                                <span class="${showResults ? 'opacity-100' : 'opacity-0'} transition-opacity">${percentage}%</span>
+                            </div>
                         </div>
                     </div>`;
                 }).join('');
 
+                // 🚀 Explanation / Extra Info Block
+                let extraInfoHtml = '';
+                if (showResults && poll.extra_info) {
+                    extraInfoHtml = `
+                        <div class="mt-3 bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 text-[12.5px] text-on-surface dark:text-gray-200 animate-fadeIn">
+                            <span class="font-extrabold text-blue-600 dark:text-blue-400 block mb-0.5">${isQuiz ? 'Explanation' : 'Note'}</span>
+                            ${poll.extra_info}
+                        </div>
+                    `;
+                }
+
+                let quizBadge = isQuiz ? `<span class="bg-blue-500/10 text-blue-600 dark:text-blue-500 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-widest mb-2 inline-block shadow-sm">Quiz</span>` : '';
+                
+                // Privacy masking for voters list
+                const totalVotesText = poll.voters_list_visibility === 'hidden' && post.user_id !== currentUserId 
+                    ? `Votes hidden` 
+                    : `<span class="${poll.voters_list_visibility === 'public' || post.user_id === currentUserId ? 'cursor-pointer hover:underline text-primary font-bold' : ''}" onclick="if('${poll.voters_list_visibility}' === 'public' || '${post.user_id}' === '${currentUserId}') window.openPollVoters('${post.id}')">${totalVotes} votes</span>`;
+
                 contentHtml = `
                     <div class="px-3 py-3 border-y border-surface-variant/40 dark:border-neutral-800 bg-surface-variant/5 dark:bg-neutral-900/30 mt-2">
-                        <div class="poll-options-wrapper space-y-2 mb-2">${optionsHtml}</div>
-                        <div class="flex justify-between text-[11px] font-medium text-on-surface-variant dark:text-gray-400">
-                            <span><span class="poll-total-votes">${totalVotes}</span> votes</span>
+                        ${quizBadge}
+                        <div class="space-y-2 mb-2">${optionsHtml}</div>
+                        ${extraInfoHtml}
+                        <div class="flex justify-between items-center mt-3 text-[11px] font-medium text-on-surface-variant dark:text-gray-400">
+                            ${totalVotesText}
                             <span>${isExpired ? 'Ended' : 'Ongoing'}</span>
                         </div>
                     </div>
