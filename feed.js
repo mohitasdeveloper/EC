@@ -492,13 +492,85 @@ function renderPosts(posts, isRefresh = false) {
             cleanCaptionContent = post.content.replace(/^<p>/, '').replace(/<\/p>$/, '').trim();
         }
 
-        let contentHtml = '';
+      let contentHtml = '';
         if (post.post_type === 'text') {
             if (cleanCaptionContent !== '') contentHtml = `<div class="px-4 py-8 mt-2 mb-2 bg-surface-variant/10 dark:bg-neutral-900/40 rounded-2xl mx-3 flex items-center justify-center border border-surface-variant/30 dark:border-neutral-800"><div class="text-[16px] sm:text-[18px] font-medium text-on-surface dark:text-gray-100 leading-relaxed whitespace-pre-wrap rich-text-content text-center w-full">${post.content}</div></div>`;
             cleanCaptionContent = ''; 
         }
         else if (post.post_type === 'image') {
             contentHtml = `<div class="w-full bg-surface-variant/20 dark:bg-neutral-900 flex items-center justify-center border-y border-surface-variant/40 dark:border-neutral-800 mt-2"><img loading="lazy" src="${typeof optimizeImageUrl === 'function' ? optimizeImageUrl(post.media_url, 'feed') : post.media_url}" class="w-full h-auto max-h-[80vh] object-cover"></div>`;
+        }
+     else if (post.post_type === 'event') {
+            // 🚀 HOTFIX: Handle Supabase 1-to-1 object responses
+            const event = Array.isArray(post.post_events) ? post.post_events[0] : post.post_events;
+            if (event) {
+                const optimizedEventMedia = typeof optimizeImageUrl === 'function' && event.event_image_url ? optimizeImageUrl(event.event_image_url, 'feed') : event.event_image_url;
+                const eventImgHtml = event.event_image_url ? `<img loading="lazy" src="${optimizedEventMedia}" class="w-full h-auto max-h-[80vh] object-cover border-y border-surface-variant/40 dark:border-neutral-800 mt-2">` : '';
+                const dateStr = event.event_date ? new Date(event.event_date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'TBA';
+                
+                let actionHtml = '';
+                if (event.show_register_btn && event.register_url) {
+                    actionHtml = `<a href="${event.register_url}" target="_blank" class="block w-full mt-3 bg-secondary text-white text-center py-2 rounded-xl text-[13px] font-bold active:scale-95 transition-transform">View Link</a>`;
+                } else if (event.enable_rsvp) {
+                    const rsvps = post.post_event_rsvps || [];
+                    const isAttending = !!rsvps.find(r => r.user_id === currentUser.id);
+                    const btnClass = isAttending ? 'bg-surface-variant/50 text-on-surface dark:text-gray-100' : 'bg-primary text-white';
+                    const btnText = isAttending ? '✓ Attending' : 'RSVP Now';
+                    actionHtml = `<button onclick="window.handleRSVP('${post.id}', ${isAttending})" class="block w-full mt-3 ${btnClass} text-center py-2 rounded-xl text-[13px] font-bold active:scale-95 transition-all">${btnText}</button>`;
+                }
+
+                contentHtml = `
+                    ${eventImgHtml}
+                    <div class="px-3 py-3 bg-secondary/5 border-b border-secondary/20 dark:border-neutral-800">
+                        <div class="bg-secondary/10 text-secondary w-max px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest mb-2">Upcoming Event</div>
+                        <div class="space-y-1">
+                            <p class="text-[13px] text-on-surface-variant dark:text-gray-300 flex items-center gap-2 font-medium"><span class="material-symbols-outlined text-[16px]">calendar_today</span> ${dateStr}</p>
+                            ${event.event_location ? `<p class="text-[13px] text-on-surface-variant dark:text-gray-300 flex items-center gap-2 font-medium"><span class="material-symbols-outlined text-[16px]">location_on</span> ${event.event_location}</p>` : ''}
+                        </div>
+                        ${actionHtml}
+                    </div>
+                `;
+            }
+        }
+       else if (post.post_type === 'poll') {
+            // 🚀 HOTFIX: Handle Supabase 1-to-1 object responses
+            const poll = Array.isArray(post.post_polls) ? post.post_polls[0] : post.post_polls;
+            if (poll) {
+                const votes = post.post_poll_votes || [];
+                const totalVotes = votes.length;
+                const myVotes = votes.filter(v => v.user_id === currentUser.id).map(v => v.option_id);
+                const userHasVoted = myVotes.length > 0;
+                const isExpired = post.poll_expires_at && new Date(post.poll_expires_at) < new Date();
+                const showResults = userHasVoted || isExpired || post.poll_is_anon;
+
+                const optionsHtml = (poll.options || []).map((opt) => {
+                    const optVotes = votes.filter(v => v.option_id === opt.id).length;
+                    const percentage = totalVotes === 0 ? 0 : Math.round((optVotes / totalVotes) * 100);
+                    const iVotedForThis = myVotes.includes(opt.id);
+                    
+                    return `
+                    <div class="poll-option-btn cursor-default relative w-full bg-surface-variant/30 dark:bg-surface-variant/10 border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 overflow-hidden transition-all mb-2">
+                        <div class="poll-progress-bar absolute left-0 top-0 bottom-0 bg-primary/20 rounded-r-xl transition-all duration-700 ease-out" style="width: ${showResults ? percentage : 0}%"></div>
+                        <div class="relative flex justify-between items-center text-[13px] font-bold text-on-surface dark:text-gray-100 z-10">
+                            <span class="flex items-center gap-2">
+                                <span class="poll-check-circle w-4 h-4 rounded-full border-2 ${iVotedForThis ? 'border-primary flex items-center justify-center' : 'border-surface-variant/80'}">${iVotedForThis ? '<span class="w-2 h-2 rounded-full bg-primary"></span>' : ''}</span>
+                                ${opt.text}
+                            </span>
+                            <span class="poll-percentage ${showResults ? 'opacity-100' : 'opacity-0'} transition-opacity">${percentage}%</span>
+                        </div>
+                    </div>`;
+                }).join('');
+
+                contentHtml = `
+                    <div class="px-3 py-3 border-y border-surface-variant/40 dark:border-neutral-800 bg-surface-variant/5 dark:bg-neutral-900/30 mt-2">
+                        <div class="poll-options-wrapper space-y-2 mb-2">${optionsHtml}</div>
+                        <div class="flex justify-between text-[11px] font-medium text-on-surface-variant dark:text-gray-400">
+                            <span><span class="poll-total-votes">${totalVotes}</span> votes</span>
+                            <span>${isExpired ? 'Ended' : 'Ongoing'}</span>
+                        </div>
+                    </div>
+                `;
+            }
         }
 
         let captionHtml = '';
