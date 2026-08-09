@@ -127,7 +127,7 @@ async function fetchExploreUsers() {
     }
 }
 
-// Search across all users and pages
+// Search across all users and services
 async function performSearch(query) {
     const container = document.getElementById('search-results-container');
     
@@ -135,18 +135,32 @@ async function performSearch(query) {
         const blockedIds = await window.getBlockedUserIds(currentUser.id);
         const excludeIds = [currentUser.id, ...blockedIds];
 
-        const { data, error } = await supabase
-            .from('users')
-            .select('id, full_name, profile_img_url, course, tick_type, role')
-            .ilike('full_name', `%${query}%`)
-            .eq('is_deleted', false)
-            .eq('is_deactivated', false)
-            .not('id', 'in', `(${excludeIds.join(',')})`)
-            .limit(15);
+        // Run both queries simultaneously for speed
+        const [usersRes, servicesRes] = await Promise.all([
+            supabase
+                .from('users')
+                .select('id, full_name, profile_img_url, course, tick_type, role')
+                .ilike('full_name', `%${query}%`)
+                .eq('is_deleted', false)
+                .eq('is_deactivated', false)
+                .not('id', 'in', `(${excludeIds.join(',')})`)
+                .limit(10),
+            
+            supabase
+                .from('page_services')
+                .select('id, title, icon_name, url, open_in_app, page_id, users!inner(full_name, is_deleted, is_deactivated)')
+                .ilike('title', `%${query}%`)
+                .eq('is_active', true)
+                .eq('users.is_deleted', false)
+                .eq('users.is_deactivated', false)
+                .not('page_id', 'in', `(${excludeIds.join(',')})`)
+                .limit(5)
+        ]);
 
-        if (error) throw error;
+        if (usersRes.error) throw usersRes.error;
+        if (servicesRes.error) throw servicesRes.error;
 
-        if (data.length === 0) {
+        if (usersRes.data.length === 0 && servicesRes.data.length === 0) {
             container.innerHTML = `
                 <div class="py-12 flex flex-col items-center justify-center opacity-40 text-on-surface-variant">
                     <span class="material-symbols-outlined text-[42px] mb-2">person_search</span>
@@ -156,7 +170,33 @@ async function performSearch(query) {
             return;
         }
 
-        container.innerHTML = renderUserList(data);
+        let html = '';
+
+        // Render Services First if any match
+        if (servicesRes.data.length > 0) {
+            html += `<h4 class="text-[12px] font-bold text-primary uppercase tracking-wider mb-2 mt-2">Services</h4>`;
+            html += servicesRes.data.map(svc => `
+                <div onclick="window.openServiceLink('${svc.url}', ${svc.open_in_app})" class="flex items-center gap-3 py-3 px-3 cursor-pointer active:scale-[0.98] transition-all bg-primary/5 border border-primary/20 rounded-2xl mb-2 hover:bg-primary/10">
+                    <div class="w-11 h-11 rounded-full bg-primary text-white flex items-center justify-center shadow-sm shrink-0">
+                        <span class="material-symbols-outlined text-[20px]">${svc.icon_name}</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-extrabold text-[14px] text-on-surface dark:text-gray-100 truncate">${svc.title}</p>
+                        <p class="text-[11px] font-bold text-primary mt-[1px] truncate flex items-center gap-1">
+                            By ${svc.users.full_name} <span class="material-symbols-outlined text-[12px]">open_in_new</span>
+                        </p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Render Users
+        if (usersRes.data.length > 0) {
+            if (servicesRes.data.length > 0) html += `<h4 class="text-[12px] font-bold text-on-surface-variant uppercase tracking-wider mb-2 mt-4">Profiles</h4>`;
+            html += renderUserList(usersRes.data);
+        }
+
+        container.innerHTML = html;
 
     } catch (err) {
         console.error('Search error:', err);
