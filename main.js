@@ -3474,3 +3474,8 @@ window.selectServiceIcon = function(iconName) {
     document.getElementById('service-icon-value').value = iconName;
     closeServiceIconPicker();
 };
+window.toggleQuizMode = function(isChecked) {
+    const container = document.getElementById('quiz-settings-container');
+    if (isChecked) container.classList.remove('hidden');
+    else container.classList.add('hidden');
+};
