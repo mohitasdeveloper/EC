@@ -369,7 +369,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     currentUserProfile = profile;
 
-// 🚀 HOTFIX: Prevent verification screen flash on boot
+    // 🚀 HOTFIX: Prevent verification screen flash on boot
     const verifyView = document.getElementById('view-verification');
     if (verifyView) verifyView.style.setProperty('display', 'none', 'important');
 
@@ -384,22 +384,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 verifyView.classList.add('hidden');
                 verifyView.style.removeProperty('display');
             }
-        }, 100);
-    });
-
-    // Proceed to load the app UI (Read-Only access granted)
-    initializeApp(profile);
-        
-        // 🚀 HOTFIX: Reverse the legacy "Hard Lockdown" UI overrides
-        setTimeout(() => {
-            // 1. Hide the full-screen modal so it doesn't show on load
-            const verifyView = document.getElementById('view-verification');
-            if (verifyView) {
-                verifyView.classList.remove('flex');
-                verifyView.classList.add('hidden');
-            }
-            
-            // 2. Forcefully un-hide the main app elements that verification.js hid
+            // Forcefully un-hide the main app elements that verification.js hid
             const mainContent = document.getElementById('main-content');
             const header = document.querySelector('header');
             const nav = document.querySelector('nav');
@@ -407,8 +392,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (mainContent) { mainContent.classList.remove('hidden'); mainContent.style.display = ''; }
             if (header) { header.classList.remove('hidden'); header.style.display = ''; }
             if (nav) { nav.classList.remove('hidden'); nav.style.display = ''; }
-        }, 100); // Slight delay ensures we overwrite its changes AFTER it finishes
+        }, 100);
     });
+
     // Proceed to load the app UI (Read-Only access granted)
     initializeApp(profile);
     
