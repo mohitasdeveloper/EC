@@ -86,8 +86,7 @@ export function initFeed(user) {
         initQuillEditor();
     });
 
-   document.body.addEventListener('click', (e) => {
-        const likeBtn = e.target.closest('.like-btn');
+document.body.addEventListener('click', (e) => {
         const commentBtn = e.target.closest('.comment-btn');
         const pollOption = e.target.closest('.poll-option-btn');
         const profileLink = e.target.closest('.profile-link');
@@ -98,7 +97,7 @@ export function initFeed(user) {
         // 🚀 Safely detect the post comment button
         const sendCommentBtn = e.target.closest('#send-comment-btn'); 
 
-        if (likeBtn) window.handleLike(likeBtn.dataset.postId, likeBtn);
+        // Removed duplicate likeBtn listener here
         if (commentBtn) window.openCommentsModal(commentBtn.dataset.postId);
         if (pollOption) window.handlePollVote(pollOption.dataset.postId, parseInt(pollOption.dataset.optionIndex), pollOption.dataset.isMultiple === 'true');
         if (profileLink) window.viewUserProfile(profileLink.dataset.userId);
