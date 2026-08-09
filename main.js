@@ -369,10 +369,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     currentUserProfile = profile;
 
-  // Initialize the verification module in the background
+// 🚀 HOTFIX: Prevent verification screen flash on boot
+    const verifyView = document.getElementById('view-verification');
+    if (verifyView) verifyView.style.setProperty('display', 'none', 'important');
+
+    // Initialize the verification module in the background
     import('./verification.js').then(async module => {
-        // Let it bind its form events and upload listeners
         await module.initVerification(profile);
+        
+        // Remove the CSS lock and reset classes so it stays hidden but is ready for manual clicks
+        setTimeout(() => {
+            if (verifyView) {
+                verifyView.classList.remove('flex');
+                verifyView.classList.add('hidden');
+                verifyView.style.removeProperty('display');
+            }
+        }, 100);
+    });
+
+    // Proceed to load the app UI (Read-Only access granted)
+    initializeApp(profile);
         
         // 🚀 HOTFIX: Reverse the legacy "Hard Lockdown" UI overrides
         setTimeout(() => {
@@ -3137,11 +3153,18 @@ window.setFeedbackType = function(value, labelText) {
 // ========================================================
 // GLOBAL VERIFICATION ENGINE (Soft Restrict)
 // ========================================================
+window._lastVerificationToast = 0; // Global throttle tracker
+
 window.checkVerification = function(actionName = 'do this') {
     if (!currentUserProfile) return false;
     const status = currentUserProfile.verification_status;
     
     if (status === 'verified') return true;
+
+    // 🚀 HOTFIX: Prevent double-toasts by throttling requests to 1 per second
+    const now = Date.now();
+    if (now - window._lastVerificationToast < 1000) return false; 
+    window._lastVerificationToast = now;
 
     // Smart contextual messaging
     let msg = `You must verify your student ID to ${actionName}.`;
@@ -3150,12 +3173,8 @@ window.checkVerification = function(actionName = 'do this') {
 
     import('./ui.js').then(({ showToast }) => showToast(msg, 'warning'));
     
-    // Auto-open the verification modal
-    const verifyView = document.getElementById('view-verification');
-    if (verifyView) {
-        verifyView.classList.remove('hidden');
-        verifyView.classList.add('flex');
-    }
+    // 🚀 HOTFIX: Auto-open modal removed. Now it ONLY shows the toast message!
+    
     return false;
 };
 
