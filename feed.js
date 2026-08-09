@@ -651,8 +651,8 @@ function renderPosts(posts, isRefresh = false) {
                     ? `Votes hidden` 
                     : `<span class="${poll.voters_list_visibility === 'public' || post.user_id === currentUserId ? 'cursor-pointer hover:underline text-primary font-bold' : ''}" onclick="if('${poll.voters_list_visibility}' === 'public' || '${post.user_id}' === '${currentUserId}') window.openPollVoters('${post.id}')">${totalVotes} votes</span>`;
 
-                contentHtml = `
-                    <div class="px-3 py-3 border-y border-surface-variant/40 dark:border-neutral-800 bg-surface-variant/5 dark:bg-neutral-900/30 mt-2">
+               contentHtml = `
+                    <div class="poll-container-wrapper px-3 py-3 border-y border-surface-variant/40 dark:border-neutral-800 bg-surface-variant/5 dark:bg-neutral-900/30 mt-2">
                         ${quizBadge}
                         <div class="space-y-2 mb-2">${optionsHtml}</div>
                         ${extraInfoHtml}
@@ -782,7 +782,7 @@ window.handleLike = async function(postId, btnElement) {
 };
 
 window.handlePollVote = async function(postId, optionId, isUndo) {
-    if (!window.checkVerification('vote on polls')) return; // 🚀 Soft Restrict Check
+    if (!window.checkVerification('vote on polls')) return; 
     if (isVoting) return; 
     isVoting = true;
     
@@ -801,7 +801,10 @@ window.handlePollVote = async function(postId, optionId, isUndo) {
             throw error;
         }
 
-        if (typeof window.refreshMainFeed === 'function') {
+        // 🚀 SMOOTH UPDATE: Re-render just the poll, no feed refresh!
+        if (typeof window.updatePollUI === 'function') {
+            await window.updatePollUI(postId);
+        } else if (typeof window.refreshMainFeed === 'function') {
             await window.refreshMainFeed(); 
         }
     } catch (error) {
@@ -812,7 +815,135 @@ window.handlePollVote = async function(postId, optionId, isUndo) {
     }
 }
 
-window.openPollVoters = async (postId, optionIndex) => {
+// 🚀 NEW: Smoothly updates just the poll UI locally
+window.updatePollUI = async function(postId) {
+    // Finds the post in the Feed (and the Profile if it's open)
+    const postEls = document.querySelectorAll(`div[data-post-id="${postId}"]`);
+    if (!postEls.length) return;
+    
+    try {
+        const [pollRes, votesRes, postRes] = await Promise.all([
+            supabase.from('post_polls').select('*').eq('post_id', postId).single(),
+            supabase.from('post_poll_votes').select('*').eq('post_id', postId),
+            supabase.from('posts').select('expires_at, user_id').eq('id', postId).single()
+        ]);
+
+        if (pollRes.error || postRes.error) return;
+
+        const poll = pollRes.data;
+        const votes = votesRes.data || [];
+        const post = postRes.data;
+        const currentUserId = currentUser ? currentUser.id : null;
+
+        const totalVotes = votes.length;
+        const myVotes = votes.filter(v => v.user_id === currentUserId).map(v => v.option_id);
+        const userHasVoted = myVotes.length > 0;
+
+        let isExpired = poll.is_ended_early;
+        if (!isExpired && poll.deadline_type === 'time' && post.expires_at) {
+            isExpired = new Date(post.expires_at) < new Date();
+        } else if (!isExpired && poll.deadline_type === 'voter_count' && poll.deadline_count) {
+            isExpired = totalVotes >= poll.deadline_count;
+        }
+
+        const showResults = userHasVoted || isExpired;
+        const isQuiz = poll.is_quiz;
+        const correctOptId = poll.correct_option_id;
+
+        const optionsHtml = (poll.options || []).map((opt) => {
+            const optVotes = votes.filter(v => v.option_id === opt.id).length;
+            const percentage = totalVotes === 0 ? 0 : Math.round((optVotes / totalVotes) * 100);
+            const iVotedForThis = myVotes.includes(opt.id);
+            
+            let optBorderClass = 'border-surface-variant/50 dark:border-neutral-700';
+            let optBgClass = 'bg-surface-variant/30 dark:bg-surface-variant/10';
+            let checkIconHtml = '';
+
+            if (isQuiz && showResults) {
+                if (opt.id === correctOptId) {
+                    optBorderClass = 'border-green-500';
+                    optBgClass = 'bg-green-500/10';
+                    checkIconHtml = `<span class="material-symbols-outlined text-green-500 text-[18px]">check_circle</span>`;
+                } else if (iVotedForThis) {
+                    optBorderClass = 'border-red-500';
+                    optBgClass = 'bg-red-500/10';
+                    checkIconHtml = `<span class="material-symbols-outlined text-red-500 text-[18px]">cancel</span>`;
+                }
+            } else if (iVotedForThis) {
+                optBorderClass = 'border-primary';
+            }
+
+            let selectorHtml = '';
+            if (!isQuiz || !showResults) { 
+                if (poll.is_multiple_choice) {
+                    selectorHtml = `<div class="w-4 h-4 rounded-sm border-2 ${iVotedForThis ? 'border-primary bg-primary flex items-center justify-center' : 'border-surface-variant/80'}">${iVotedForThis ? '<span class="material-symbols-outlined text-white text-[12px] font-bold">check</span>' : ''}</div>`;
+                } else {
+                    selectorHtml = `<div class="w-4 h-4 rounded-full border-2 ${iVotedForThis ? 'border-primary flex items-center justify-center' : 'border-surface-variant/80'}">${iVotedForThis ? '<span class="w-2 h-2 rounded-full bg-primary"></span>' : ''}</div>`;
+                }
+            }
+
+            let clickAction = '';
+            let cursorClass = 'cursor-default';
+            if (!isExpired) {
+                if (iVotedForThis && poll.can_undo_vote) {
+                    clickAction = `onclick="window.handlePollVote('${postId}', '${opt.id}', true)"`;
+                    cursorClass = 'cursor-pointer hover:bg-surface-variant/40';
+                } else if (!iVotedForThis && (poll.is_multiple_choice || !userHasVoted || poll.can_undo_vote)) {
+                    clickAction = `onclick="window.handlePollVote('${postId}', '${opt.id}', false)"`;
+                    cursorClass = 'cursor-pointer hover:bg-surface-variant/40';
+                }
+            }
+
+            return `
+            <div ${clickAction} class="relative w-full ${optBgClass} border ${optBorderClass} rounded-xl p-3 overflow-hidden transition-all mb-2 ${cursorClass}">
+                <div class="absolute left-0 top-0 bottom-0 bg-primary/20 rounded-r-xl transition-all duration-700 ease-out" style="width: ${showResults && !isQuiz ? percentage : 0}%"></div>
+                <div class="relative flex justify-between items-center text-[13px] font-bold text-on-surface dark:text-gray-100 z-10">
+                    <span class="flex items-center gap-2">${selectorHtml} ${opt.text}</span>
+                    <div class="flex items-center gap-2">
+                        ${checkIconHtml}
+                        <span class="${showResults ? 'opacity-100' : 'opacity-0'} transition-opacity">${percentage}%</span>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+
+        let extraInfoHtml = '';
+        if (showResults && poll.extra_info) {
+            extraInfoHtml = `
+                <div class="mt-3 bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 text-[12.5px] text-on-surface dark:text-gray-200 animate-fadeIn">
+                    <span class="font-extrabold text-blue-600 dark:text-blue-400 block mb-0.5">${isQuiz ? 'Explanation' : 'Note'}</span>
+                    ${poll.extra_info}
+                </div>
+            `;
+        }
+
+        let quizBadge = isQuiz ? `<span class="bg-blue-500/10 text-blue-600 dark:text-blue-500 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-widest mb-2 inline-block shadow-sm">Quiz</span>` : '';
+        
+        const totalVotesText = poll.voters_list_visibility === 'hidden' && post.user_id !== currentUserId 
+            ? `Votes hidden` 
+            : `<span class="${poll.voters_list_visibility === 'public' || post.user_id === currentUserId ? 'cursor-pointer hover:underline text-primary font-bold' : ''}" onclick="if('${poll.voters_list_visibility}' === 'public' || '${post.user_id}' === '${currentUserId}') window.openPollVoters('${postId}')">${totalVotes} votes</span>`;
+
+        // Inject the smooth update into every matching container
+        postEls.forEach(postEl => {
+            const pollContainer = postEl.querySelector('.poll-container-wrapper');
+            if (pollContainer) {
+                pollContainer.innerHTML = `
+                    ${quizBadge}
+                    <div class="space-y-2 mb-2">${optionsHtml}</div>
+                    ${extraInfoHtml}
+                    <div class="flex justify-between items-center mt-3 text-[11px] font-medium text-on-surface-variant dark:text-gray-400">
+                        ${totalVotesText}
+                        <span>${isExpired ? 'Ended' : 'Ongoing'}</span>
+                    </div>
+                `;
+            }
+        });
+    } catch(e) {
+        console.error("Poll update error:", e);
+    }
+};
+
+window.openPollVoters = async (postId, optionId = null) => {
     const modal = document.getElementById('modal-poll-voters');
     const list = document.getElementById('poll-voters-list');
     if (!modal || !list) return;
@@ -822,30 +953,55 @@ window.openPollVoters = async (postId, optionIndex) => {
     list.innerHTML = `<p class="text-sm italic text-center py-8 text-on-surface-variant dark:text-gray-400">Loading voters...</p>`;
 
     try {
-        const { data, error } = await supabase
+        let query = supabase
             .from('post_poll_votes')
             .select('users(id, full_name, profile_img_url, tick_type)')
-            .eq('post_id', postId)
-            .eq('option_index', optionIndex);
+            .eq('post_id', postId);
+            
+        // If clicked from "Total Votes", optionId is null so it fetches EVERYONE
+        if (optionId) {
+            query = query.eq('option_id', optionId);
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
-        if (data.length === 0) {
+        
+        // Remove duplicates (if user voted for multiple choices)
+        const uniqueUsers = [];
+        const seenIds = new Set();
+        for (const v of data) {
+            if (v.users && !seenIds.has(v.users.id)) {
+                seenIds.add(v.users.id);
+                uniqueUsers.push(v.users);
+            }
+        }
+
+        if (uniqueUsers.length === 0) {
             list.innerHTML = `<p class="text-sm italic text-center py-8 text-on-surface-variant dark:text-gray-400">No votes yet.</p>`;
             return;
         }
 
-        list.innerHTML = data.map(v => `
-            <div class="flex items-center gap-3 p-3 bg-surface-variant/10 dark:bg-neutral-800 rounded-2xl border border-surface-variant/30 dark:border-neutral-700">
-                <img onclick="window.viewUserProfile('${v.users.id}')" src="${v.users.profile_img_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(v.users.full_name)}`}" class="w-10 h-10 rounded-full object-cover cursor-pointer">
-                <p onclick="window.viewUserProfile('${v.users.id}')" class="font-bold text-sm text-on-surface dark:text-gray-100 flex items-center gap-1 cursor-pointer hover:text-primary transition-colors">${v.users.full_name} ${getTickHtml(v.users.tick_type)}</p>
+        const getTick = (type) => {
+            if (!type || type.toLowerCase().trim() === 'none') return '';
+            return `<span class="material-symbols-outlined text-[14px] ml-1" style="color: ${type.trim()}; font-variation-settings: 'FILL' 1;">verified</span>`;
+        };
+
+        list.innerHTML = uniqueUsers.map(u => `
+            <div class="flex items-center gap-3 p-3 hover:bg-surface-variant/20 dark:hover:bg-neutral-800/50 rounded-2xl transition-colors active:scale-[0.98]">
+                <div class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onclick="document.getElementById('modal-poll-voters').classList.replace('flex','hidden'); setTimeout(() => window.viewUserProfile('${u.id}'), 200);">
+                    <img src="${u.profile_img_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.full_name)}&background=e1e3e4`}" class="w-11 h-11 rounded-full object-cover border border-surface-variant/50 dark:border-neutral-800 shadow-sm shrink-0">
+                    <div class="flex-1 min-w-0 truncate">
+                        <p class="text-[14.5px] font-extrabold text-on-surface dark:text-gray-100 flex items-center gap-1">${u.full_name} ${getTick(u.tick_type)}</p>
+                    </div>
+                </div>
             </div>
         `).join('');
     } catch (e) {
-        list.innerHTML = `<p class="text-sm italic text-center py-8 text-error">Failed to load voters.</p>`;
+        list.innerHTML = `<p class="text-sm italic text-center py-8 text-error">Failed to load voters. The list might be hidden.</p>`;
         console.error("Voters load error:", e);
     }
 };
-
 window.openPostOptions = function(postId, postOwnerId, isVerified, hideLikes, disableComments) {
     const isOwner = currentUser.id === postOwnerId;
     let buttonsHtml = '';
@@ -1537,40 +1693,6 @@ window.closeLikesModal = function() {
 // ==========================================
 // VIEWERS: POLLS & EVENTS
 // ==========================================
-window.openPollVoters = async (postId, optionId) => {
-    const modal = document.getElementById('modal-poll-voters');
-    const list = document.getElementById('poll-voters-list');
-    if (!modal || !list) return;
-
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    list.innerHTML = `<p class="text-sm italic text-center py-8 text-on-surface-variant dark:text-gray-400">Loading voters...</p>`;
-
-    try {
-        const { data, error } = await supabase
-            .from('post_poll_votes')
-            .select('users(id, full_name, profile_img_url, tick_type)')
-            .eq('post_id', postId)
-            .eq('option_id', optionId);
-
-        if (error) throw error;
-        if (data.length === 0) {
-            list.innerHTML = `<p class="text-sm italic text-center py-8 text-on-surface-variant dark:text-gray-400">No votes yet.</p>`;
-            return;
-        }
-
-        list.innerHTML = data.map(v => `
-            <div class="flex items-center gap-3 p-3 bg-surface-variant/10 dark:bg-neutral-800 rounded-2xl border border-surface-variant/30 dark:border-neutral-700">
-                <img onclick="window.viewUserProfile('${v.users.id}')" src="${v.users.profile_img_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(v.users.full_name)}`}" class="w-10 h-10 rounded-full object-cover cursor-pointer">
-                <p onclick="window.viewUserProfile('${v.users.id}')" class="font-bold text-sm text-on-surface dark:text-gray-100 flex items-center gap-1 cursor-pointer hover:text-primary transition-colors">${v.users.full_name} ${window.getTickHtml ? window.getTickHtml(v.users.tick_type) : ''}</p>
-            </div>
-        `).join('');
-    } catch (e) {
-        list.innerHTML = `<p class="text-sm italic text-center py-8 text-error">Failed to load voters. The list might be hidden by the author.</p>`;
-        console.error("Voters load error:", e);
-    }
-};
-
 window.openEventRsvps = async (postId) => {
     const modal = document.getElementById('modal-event-rsvps');
     const list = document.getElementById('event-rsvps-list');
