@@ -964,85 +964,81 @@
                 </div>
             </div>
 
-            <!-- Ultimate Poll Input -->
-            <div id="input-poll" class="post-input-section hidden mb-6 space-y-5 bg-surface-variant/5 dark:bg-neutral-800/30 p-5 rounded-3xl border border-surface-variant/40 dark:border-neutral-800">
+           <!-- Ultimate Poll Input V2 -->
+            <div id="input-poll" class="post-input-section hidden mb-6 space-y-4">
                 
                 <!-- Options Builder -->
-                <div>
-                    <div class="flex justify-between items-center mb-3">
-                        <h4 class="text-[12px] font-extrabold text-primary uppercase tracking-wider">Poll Options</h4>
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" id="poll-is-multiple" class="w-4 h-4 rounded text-primary focus:ring-primary border-surface-variant dark:border-neutral-700 dark:bg-neutral-800">
-                            <span class="text-[12px] font-bold text-on-surface dark:text-gray-200">Multiple Choice</span>
-                        </label>
-                    </div>
+                <div class="bg-surface-variant/5 dark:bg-neutral-800/30 p-4 rounded-3xl border border-surface-variant/40 dark:border-neutral-800">
+                    <h4 class="text-[12px] font-extrabold text-primary uppercase tracking-wider mb-3">Poll Options</h4>
                     <div id="poll-options-container" class="space-y-3">
-                        <input type="text" class="poll-opt-input w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3.5 text-[14px] text-on-surface dark:text-gray-100 outline-none focus:border-primary transition-colors" placeholder="Option 1">
-                        <input type="text" class="poll-opt-input w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3.5 text-[14px] text-on-surface dark:text-gray-100 outline-none focus:border-primary transition-colors" placeholder="Option 2">
+                        <input type="text" class="poll-opt-input w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3.5 text-[14px] text-on-surface dark:text-gray-100 outline-none focus:border-primary" placeholder="Option 1">
+                        <input type="text" class="poll-opt-input w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3.5 text-[14px] text-on-surface dark:text-gray-100 outline-none focus:border-primary" placeholder="Option 2">
                     </div>
                     <button onclick="addPollOptionUI()" class="text-primary font-bold text-[13px] flex items-center gap-1 mt-3 active:scale-95 transition-transform bg-primary/10 px-3 py-1.5 rounded-lg">
                         <span class="material-symbols-outlined text-[18px]">add</span> Add Option
                     </button>
                 </div>
 
-                <hr class="border-surface-variant/40 dark:border-neutral-700">
-
-                <!-- Quiz Mode Toggle -->
-                <div class="bg-blue-500/5 border border-blue-500/20 rounded-2xl p-4">
-                    <div class="flex items-center justify-between mb-2">
-                        <div class="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                            <span class="material-symbols-outlined text-[20px]">school</span>
-                            <span class="text-[13.5px] font-extrabold">Make it a Quiz</span>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="poll-is-quiz" onchange="toggleQuizMode(this.checked)" class="sr-only peer">
-                            <div class="w-9 h-5 bg-surface-variant dark:bg-neutral-700 rounded-full peer peer-checked:bg-blue-500 peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+                <!-- Modern Settings Toggles -->
+                <div class="bg-surface-variant/5 dark:bg-neutral-800/30 rounded-3xl border border-surface-variant/40 dark:border-neutral-800 overflow-hidden divide-y divide-surface-variant/40 dark:divide-neutral-800">
+                    
+                    <!-- Multiple Choice -->
+                    <div class="flex items-center justify-between p-4">
+                        <span class="text-[14px] font-bold text-on-surface dark:text-gray-100">Multiple Choice</span>
+                        <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                            <input type="checkbox" id="poll-is-multiple" class="sr-only peer">
+                            <div class="w-11 h-6 bg-surface-variant dark:bg-neutral-700 rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                         </label>
                     </div>
-                    
-                    <div id="quiz-settings-container" class="hidden space-y-3 mt-3 animate-fadeIn">
-                        <input type="number" id="poll-correct-option-index" placeholder="Correct Option Number (e.g., 1 or 2)" min="1" class="w-full bg-surface dark:bg-[#121212] border border-blue-500/30 rounded-xl p-3 text-[13px] text-on-surface dark:text-gray-100 outline-none focus:border-blue-500">
-                        <textarea id="poll-explanation" placeholder="Explanation (Revealed after voting)..." rows="2" class="w-full bg-surface dark:bg-[#121212] border border-blue-500/30 rounded-xl p-3 text-[13px] text-on-surface dark:text-gray-100 outline-none focus:border-blue-500 resize-none"></textarea>
+
+                    <!-- Allow Undo -->
+                    <div class="flex items-center justify-between p-4">
+                        <span class="text-[14px] font-bold text-on-surface dark:text-gray-100">Allow Vote Undo</span>
+                        <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                            <input type="checkbox" id="poll-can-undo" class="sr-only peer" checked>
+                            <div class="w-11 h-6 bg-surface-variant dark:bg-neutral-700 rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                        </label>
+                    </div>
+
+                    <!-- Anonymous Voting -->
+                    <div class="flex items-center justify-between p-4">
+                        <div class="flex flex-col">
+                            <span class="text-[14px] font-bold text-on-surface dark:text-gray-100">Anonymous Voting</span>
+                            <span class="text-[11px] text-on-surface-variant dark:text-gray-500">Hide the voters list from everyone.</span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                            <input type="checkbox" id="poll-voters-visibility" class="sr-only peer">
+                            <div class="w-11 h-6 bg-surface-variant dark:bg-neutral-700 rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                        </label>
                     </div>
                 </div>
 
-                <!-- Advanced Settings Accordion -->
-                <details class="group border border-surface-variant/40 dark:border-neutral-700 rounded-2xl bg-surface dark:bg-[#121212] overflow-hidden">
-                    <summary class="flex justify-between items-center p-4 font-bold text-[13.5px] cursor-pointer text-on-surface dark:text-gray-200 list-none hover:bg-surface-variant/10 transition-colors">
-                        <div class="flex items-center gap-2">
-                            <span class="material-symbols-outlined text-[20px] text-on-surface-variant">tune</span>
-                            <span>Poll Settings & Deadlines</span>
-                        </div>
-                        <span class="transition group-open:rotate-180 material-symbols-outlined text-on-surface-variant">expand_more</span>
-                    </summary>
+                <!-- Advanced Restrictions & Deadlines -->
+                <div class="bg-surface-variant/5 dark:bg-neutral-800/30 p-4 rounded-3xl border border-surface-variant/40 dark:border-neutral-800 space-y-4">
                     
-                    <div class="p-4 pt-1 space-y-4 border-t border-surface-variant/20 dark:border-neutral-800 bg-surface-variant/5 dark:bg-neutral-900/20">
-                        
-                        <div class="flex items-center justify-between">
-                            <span class="text-[13px] font-extrabold text-on-surface dark:text-gray-300">Allow Vote Undo</span>
-                            <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" id="poll-can-undo" class="sr-only peer">
-                                <div class="w-9 h-5 bg-surface-variant dark:bg-neutral-700 rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
-                            </label>
-                        </div>
-                        
-                        <div class="space-y-1.5">
-                            <label class="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Voters List Visibility</label>
-                            <select id="poll-voters-visibility" class="w-full bg-surface dark:bg-[#1e1e1e] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 text-[13px] font-medium text-on-surface dark:text-gray-100 outline-none">
-                                <option value="public">Public (Everyone sees who voted)</option>
-                                <option value="hidden">Hidden (Anonymous to voters)</option>
-                            </select>
-                        </div>
-
-                        <div class="space-y-1.5">
-                            <label class="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">End Poll Condition</label>
-                            <select id="poll-deadline-type" class="w-full bg-surface dark:bg-[#1e1e1e] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 text-[13px] font-medium text-on-surface dark:text-gray-100 outline-none">
-                                <option value="time">When the Post Expires (Default)</option>
-                                <option value="voter_count">After a specific number of votes</option>
-                            </select>
-                            <input type="number" id="poll-deadline-count" placeholder="Target Vote Count (e.g., 50)" class="hidden w-full mt-2 bg-surface dark:bg-[#1e1e1e] border border-primary/50 rounded-xl p-3 text-[13px] text-on-surface dark:text-gray-100 outline-none focus:border-primary transition-all">
-                        </div>
+                    <div>
+                        <label class="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1.5 block">Who can vote?</label>
+                        <select id="poll-voters-access" class="w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 text-[14px] font-medium outline-none">
+                            <option value="all">Everyone</option>
+                            <option value="connections">Only My Connections</option>
+                            <option value="custom">My Custom List (Manage in Settings)</option>
+                        </select>
                     </div>
+
+                    <div>
+                        <label class="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1.5 block">End Poll Automatically</label>
+                        <select id="poll-deadline-type" onchange="togglePollDeadlineInputs()" class="w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 text-[14px] font-medium outline-none">
+                            <option value="post_expiry">When the post expires</option>
+                            <option value="time">At a specific date & time</option>
+                            <option value="voter_count">After a set number of votes</option>
+                        </select>
+                        
+                        <!-- Dynamic Deadline Inputs -->
+                        <input type="datetime-local" id="poll-deadline-time" class="hidden w-full mt-2 bg-surface dark:bg-[#121212] border border-primary/50 rounded-xl p-3 text-[13px] outline-none">
+                        <input type="number" id="poll-deadline-count" placeholder="Target Vote Count (e.g., 50)" class="hidden w-full mt-2 bg-surface dark:bg-[#121212] border border-primary/50 rounded-xl p-3 text-[13px] outline-none">
+                    </div>
+                </div>
+            </div>
                 </details>
             </div>
             <!-- Event Input -->
