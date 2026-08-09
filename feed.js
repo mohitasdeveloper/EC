@@ -268,21 +268,38 @@ async function submitPost() {
         if (postError) throw postError;
         const newPostId = newPost.id;
 
-        if (postType === 'poll') {
+      if (postType === 'poll') {
             const inputs = document.querySelectorAll('.poll-opt-input');
             const rawOptions = Array.from(inputs).map(inp => inp.value.trim()).filter(val => val !== '');
             if(rawOptions.length < 2) throw new Error("Polls need at least 2 options.");
             
+            // Format to JSONB standard: [{ id: "1", text: "Option A" }]
             const formattedOptions = rawOptions.map((opt, index) => ({ id: (index + 1).toString(), text: opt }));
+            
+            const isQuiz = document.getElementById('poll-is-quiz').checked;
+            let correctOptionId = null;
+
+            if (isQuiz) {
+                const correctIndex = document.getElementById('poll-correct-option-index').value;
+                if (!correctIndex || correctIndex < 1 || correctIndex > formattedOptions.length) {
+                    throw new Error("Please enter a valid Correct Option Number for the quiz.");
+                }
+                correctOptionId = correctIndex.toString();
+            }
+
             const pollPayload = {
                 post_id: newPostId,
                 options: formattedOptions,
                 is_multiple_choice: document.getElementById('poll-is-multiple').checked,
                 can_undo_vote: document.getElementById('poll-can-undo').checked,
                 voters_list_visibility: document.getElementById('poll-voters-visibility').value,
-                deadline_type: document.getElementById('poll-deadline-type').value
+                deadline_type: document.getElementById('poll-deadline-type').value,
+                is_quiz: isQuiz,
+                correct_option_id: correctOptionId,
+                extra_info: document.getElementById('poll-explanation').value.trim() || null
             };
 
+            // Handle Target Count Deadlines
             if (pollPayload.deadline_type === 'voter_count') {
                 const countVal = parseInt(document.getElementById('poll-deadline-count').value);
                 if (!countVal || countVal < 1) throw new Error("Please enter a valid target vote count.");
@@ -291,7 +308,7 @@ async function submitPost() {
 
             const { error: pollError } = await supabase.from('post_polls').insert(pollPayload);
             if (pollError) throw pollError;
-        } 
+        }
         else if (postType === 'event') {
             const dateVal = document.getElementById('event-date').value;
             if (!dateVal) throw new Error("Please select an event date and time.");
