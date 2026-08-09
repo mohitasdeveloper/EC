@@ -328,29 +328,36 @@
 
 <!-- SEARCH VIEW -->
 <div id="view-search" class="tab-content hidden safe-pt">
-    <div class="relative mb-6 mt-2">
+    <div class="relative mb-4 mt-2">
         <div class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none text-on-surface-variant">
             <span class="material-symbols-outlined text-[20px]">search</span>
         </div>
         <input type="text" id="search-input"
             class="w-full bg-surface-container-lowest dark:bg-[#1e1e1e] border border-surface-variant/60 dark:border-neutral-800 text-on-surface dark:text-gray-100 text-sm rounded-2xl focus:ring-primary focus:border-primary block pl-11 pr-11 p-3.5 shadow-sm outline-none placeholder-on-surface-variant/70 transition-colors"
-            placeholder="Search students or pages...">
+            placeholder="Search students, pages, or services...">
             
-        <!-- NEW: Clear Search Button (Hidden by default) -->
+        <!-- Clear Search Button (Hidden by default) -->
         <button id="clear-search-btn" class="hidden absolute inset-y-0 right-0 flex items-center pr-4 text-on-surface-variant hover:text-primary transition-colors cursor-pointer active:scale-90">
             <span class="material-symbols-outlined text-[20px]">close</span>
         </button>
     </div>
 
+    <!-- 🚀 NEW: Horizontal Pill Tabs -->
+    <div id="search-tabs-container" class="flex gap-2 overflow-x-auto hide-scrollbar mb-4 px-1 hidden">
+        <button data-tab="all" class="search-tab-btn bg-on-surface text-surface dark:bg-white dark:text-black px-4 py-1.5 rounded-full text-[13px] font-bold shrink-0 transition-colors">All</button>
+        <button data-tab="users" class="search-tab-btn bg-surface-variant/30 text-on-surface-variant dark:bg-neutral-800 dark:text-gray-300 px-4 py-1.5 rounded-full text-[13px] font-bold shrink-0 transition-colors border border-transparent hover:border-surface-variant/50">Users</button>
+        <button data-tab="pages" class="search-tab-btn bg-surface-variant/30 text-on-surface-variant dark:bg-neutral-800 dark:text-gray-300 px-4 py-1.5 rounded-full text-[13px] font-bold shrink-0 transition-colors border border-transparent hover:border-surface-variant/50">Pages</button>
+        <button data-tab="services" class="search-tab-btn bg-surface-variant/30 text-on-surface-variant dark:bg-neutral-800 dark:text-gray-300 px-4 py-1.5 rounded-full text-[13px] font-bold shrink-0 transition-colors border border-transparent hover:border-surface-variant/50">Services</button>
+    </div>
+
     <!-- Dynamic Search Results -->
-    <div id="search-results-container" class="hidden space-y-3 mb-8"></div>
+    <div id="search-results-container" class="hidden space-y-1 mb-8"></div>
 
     <!-- Discover Students / Pages -->
     <div id="explore-users-container" class="space-y-3">
         <p class="text-sm italic text-center py-4 text-on-surface-variant dark:text-gray-400">Loading suggestions...</p>
     </div>
 </div>
-
         <!-- UPDATES VIEW -->
 <div id="view-updates" class="tab-content hidden pt-4 safe-pt">
     <h2 class="text-2xl font-extrabold text-on-surface dark:text-gray-100 mb-6">
