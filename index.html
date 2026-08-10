@@ -546,6 +546,36 @@
                 </div>
             </details>
 
+            <!-- SUB-PANEL: CUSTOM VOTERS LIST -->
+    <div id="settings-custom-list-panel" class="absolute inset-y-0 right-0 w-full max-w-screen-md mx-auto flex flex-col transition-transform duration-300 translate-x-full bg-surface dark:bg-[#121212] z-30">
+        <div class="pt-[max(1rem,env(safe-area-inset-top))] pb-4 border-b border-surface-variant/40 dark:border-neutral-800 flex items-center px-5 shrink-0 bg-surface/90 dark:bg-[#121212]/90 backdrop-blur-xl">
+            <button onclick="closeSettingsSubPanel('settings-custom-list-panel')" class="p-2 -ml-2 rounded-full hover:bg-surface-variant/50 text-on-surface dark:text-gray-100 transition-colors flex items-center justify-center">
+                <span class="material-symbols-outlined text-[28px]">arrow_back</span>
+            </button>
+            <h2 class="text-xl font-extrabold ml-2 text-on-surface dark:text-gray-100 tracking-tight">Custom Voters List</h2>
+        </div>
+        <div class="flex-1 overflow-y-auto px-5 py-6 flex flex-col">
+            <p class="text-[13px] text-on-surface-variant dark:text-gray-400 mb-4 leading-relaxed">
+                Add connections to this list. When creating a poll, you can restrict voting to ONLY the people on this list.
+            </p>
+            
+            <div class="relative mb-6">
+                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-on-surface-variant">
+                    <span class="material-symbols-outlined text-[20px]">person_add</span>
+                </div>
+                <input type="text" id="custom-list-search" oninput="window.searchUsersForCustomList(this.value)" class="w-full bg-surface-variant/30 dark:bg-neutral-900/50 border border-surface-variant/50 dark:border-neutral-700 text-on-surface dark:text-gray-100 text-[14px] rounded-xl focus:ring-primary focus:border-primary block pl-10 p-3 outline-none transition-colors" placeholder="Search connections to add...">
+                
+                <!-- Search Results Dropdown -->
+                <div id="custom-list-search-results" class="absolute top-full left-0 right-0 mt-1 bg-surface-container-lowest dark:bg-[#1e1e1e] border border-surface-variant/50 dark:border-neutral-700 rounded-xl shadow-lg max-h-48 overflow-y-auto hidden z-20"></div>
+            </div>
+
+            <h4 class="text-[12px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">People in List</h4>
+            <div id="custom-list-container" class="space-y-2 flex-1 overflow-y-auto hide-scrollbar">
+                <!-- Injected via JS -->
+            </div>
+        </div>
+    </div>
+
 <!-- SECTION 4: HELP & SUPPORT -->
             <details class="group bg-surface-variant/10 dark:bg-neutral-900/30 rounded-2xl border border-surface-variant/30 dark:border-neutral-800 overflow-hidden">
                 <summary class="flex items-center justify-between p-4 cursor-pointer list-none transition-colors hover:bg-surface-variant/20 dark:hover:bg-neutral-800/50">
@@ -964,34 +994,47 @@
                 </div>
             </div>
 
-           <!-- Ultimate Poll Input V2 -->
+          <!-- Ultimate Poll Input V3 -->
             <div id="input-poll" class="post-input-section hidden mb-6 space-y-4">
                 
                 <!-- Options Builder -->
                 <div class="bg-surface-variant/5 dark:bg-neutral-800/30 p-4 rounded-3xl border border-surface-variant/40 dark:border-neutral-800">
-                    <h4 class="text-[12px] font-extrabold text-primary uppercase tracking-wider mb-3">Poll Options</h4>
+                    <div class="flex justify-between items-center mb-3">
+                        <h4 class="text-[12px] font-extrabold text-primary uppercase tracking-wider">Poll Options</h4>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="poll-is-multiple" class="w-4 h-4 rounded text-primary focus:ring-primary border-surface-variant dark:border-neutral-700 dark:bg-neutral-800">
+                            <span class="text-[12px] font-bold text-on-surface dark:text-gray-200">Multiple Choice</span>
+                        </label>
+                    </div>
                     <div id="poll-options-container" class="space-y-3">
-                        <input type="text" class="poll-opt-input w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3.5 text-[14px] text-on-surface dark:text-gray-100 outline-none focus:border-primary" placeholder="Option 1">
-                        <input type="text" class="poll-opt-input w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3.5 text-[14px] text-on-surface dark:text-gray-100 outline-none focus:border-primary" placeholder="Option 2">
+                        <input type="text" class="poll-opt-input w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3.5 text-[14px] text-on-surface dark:text-gray-100 outline-none focus:border-primary transition-colors" placeholder="Option 1">
+                        <input type="text" class="poll-opt-input w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3.5 text-[14px] text-on-surface dark:text-gray-100 outline-none focus:border-primary transition-colors" placeholder="Option 2">
                     </div>
                     <button onclick="addPollOptionUI()" class="text-primary font-bold text-[13px] flex items-center gap-1 mt-3 active:scale-95 transition-transform bg-primary/10 px-3 py-1.5 rounded-lg">
                         <span class="material-symbols-outlined text-[18px]">add</span> Add Option
                     </button>
                 </div>
 
-                <!-- Modern Settings Toggles -->
-                <div class="bg-surface-variant/5 dark:bg-neutral-800/30 rounded-3xl border border-surface-variant/40 dark:border-neutral-800 overflow-hidden divide-y divide-surface-variant/40 dark:divide-neutral-800">
-                    
-                    <!-- Multiple Choice -->
-                    <div class="flex items-center justify-between p-4">
-                        <span class="text-[14px] font-bold text-on-surface dark:text-gray-100">Multiple Choice</span>
-                        <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                            <input type="checkbox" id="poll-is-multiple" class="sr-only peer">
-                            <div class="w-11 h-6 bg-surface-variant dark:bg-neutral-700 rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                <!-- 🚀 RESTORED: Quiz Mode Toggle -->
+                <div class="bg-blue-500/5 border border-blue-500/20 rounded-3xl p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                            <span class="material-symbols-outlined text-[20px]">school</span>
+                            <span class="text-[13.5px] font-extrabold">Make it a Quiz</span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="poll-is-quiz" onchange="document.getElementById('quiz-settings-container').classList.toggle('hidden', !this.checked)" class="sr-only peer">
+                            <div class="w-9 h-5 bg-surface-variant dark:bg-neutral-700 rounded-full peer peer-checked:bg-blue-500 peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
                         </label>
                     </div>
+                    <div id="quiz-settings-container" class="hidden space-y-3 mt-3 animate-fadeIn">
+                        <input type="number" id="poll-correct-option-index" placeholder="Correct Option Number (e.g., 1 or 2)" min="1" class="w-full bg-surface dark:bg-[#121212] border border-blue-500/30 rounded-xl p-3 text-[13px] text-on-surface dark:text-gray-100 outline-none focus:border-blue-500">
+                        <textarea id="poll-explanation" placeholder="Explanation (Revealed after voting)..." rows="2" class="w-full bg-surface dark:bg-[#121212] border border-blue-500/30 rounded-xl p-3 text-[13px] text-on-surface dark:text-gray-100 outline-none focus:border-blue-500 resize-none"></textarea>
+                    </div>
+                </div>
 
-                    <!-- Allow Undo -->
+                <!-- Modern Settings Toggles -->
+                <div class="bg-surface-variant/5 dark:bg-neutral-800/30 rounded-3xl border border-surface-variant/40 dark:border-neutral-800 overflow-hidden divide-y divide-surface-variant/40 dark:divide-neutral-800">
                     <div class="flex items-center justify-between p-4">
                         <span class="text-[14px] font-bold text-on-surface dark:text-gray-100">Allow Vote Undo</span>
                         <label class="relative inline-flex items-center cursor-pointer shrink-0">
@@ -999,8 +1042,6 @@
                             <div class="w-11 h-6 bg-surface-variant dark:bg-neutral-700 rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                         </label>
                     </div>
-
-                    <!-- Anonymous Voting -->
                     <div class="flex items-center justify-between p-4">
                         <div class="flex flex-col">
                             <span class="text-[14px] font-bold text-on-surface dark:text-gray-100">Anonymous Voting</span>
@@ -1013,25 +1054,32 @@
                     </div>
                 </div>
 
-                <!-- Advanced Restrictions & Deadlines -->
+                <!-- 🚀 RESTORED & UPGRADED: Advanced Restrictions & Deadlines (Native Selectors) -->
                 <div class="bg-surface-variant/5 dark:bg-neutral-800/30 p-4 rounded-3xl border border-surface-variant/40 dark:border-neutral-800 space-y-4">
                     
                     <div>
                         <label class="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1.5 block">Who can vote?</label>
-                        <select id="poll-voters-access" class="w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 text-[14px] font-medium outline-none">
-                            <option value="all">Everyone</option>
-                            <option value="connections">Only My Connections</option>
-                            <option value="custom">My Custom List (Manage in Settings)</option>
-                        </select>
+                        <div onclick="window.openPollAccessSelector()" class="w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3.5 text-[14px] cursor-pointer flex justify-between items-center text-on-surface dark:text-white active:scale-[0.98] transition-all">
+                            <span id="poll-voters-access-label" class="font-medium">Everyone</span>
+                            <span class="material-symbols-outlined text-[20px] text-on-surface-variant">expand_more</span>
+                        </div>
+                        <input type="hidden" id="poll-voters-access" value="all">
+                        
+                        <!-- Shortcut to Settings -->
+                        <div id="manage-custom-list-shortcut" class="hidden mt-2 flex justify-end">
+                            <button onclick="closeCreatePostView(); setTimeout(() => openSettingsSubPanel('settings-custom-list-panel'), 300);" class="text-[11px] font-bold text-primary flex items-center gap-1 bg-primary/10 px-2 py-1 rounded-md">
+                                <span class="material-symbols-outlined text-[14px]">edit</span> Manage Custom List
+                            </button>
+                        </div>
                     </div>
 
                     <div>
                         <label class="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1.5 block">End Poll Automatically</label>
-                        <select id="poll-deadline-type" onchange="togglePollDeadlineInputs()" class="w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3 text-[14px] font-medium outline-none">
-                            <option value="post_expiry">When the post expires</option>
-                            <option value="time">At a specific date & time</option>
-                            <option value="voter_count">After a set number of votes</option>
-                        </select>
+                        <div onclick="window.openPollDeadlineSelector()" class="w-full bg-surface dark:bg-[#121212] border border-surface-variant/50 dark:border-neutral-700 rounded-xl p-3.5 text-[14px] cursor-pointer flex justify-between items-center text-on-surface dark:text-white active:scale-[0.98] transition-all">
+                            <span id="poll-deadline-type-label" class="font-medium">When the post expires</span>
+                            <span class="material-symbols-outlined text-[20px] text-on-surface-variant">expand_more</span>
+                        </div>
+                        <input type="hidden" id="poll-deadline-type" value="post_expiry">
                         
                         <!-- Dynamic Deadline Inputs -->
                         <input type="datetime-local" id="poll-deadline-time" class="hidden w-full mt-2 bg-surface dark:bg-[#121212] border border-primary/50 rounded-xl p-3 text-[13px] outline-none">
