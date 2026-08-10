@@ -846,7 +846,8 @@ window.handlePollVote = async function(postId, optionId, isUndo) {
     try {
         const { error } = await supabase.rpc('cast_poll_vote', {
             p_post_id: postId,
-            p_option_id: String(optionId), // 🚀 FIXED: Guaranteed String UUID conversion
+            p_user_id: currentUser.id, // 🚀 NEW: Explicitly pass the correct public profile ID
+            p_option_id: String(optionId),
             p_is_undo: isUndo
         });
 
@@ -867,7 +868,6 @@ window.handlePollVote = async function(postId, optionId, isUndo) {
         isVoting = false; 
     }
 };
-
 // Smooth Render for In-place Voting Updates
 window.updatePollUI = async function(postId) {
     const postEls = document.querySelectorAll(`div[data-post-id="${postId}"]`);
