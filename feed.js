@@ -70,6 +70,16 @@ const FEED_SKELETON = `
     </div>
 `.repeat(3);
 
+
+function getPollTimeLeft(dateStr) {
+    const diff = new Date(dateStr) - new Date();
+    if (diff <= 0) return 'Ended';
+    const h = Math.floor(diff / (1000 * 60 * 60));
+    if (h >= 24) return `${Math.floor(h/24)}d`;
+    if (h > 0) return `${h}h`;
+    return `${Math.floor(diff / (1000 * 60))}m`;
+}
+
 export function initFeed(user) {
     currentUser = user;
     
@@ -267,7 +277,7 @@ async function submitPost() {
         if (postError) throw postError;
         const newPostId = newPost.id;
 
-     if (postType === 'poll') {
+  if (postType === 'poll') {
             const inputs = document.querySelectorAll('.poll-opt-input');
             const rawOptions = Array.from(inputs).map(inp => inp.value.trim()).filter(val => val !== '');
             if(rawOptions.length < 2) throw new Error("Polls need at least 2 options.");
@@ -282,6 +292,17 @@ async function submitPost() {
                 if (allowedVoterIds.length === 0) throw new Error("Your Custom Voters List is empty. Please set it up in Settings first.");
             }
 
+            // 🚀 FIX: Correctly read the Quiz Data
+            const isQuiz = document.getElementById('poll-is-quiz').checked;
+            let correctOptionId = null;
+            if (isQuiz) {
+                const correctIndex = document.getElementById('poll-correct-option-index').value;
+                if (!correctIndex || correctIndex < 1 || correctIndex > formattedOptions.length) {
+                    throw new Error("Please enter a valid Correct Option Number for the quiz.");
+                }
+                correctOptionId = correctIndex.toString();
+            }
+
             const pollPayload = {
                 post_id: newPostId,
                 options: formattedOptions,
@@ -291,7 +312,9 @@ async function submitPost() {
                 voters_access: votersVisibility === 'custom' ? 'selected' : votersVisibility,
                 allowed_voter_ids: allowedVoterIds,
                 deadline_type: document.getElementById('poll-deadline-type').value === 'post_expiry' ? 'time' : document.getElementById('poll-deadline-type').value,
-                is_quiz: false, // Legacy fallback
+                is_quiz: isQuiz, // 🚀 FIXED!
+                correct_option_id: correctOptionId, // 🚀 FIXED!
+                extra_info: document.getElementById('poll-explanation').value.trim() || null
             };
 
             // Handle Specific Deadlines
@@ -503,7 +526,7 @@ function renderPosts(posts, isRefresh = false) {
         const optimizedAvatar = typeof optimizeImageUrl === 'function' ? optimizeImageUrl(rawAvatarUrl, 'avatar') : rawAvatarUrl;
         const headerIcon = `<img loading="lazy" src="${optimizedAvatar}" data-user-id="${user.id}" class="profile-link w-8 h-8 rounded-full border border-surface-variant shadow-sm object-cover cursor-pointer hover:opacity-80 transition-opacity shrink-0">`;
 
-        let cleanCaptionContent = '';
+       let cleanCaptionContent = '';
         if (post.content && post.content.trim() !== '' && post.content !== '<p><br></p>') {
             cleanCaptionContent = post.content.replace(/^<p>/, '').replace(/<\/p>$/, '').trim();
         }
@@ -669,13 +692,15 @@ function renderPosts(posts, isRefresh = false) {
                     ? `Votes hidden` 
                     : `<span class="${poll.voters_list_visibility === 'public' || isAuthor ? 'cursor-pointer hover:underline text-primary font-bold' : ''}" onclick="if('${poll.voters_list_visibility}' === 'public' || '${isAuthor}' === 'true') window.openPollVoters('${post.id}')">${totalVotes} votes</span>`;
 
+                // 🚀 FIX: PROPERLY INJECT META LABELS
                 let metaLabels = [];
-                if (!poll.can_undo_vote) metaLabels.push('No undo');
-                if (poll.deadline_type === 'voter_count') metaLabels.push(`Target: ${poll.deadline_count}`);
-                if (!isExpired && poll.deadline_type === 'time' && poll.deadline_time) metaLabels.push(`Ends ${timeAgo(poll.deadline_time)}`);
-                const metaHtml = metaLabels.length > 0 ? `<div class="text-[10px] font-bold text-on-surface-variant dark:text-gray-500 mt-2 flex gap-2">${metaLabels.map(m => `<span>• ${m}</span>`).join('')}</div>` : '';
+                if (!poll.can_undo_vote) metaLabels.push('🔒 Cannot undo');
+                if (poll.deadline_type === 'voter_count') metaLabels.push(`🎯 Target: ${poll.deadline_count}`);
+                if (!isExpired && poll.deadline_type === 'time' && poll.deadline_time) metaLabels.push(`⏳ Ends in ${getPollTimeLeft(poll.deadline_time)}`);
+                
+                const metaHtml = metaLabels.length > 0 ? `<div class="text-[10px] font-bold text-on-surface-variant dark:text-gray-500 mt-3 pt-2 border-t border-surface-variant/30 dark:border-neutral-700 flex flex-wrap gap-x-3 gap-y-1 justify-center">${metaLabels.map(m => `<span>${m}</span>`).join('')}</div>` : '';
 
-                const restrictionBannerHtml = restrictionReason ? `<div class="bg-surface-variant/20 dark:bg-neutral-800/50 text-[11px] font-bold text-on-surface-variant dark:text-gray-400 p-2 rounded-lg mb-2 text-center border border-surface-variant/40 dark:border-neutral-700">${restrictionReason}</div>` : '';
+                const restrictionBannerHtml = restrictionReason ? `<div class="bg-surface-variant/20 dark:bg-neutral-800/50 text-[11px] font-bold text-on-surface-variant dark:text-gray-400 p-2 rounded-lg mb-3 text-center border border-surface-variant/40 dark:border-neutral-700">${restrictionReason}</div>` : '';
 
                contentHtml = `
                     <div class="poll-container-wrapper px-3 py-3 border-y border-surface-variant/40 dark:border-neutral-800 bg-surface-variant/5 dark:bg-neutral-900/30 mt-2">
@@ -693,12 +718,17 @@ function renderPosts(posts, isRefresh = false) {
             }
         }
 
+        // 🚀 FIX: SMART CAPTION LOGIC (No Name for Polls/Text)
         let captionHtml = '';
         if (cleanCaptionContent !== '') {
-            captionHtml = `<div class="px-3 text-[14px] text-on-surface dark:text-gray-100 leading-snug mt-1"><span data-user-id="${user.id}" class="profile-link font-bold mr-1 cursor-pointer hover:underline">${user.full_name}</span><span class="rich-text-content inline">${cleanCaptionContent}</span></div>`;
+            if (post.post_type === 'image') {
+                captionHtml = `<div class="px-3 text-[14px] text-on-surface dark:text-gray-100 leading-snug mt-2 mb-1"><span data-user-id="${user.id}" class="profile-link font-bold mr-1 cursor-pointer hover:underline">${user.full_name}</span><span class="rich-text-content inline">${cleanCaptionContent}</span></div>`;
+            } else {
+                captionHtml = `<div class="px-3 text-[15px] text-on-surface dark:text-gray-100 leading-snug mt-2 mb-1"><span class="rich-text-content inline">${cleanCaptionContent}</span></div>`;
+            }
         }
 
-        // 🚀 SMART CAPTIONS: Text ABOVE for Polls/Events/Text, BELOW for Images
+        // Text ABOVE for Polls/Events, BELOW for Images
         let finalLayoutHtml = '';
         if (post.post_type === 'image') {
             finalLayoutHtml = contentHtml + captionHtml;
@@ -970,19 +1000,21 @@ window.updatePollUI = async function(postId) {
             `;
         }
 
-        let quizBadge = isQuiz ? `<span class="bg-blue-500/10 text-blue-600 dark:text-blue-500 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-widest mb-2 inline-block shadow-sm">Quiz</span>` : '';
+       let quizBadge = isQuiz ? `<span class="bg-blue-500/10 text-blue-600 dark:text-blue-500 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-widest mb-2 inline-block shadow-sm">Quiz</span>` : '';
         
         const totalVotesText = poll.voters_list_visibility === 'hidden' && !isAuthor 
             ? `Votes hidden` 
             : `<span class="${poll.voters_list_visibility === 'public' || isAuthor ? 'cursor-pointer hover:underline text-primary font-bold' : ''}" onclick="if('${poll.voters_list_visibility}' === 'public' || '${isAuthor}' === 'true') window.openPollVoters('${postId}')">${totalVotes} votes</span>`;
 
+        // 🚀 FIX: SYNCED META LABELS
         let metaLabels = [];
-        if (!poll.can_undo_vote) metaLabels.push('No undo');
-        if (poll.deadline_type === 'voter_count') metaLabels.push(`Target: ${poll.deadline_count}`);
-        if (!isExpired && poll.deadline_type === 'time' && poll.deadline_time) metaLabels.push(`Ends ${timeAgo(poll.deadline_time)}`);
-        const metaHtml = metaLabels.length > 0 ? `<div class="text-[10px] font-bold text-on-surface-variant dark:text-gray-500 mt-2 flex gap-2">${metaLabels.map(m => `<span>• ${m}</span>`).join('')}</div>` : '';
+        if (!poll.can_undo_vote) metaLabels.push('🔒 Cannot undo');
+        if (poll.deadline_type === 'voter_count') metaLabels.push(`🎯 Target: ${poll.deadline_count}`);
+        if (!isExpired && poll.deadline_type === 'time' && poll.deadline_time) metaLabels.push(`⏳ Ends in ${getPollTimeLeft(poll.deadline_time)}`);
+        
+        const metaHtml = metaLabels.length > 0 ? `<div class="text-[10px] font-bold text-on-surface-variant dark:text-gray-500 mt-3 pt-2 border-t border-surface-variant/30 dark:border-neutral-700 flex flex-wrap gap-x-3 gap-y-1 justify-center">${metaLabels.map(m => `<span>${m}</span>`).join('')}</div>` : '';
 
-        const restrictionBannerHtml = restrictionReason ? `<div class="bg-surface-variant/20 dark:bg-neutral-800/50 text-[11px] font-bold text-on-surface-variant dark:text-gray-400 p-2 rounded-lg mb-2 text-center border border-surface-variant/40 dark:border-neutral-700">${restrictionReason}</div>` : '';
+        const restrictionBannerHtml = restrictionReason ? `<div class="bg-surface-variant/20 dark:bg-neutral-800/50 text-[11px] font-bold text-on-surface-variant dark:text-gray-400 p-2 rounded-lg mb-3 text-center border border-surface-variant/40 dark:border-neutral-700">${restrictionReason}</div>` : '';
 
         postEls.forEach(postEl => {
             const pollContainer = postEl.querySelector('.poll-container-wrapper');
