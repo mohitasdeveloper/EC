@@ -522,18 +522,23 @@ function renderPosts(posts, isRefresh = false) {
         const optimizedAvatar = typeof optimizeImageUrl === 'function' ? optimizeImageUrl(rawAvatarUrl, 'avatar') : rawAvatarUrl;
         const headerIcon = `<img loading="lazy" src="${optimizedAvatar}" data-user-id="${user.id}" class="profile-link w-8 h-8 rounded-full border border-surface-variant shadow-sm object-cover cursor-pointer hover:opacity-80 transition-opacity shrink-0">`;
 
-        // Clean Quill Editor whitespace and empty tags
-        let cleanCaptionContent = '';
-        if (post.content && post.content.trim() !== '' && post.content !== '<p><br></p>' && post.content !== '<p></p>') {
-            cleanCaptionContent = post.content.replace(/^<p>/, '').replace(/<\/p>$/, '').trim();
+        // 🚀 FIX: Robust empty post stripper (Removes invisible Quill spaces)
+        let cleanCaptionContent = post.content || '';
+        const plainTextCheck = cleanCaptionContent.replace(/<[^>]*>?/gm, '').replace(/&nbsp;/g, '').trim();
+        if (plainTextCheck === '' && !cleanCaptionContent.includes('<img') && !cleanCaptionContent.includes('<iframe')) {
+            cleanCaptionContent = '';
+        } else {
+            cleanCaptionContent = cleanCaptionContent.replace(/^(<p><br><\/p>\s*)+/, '').replace(/(<p><br><\/p>\s*)+$/, '').trim();
         }
 
         let isPollActive = false;
         let contentHtml = '';
 
         if (post.post_type === 'text') {
-            if (cleanCaptionContent !== '') contentHtml = `<div class="px-4 py-8 mt-2 mb-2 bg-surface-variant/10 dark:bg-neutral-900/40 rounded-2xl mx-3 flex items-center justify-center border border-surface-variant/30 dark:border-neutral-800"><div class="text-[16px] sm:text-[18px] font-medium text-on-surface dark:text-gray-100 leading-relaxed whitespace-pre-wrap rich-text-content text-center w-full">${post.content}</div></div>`;
-            cleanCaptionContent = ''; 
+            if (cleanCaptionContent !== '') {
+                contentHtml = `<div class="px-4 py-8 mt-2 mb-2 bg-surface-variant/10 dark:bg-neutral-900/40 rounded-2xl mx-3 flex items-center justify-center border border-surface-variant/30 dark:border-neutral-800"><div class="text-[16px] sm:text-[18px] font-medium text-on-surface dark:text-gray-100 leading-relaxed whitespace-pre-wrap rich-text-content text-center w-full">${cleanCaptionContent}</div></div>`;
+                cleanCaptionContent = ''; // Clear it so it doesn't render twice
+            }
         }
         else if (post.post_type === 'image') {
             contentHtml = `<div class="w-full bg-surface-variant/20 dark:bg-neutral-900 flex items-center justify-center border-y border-surface-variant/40 dark:border-neutral-800 mt-2"><img loading="lazy" src="${typeof optimizeImageUrl === 'function' ? optimizeImageUrl(post.media_url, 'feed') : post.media_url}" class="w-full h-auto max-h-[80vh] object-cover"></div>`;
@@ -590,7 +595,11 @@ function renderPosts(posts, isRefresh = false) {
                 }
                 
                 isPollActive = !isExpired; 
+                
+                // 🚀 FIX: Separated Results (Percentages) from Quiz Answers (Green/Red Highlights)
                 const showResults = userHasVoted || isExpired || isAuthor;
+                const showQuizAnswers = userHasVoted || isExpired; // Hide answers from author until they vote or it ends
+
                 const isQuiz = poll.is_quiz;
                 const correctOptId = poll.correct_option_id;
 
@@ -619,7 +628,8 @@ function renderPosts(posts, isRefresh = false) {
                     let optBgClass = 'bg-surface-variant/30 dark:bg-surface-variant/10';
                     let checkIconHtml = '';
 
-                    if (isQuiz && showResults) {
+                    // 🚀 FIX: Only show green/red highlights if showQuizAnswers is true
+                    if (isQuiz && showQuizAnswers) {
                         if (opt.id === correctOptId) {
                             optBorderClass = 'border-green-500';
                             optBgClass = 'bg-green-500/10';
@@ -634,7 +644,7 @@ function renderPosts(posts, isRefresh = false) {
                     }
 
                     let selectorHtml = '';
-                    if (!isQuiz || !showResults) { 
+                    if (!isQuiz || !showQuizAnswers) { 
                         if (poll.is_multiple_choice) {
                             selectorHtml = `<div class="w-4 h-4 rounded-sm border-2 ${iVotedForThis ? 'border-primary bg-primary flex items-center justify-center' : 'border-surface-variant/80'}">${iVotedForThis ? '<span class="material-symbols-outlined text-white text-[12px] font-bold">check</span>' : ''}</div>`;
                         } else {
@@ -672,7 +682,7 @@ function renderPosts(posts, isRefresh = false) {
                 }).join('');
 
                 let extraInfoHtml = '';
-                if (showResults && poll.extra_info) {
+                if (showQuizAnswers && poll.extra_info) { // 🚀 FIX: Explanation only shows when voted/ended
                     extraInfoHtml = `
                         <div class="mt-3 bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 text-[12.5px] text-on-surface dark:text-gray-200 animate-fadeIn">
                             <span class="font-extrabold text-blue-600 dark:text-blue-400 block mb-0.5">${isQuiz ? 'Explanation' : 'Note'}</span>
@@ -696,7 +706,7 @@ function renderPosts(posts, isRefresh = false) {
 
                 const restrictionBannerHtml = restrictionReason ? `<div class="bg-surface-variant/20 dark:bg-neutral-800/50 text-[11px] font-bold text-on-surface-variant dark:text-gray-400 p-2 rounded-lg mb-3 text-center border border-surface-variant/40 dark:border-neutral-700">${restrictionReason}</div>` : '';
 
-                contentHtml = `
+               contentHtml = `
                     <div class="poll-container-wrapper px-3 py-3 border-y border-surface-variant/40 dark:border-neutral-800 bg-surface-variant/5 dark:bg-neutral-900/30 mt-2">
                         ${quizBadge}
                         ${restrictionBannerHtml}
@@ -712,7 +722,9 @@ function renderPosts(posts, isRefresh = false) {
             }
         }
 
-        // DYNAMIC CAPTIONS: Place images caption below likes bar[cite: 8], polls/text above
+        // 🚀 Skip rendering if it's an empty, broken post
+        if (contentHtml === '' && cleanCaptionContent === '' && post.post_type === 'text') return '';
+
         let topCaptionHtml = '';
         let bottomCaptionHtml = '';
 
@@ -769,7 +781,6 @@ function renderPosts(posts, isRefresh = false) {
     if (isRefresh) container.innerHTML = htmlString;
     else container.insertAdjacentHTML('beforeend', htmlString);
 }
-
 window._likeLocks = window._likeLocks || {};
 
 window.handleLike = async function(postId, btnElement) {
@@ -868,7 +879,7 @@ window.handlePollVote = async function(postId, optionId, isUndo) {
         isVoting = false; 
     }
 };
-// Smooth Render for In-place Voting Updates
+// 🚀 SMOOTH UPDATE ENGINE
 window.updatePollUI = async function(postId) {
     const postEls = document.querySelectorAll(`div[data-post-id="${postId}"]`);
     if (!postEls.length) return;
@@ -902,6 +913,8 @@ window.updatePollUI = async function(postId) {
         }
 
         const showResults = userHasVoted || isExpired || isAuthor;
+        const showQuizAnswers = userHasVoted || isExpired; // 🚀 Hide from author until voted/ended
+
         const isQuiz = poll.is_quiz;
         const correctOptId = poll.correct_option_id;
 
@@ -929,7 +942,7 @@ window.updatePollUI = async function(postId) {
             let optBgClass = 'bg-surface-variant/30 dark:bg-surface-variant/10';
             let checkIconHtml = '';
 
-            if (isQuiz && showResults) {
+            if (isQuiz && showQuizAnswers) {
                 if (opt.id === correctOptId) {
                     optBorderClass = 'border-green-500';
                     optBgClass = 'bg-green-500/10';
@@ -944,7 +957,7 @@ window.updatePollUI = async function(postId) {
             }
 
             let selectorHtml = '';
-            if (!isQuiz || !showResults) { 
+            if (!isQuiz || !showQuizAnswers) { 
                 if (poll.is_multiple_choice) {
                     selectorHtml = `<div class="w-4 h-4 rounded-sm border-2 ${iVotedForThis ? 'border-primary bg-primary flex items-center justify-center' : 'border-surface-variant/80'}">${iVotedForThis ? '<span class="material-symbols-outlined text-white text-[12px] font-bold">check</span>' : ''}</div>`;
                 } else {
@@ -982,7 +995,7 @@ window.updatePollUI = async function(postId) {
         }).join('');
 
         let extraInfoHtml = '';
-        if (showResults && poll.extra_info) {
+        if (showQuizAnswers && poll.extra_info) {
             extraInfoHtml = `
                 <div class="mt-3 bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 text-[12.5px] text-on-surface dark:text-gray-200 animate-fadeIn">
                     <span class="font-extrabold text-blue-600 dark:text-blue-400 block mb-0.5">${isQuiz ? 'Explanation' : 'Note'}</span>
@@ -1020,6 +1033,12 @@ window.updatePollUI = async function(postId) {
                     </div>
                     ${metaHtml}
                 `;
+            }
+            
+            // 🚀 FIX: Update the 3-dot menu data so "End Poll" disappears instantly!
+            const optionsBtn = postEl.querySelector('.post-options-btn');
+            if (optionsBtn) {
+                optionsBtn.dataset.isPollActive = (!isExpired).toString();
             }
         });
     } catch(e) {
