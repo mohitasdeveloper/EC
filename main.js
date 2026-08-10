@@ -3479,3 +3479,105 @@ window.toggleQuizMode = function(isChecked) {
     if (isChecked) container.classList.remove('hidden');
     else container.classList.add('hidden');
 };
+// ==========================================
+// CUSTOM VOTERS LIST ENGINE
+// ==========================================
+let currentCustomList = [];
+
+window.fetchCustomList = async function() {
+    const container = document.getElementById('custom-list-container');
+    if (!container || !currentUserProfile) return;
+    
+    container.innerHTML = `<p class="text-sm italic text-center py-4 text-on-surface-variant">Loading list...</p>`;
+    
+    try {
+        const { data, error } = await supabase.from('users').select('custom_voters_list').eq('id', currentUserProfile.id).single();
+        if (error) throw error;
+        
+        currentCustomList = data.custom_voters_list || [];
+        
+        if (currentCustomList.length === 0) {
+            container.innerHTML = `<p class="text-sm italic text-center py-4 text-on-surface-variant">Your list is empty.</p>`;
+            return;
+        }
+
+        const { data: users, error: userErr } = await supabase.from('users').select('id, full_name, profile_img_url').in('id', currentCustomList);
+        if (userErr) throw userErr;
+
+        container.innerHTML = users.map(u => `
+            <div class="flex items-center justify-between p-3 bg-surface-variant/10 dark:bg-neutral-800 rounded-xl">
+                <div class="flex items-center gap-3">
+                    <img src="${u.profile_img_url}" class="w-8 h-8 rounded-full object-cover">
+                    <span class="text-[13px] font-bold text-on-surface dark:text-gray-100">${u.full_name}</span>
+                </div>
+                <button onclick="window.removeFromCustomList('${u.id}')" class="text-error hover:bg-error/10 p-1.5 rounded-lg active:scale-90 transition-colors">
+                    <span class="material-symbols-outlined text-[18px]">person_remove</span>
+                </button>
+            </div>
+        `).join('');
+
+    } catch (e) {
+        container.innerHTML = `<p class="text-sm text-center py-4 text-error">Failed to load list.</p>`;
+    }
+};
+
+window.searchUsersForCustomList = async function(query) {
+    const resultsContainer = document.getElementById('custom-list-search-results');
+    if (!query || query.trim() === '') {
+        resultsContainer.classList.add('hidden');
+        return;
+    }
+
+    try {
+        const { data, error } = await supabase.from('users').select('id, full_name, profile_img_url')
+            .ilike('full_name', `%${query.trim()}%`)
+            .neq('id', currentUserProfile.id)
+            .limit(5);
+
+        if (error || !data.length) {
+            resultsContainer.classList.add('hidden');
+            return;
+        }
+
+        resultsContainer.innerHTML = data.map(u => {
+            const isAdded = currentCustomList.includes(u.id);
+            return `
+            <div onclick="window.${isAdded ? 'removeFromCustomList' : 'addToCustomList'}('${u.id}')" class="flex items-center justify-between p-3 hover:bg-surface-variant/30 cursor-pointer transition-colors">
+                <div class="flex items-center gap-3">
+                    <img src="${u.profile_img_url}" class="w-8 h-8 rounded-full object-cover">
+                    <span class="text-[13px] font-bold text-on-surface dark:text-gray-100">${u.full_name}</span>
+                </div>
+                <span class="material-symbols-outlined text-[18px] ${isAdded ? 'text-error' : 'text-primary'}">
+                    ${isAdded ? 'person_remove' : 'person_add'}
+                </span>
+            </div>
+        `}).join('');
+        resultsContainer.classList.remove('hidden');
+    } catch(e) {}
+};
+
+window.addToCustomList = async function(userId) {
+    if (currentCustomList.includes(userId)) return;
+    currentCustomList.push(userId);
+    
+    document.getElementById('custom-list-search').value = '';
+    document.getElementById('custom-list-search-results').classList.add('hidden');
+    
+    const { error } = await supabase.from('users').update({ custom_voters_list: currentCustomList }).eq('id', currentUserProfile.id);
+    if (!error) window.fetchCustomList();
+};
+
+window.removeFromCustomList = async function(userId) {
+    currentCustomList = currentCustomList.filter(id => id !== userId);
+    const { error } = await supabase.from('users').update({ custom_voters_list: currentCustomList }).eq('id', currentUserProfile.id);
+    if (!error) window.fetchCustomList();
+};
+
+// Wire up the new Panel open event
+const originalOpenSettingsSubPanel = window.openSettingsSubPanel;
+window.openSettingsSubPanel = function(panelId) {
+    if (panelId === 'settings-custom-list-panel') {
+        window.fetchCustomList();
+    }
+    if (originalOpenSettingsSubPanel) originalOpenSettingsSubPanel(panelId);
+};
