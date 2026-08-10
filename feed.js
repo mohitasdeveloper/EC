@@ -718,22 +718,18 @@ function renderPosts(posts, isRefresh = false) {
             }
         }
 
-        // 🚀 FIX: SMART CAPTION LOGIC (No Name for Polls/Text)
-        let captionHtml = '';
+     // 🚀 FIX: DYNAMIC PLACEMENT (Top vs Bottom Captions)
+        let topCaptionHtml = '';
+        let bottomCaptionHtml = '';
+
         if (cleanCaptionContent !== '') {
             if (post.post_type === 'image') {
-                captionHtml = `<div class="px-3 text-[14px] text-on-surface dark:text-gray-100 leading-snug mt-2 mb-1"><span data-user-id="${user.id}" class="profile-link font-bold mr-1 cursor-pointer hover:underline">${user.full_name}</span><span class="rich-text-content inline">${cleanCaptionContent}</span></div>`;
+                // For images, place the caption completely under the action bar
+                bottomCaptionHtml = `<div class="px-3 text-[14px] text-on-surface dark:text-gray-100 leading-snug mt-1.5 mb-1"><span data-user-id="${user.id}" class="profile-link font-bold mr-1 cursor-pointer hover:underline">${user.full_name}</span><span class="rich-text-content inline">${cleanCaptionContent}</span></div>`;
             } else {
-                captionHtml = `<div class="px-3 text-[15px] text-on-surface dark:text-gray-100 leading-snug mt-2 mb-1"><span class="rich-text-content inline">${cleanCaptionContent}</span></div>`;
+                // For text, poll, and event, place it above the container block
+                topCaptionHtml = `<div class="px-3 text-[15px] text-on-surface dark:text-gray-100 leading-snug mt-2 mb-1"><span class="rich-text-content inline">${cleanCaptionContent}</span></div>`;
             }
-        }
-
-        // Text ABOVE for Polls/Events, BELOW for Images
-        let finalLayoutHtml = '';
-        if (post.post_type === 'image') {
-            finalLayoutHtml = contentHtml + captionHtml;
-        } else {
-            finalLayoutHtml = captionHtml + contentHtml;
         }
 
         return `
@@ -750,7 +746,8 @@ function renderPosts(posts, isRefresh = false) {
                 </button>
             </div>
             
-            ${finalLayoutHtml}
+            ${topCaptionHtml}
+            ${contentHtml}
             
            <div class="flex items-center justify-between px-3 py-2 mt-1">
                 <div class="flex items-center gap-3.5">
@@ -768,6 +765,9 @@ function renderPosts(posts, isRefresh = false) {
             </div>
             
             ${likeCount > 0 ? `<div class="px-3 mb-1 text-[14px] text-on-surface dark:text-gray-100">${likedByHtml}</div>` : ''}
+            
+            ${bottomCaptionHtml} <!-- 🚀 INJECTED BELOW THE LIKES FOR IMAGES -->
+            
             ${commentsSectionHtml}
             <p class="px-3 text-[11px] text-on-surface-variant dark:text-gray-500 mt-2 uppercase tracking-wide">${timeAgo(post.created_at)}</p>
         </div>
