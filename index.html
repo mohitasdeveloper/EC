@@ -473,7 +473,7 @@
                 </div>
             </details>
 
-            <!-- SECTION 2: CONNECTIONS -->
+          <!-- SECTION 2: CONNECTIONS -->
             <details class="group bg-surface-variant/10 dark:bg-neutral-900/30 rounded-2xl border border-surface-variant/30 dark:border-neutral-800 overflow-hidden">
                 <summary class="flex items-center justify-between p-4 cursor-pointer list-none transition-colors hover:bg-surface-variant/20 dark:hover:bg-neutral-800/50">
                     <div class="flex items-center gap-3 text-on-surface dark:text-gray-200">
@@ -486,6 +486,13 @@
                     <button onclick="handleProfileStatsClick(); closeSettingsSidebar();" class="w-full flex items-center justify-between p-3 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[14px]">
                         <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[20px]">people</span> <span id="sidebar-stats-text">Connections</span></div>
                     </button>
+                    
+                    <!-- 🚀 NEW: Permanent Custom Voters List Button -->
+                    <button onclick="openSettingsSubPanel('settings-custom-list-panel');" class="w-full flex items-center justify-between p-3 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[14px]">
+                        <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[20px]">checklist</span> Custom Voters List</div>
+                        <span class="material-symbols-outlined text-[18px] text-on-surface-variant">chevron_right</span>
+                    </button>
+
                     <button onclick="openBlockedUsersModal(); closeSettingsSidebar();" class="w-full flex items-center justify-between p-3 hover:bg-surface-variant/30 dark:hover:bg-neutral-800 rounded-xl text-on-surface dark:text-gray-200 transition-colors text-left font-bold text-[14px]">
                         <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[20px]">block</span> Blocked Users</div>
                     </button>
@@ -1065,9 +1072,9 @@
                         </div>
                         <input type="hidden" id="poll-voters-access" value="all">
                         
-                        <!-- Shortcut to Settings -->
+                       <!-- Shortcut to Settings -->
                         <div id="manage-custom-list-shortcut" class="hidden mt-2 flex justify-end">
-                            <button onclick="closeCreatePostView(); setTimeout(() => openSettingsSubPanel('settings-custom-list-panel'), 300);" class="text-[11px] font-bold text-primary flex items-center gap-1 bg-primary/10 px-2 py-1 rounded-md">
+                            <button onclick="closeCreatePostView(); openSettingsSidebar(); setTimeout(() => openSettingsSubPanel('settings-custom-list-panel'), 300);" class="text-[11px] font-bold text-primary flex items-center gap-1 bg-primary/10 px-2 py-1 rounded-md">
                                 <span class="material-symbols-outlined text-[14px]">edit</span> Manage Custom List
                             </button>
                         </div>
