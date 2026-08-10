@@ -505,7 +505,7 @@ function renderPosts(posts, isRefresh = false) {
         const optimizedAvatar = typeof optimizeImageUrl === 'function' ? optimizeImageUrl(rawAvatarUrl, 'avatar') : rawAvatarUrl;
         const headerIcon = `<img loading="lazy" src="${optimizedAvatar}" data-user-id="${user.id}" class="profile-link w-8 h-8 rounded-full border border-surface-variant shadow-sm object-cover cursor-pointer hover:opacity-80 transition-opacity shrink-0">`;
 
-        let cleanCaptionContent = '';
+let cleanCaptionContent = '';
         if (post.content && post.content.trim() !== '' && post.content !== '<p><br></p>') {
             cleanCaptionContent = post.content.replace(/^<p>/, '').replace(/<\/p>$/, '').trim();
         }
@@ -513,7 +513,6 @@ function renderPosts(posts, isRefresh = false) {
         let isPollActive = false; // 🚀 ADDED TO TRACK POLL STATE
         let contentHtml = '';
 
-      let contentHtml = '';
         if (post.post_type === 'text') {
             if (cleanCaptionContent !== '') contentHtml = `<div class="px-4 py-8 mt-2 mb-2 bg-surface-variant/10 dark:bg-neutral-900/40 rounded-2xl mx-3 flex items-center justify-center border border-surface-variant/30 dark:border-neutral-800"><div class="text-[16px] sm:text-[18px] font-medium text-on-surface dark:text-gray-100 leading-relaxed whitespace-pre-wrap rich-text-content text-center w-full">${post.content}</div></div>`;
             cleanCaptionContent = ''; 
@@ -521,8 +520,7 @@ function renderPosts(posts, isRefresh = false) {
         else if (post.post_type === 'image') {
             contentHtml = `<div class="w-full bg-surface-variant/20 dark:bg-neutral-900 flex items-center justify-center border-y border-surface-variant/40 dark:border-neutral-800 mt-2"><img loading="lazy" src="${typeof optimizeImageUrl === 'function' ? optimizeImageUrl(post.media_url, 'feed') : post.media_url}" class="w-full h-auto max-h-[80vh] object-cover"></div>`;
         }
-     else if (post.post_type === 'event') {
-            // 🚀 HOTFIX: Handle Supabase 1-to-1 object responses
+        else if (post.post_type === 'event') {
             const event = Array.isArray(post.post_events) ? post.post_events[0] : post.post_events;
             if (event) {
                 const optimizedEventMedia = typeof optimizeImageUrl === 'function' && event.event_image_url ? optimizeImageUrl(event.event_image_url, 'feed') : event.event_image_url;
@@ -553,10 +551,9 @@ function renderPosts(posts, isRefresh = false) {
                 `;
             }
         }
-    else if (post.post_type === 'poll') {
+        else if (post.post_type === 'poll') {
             const poll = Array.isArray(post.post_polls) ? post.post_polls[0] : post.post_polls;
             if (poll) {
-                // 🚀 HOTFIX: Define currentUserId from the global currentUser object
                 const currentUserId = currentUser ? currentUser.id : null;
                 
                 const votes = post.post_poll_votes || [];
@@ -564,14 +561,14 @@ function renderPosts(posts, isRefresh = false) {
                 const myVotes = votes.filter(v => v.user_id === currentUserId).map(v => v.option_id);
                 const userHasVoted = myVotes.length > 0;
 
-              let isExpired = poll.is_ended_early;
+                let isExpired = poll.is_ended_early;
                 if (!isExpired && poll.deadline_type === 'time' && post.expires_at) {
                     isExpired = new Date(post.expires_at) < new Date();
                 } else if (!isExpired && poll.deadline_type === 'voter_count' && poll.deadline_count) {
                     isExpired = totalVotes >= poll.deadline_count;
                 }
                 
-                isPollActive = !isExpired; // 🚀 CAPTURE THE STATE HERE
+                isPollActive = !isExpired; 
                 const showResults = userHasVoted || isExpired;
                 const isQuiz = poll.is_quiz;
                 const correctOptId = poll.correct_option_id;
@@ -585,7 +582,6 @@ function renderPosts(posts, isRefresh = false) {
                     let optBgClass = 'bg-surface-variant/30 dark:bg-surface-variant/10';
                     let checkIconHtml = '';
 
-                    // 🚀 Quiz UI Logic
                     if (isQuiz && showResults) {
                         if (opt.id === correctOptId) {
                             optBorderClass = 'border-green-500';
@@ -600,19 +596,15 @@ function renderPosts(posts, isRefresh = false) {
                         optBorderClass = 'border-primary';
                     }
 
-                    // 🚀 Multiple Choice vs Single Choice UI
                     let selectorHtml = '';
                     if (!isQuiz || !showResults) { 
                         if (poll.is_multiple_choice) {
-                            // Checkbox style
                             selectorHtml = `<div class="w-4 h-4 rounded-sm border-2 ${iVotedForThis ? 'border-primary bg-primary flex items-center justify-center' : 'border-surface-variant/80'}">${iVotedForThis ? '<span class="material-symbols-outlined text-white text-[12px] font-bold">check</span>' : ''}</div>`;
                         } else {
-                            // Radio style
                             selectorHtml = `<div class="w-4 h-4 rounded-full border-2 ${iVotedForThis ? 'border-primary flex items-center justify-center' : 'border-surface-variant/80'}">${iVotedForThis ? '<span class="w-2 h-2 rounded-full bg-primary"></span>' : ''}</div>`;
                         }
                     }
 
-                    // 🚀 Interaction & Undo Logic
                     let clickAction = '';
                     let cursorClass = 'cursor-default';
                     if (!isExpired) {
@@ -638,7 +630,6 @@ function renderPosts(posts, isRefresh = false) {
                     </div>`;
                 }).join('');
 
-                // 🚀 Explanation / Extra Info Block
                 let extraInfoHtml = '';
                 if (showResults && poll.extra_info) {
                     extraInfoHtml = `
@@ -651,7 +642,6 @@ function renderPosts(posts, isRefresh = false) {
 
                 let quizBadge = isQuiz ? `<span class="bg-blue-500/10 text-blue-600 dark:text-blue-500 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-widest mb-2 inline-block shadow-sm">Quiz</span>` : '';
                 
-                // Privacy masking for voters list
                 const totalVotesText = poll.voters_list_visibility === 'hidden' && post.user_id !== currentUserId 
                     ? `Votes hidden` 
                     : `<span class="${poll.voters_list_visibility === 'public' || post.user_id === currentUserId ? 'cursor-pointer hover:underline text-primary font-bold' : ''}" onclick="if('${poll.voters_list_visibility}' === 'public' || '${post.user_id}' === '${currentUserId}') window.openPollVoters('${post.id}')">${totalVotes} votes</span>`;
@@ -689,7 +679,7 @@ function renderPosts(posts, isRefresh = false) {
                 </button>
             </div>
             
-          ${captionHtml} <!-- 🚀 MOVED CAPTION ABOVE CONTENT -->
+            ${captionHtml} <!-- 🚀 MOVED CAPTION ABOVE CONTENT -->
             ${contentHtml}
             
            <div class="flex items-center justify-between px-3 py-2 mt-1">
@@ -712,33 +702,11 @@ function renderPosts(posts, isRefresh = false) {
             <p class="px-3 text-[11px] text-on-surface-variant dark:text-gray-500 mt-2 uppercase tracking-wide">${timeAgo(post.created_at)}</p>
         </div>
         `;
-                <div class="flex items-center gap-3.5">
-                    <button onclick="window.handleLike('${post.id}', this)" data-post-id="${post.id}" data-liked="${userHasLiked}" class="like-btn flex items-center justify-center transition-all duration-200 active:scale-75 ${userHasLiked ? 'text-red-500 hover:text-red-600' : 'text-on-surface dark:text-gray-100 hover:opacity-70'}">
-                        <span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' ${userHasLiked ? 1 : 0};">favorite</span> 
-                    </button>
-                    ${!post.disable_comments ? `
-                    <button data-post-id="${post.id}" class="comment-btn flex items-center justify-center text-on-surface dark:text-gray-100 transition-all duration-200 active:scale-75 hover:opacity-70">
-                        <span class="material-symbols-outlined text-[26px]" style="transform: scaleX(-1);">chat_bubble_outline</span> 
-                    </button>` : ''}
-                </div>
-                <button onclick="window.handleSavePost('${post.id}', this)" data-post-id="${post.id}" data-saved="${isSaved}" class="save-btn flex items-center justify-center transition-all duration-200 active:scale-75 ${isSaved ? 'text-primary hover:text-primary/80' : 'text-on-surface dark:text-gray-100 hover:opacity-70'}">
-                    <span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' ${isSaved ? 1 : 0};">bookmark</span>
-                </button>
-            </div>
-            
-            ${likeCount > 0 ? `<div class="px-3 mb-1 text-[14px] text-on-surface dark:text-gray-100">${likedByHtml}</div>` : ''}
-            ${captionHtml}
-            ${commentsSectionHtml}
-            <p class="px-3 text-[11px] text-on-surface-variant dark:text-gray-500 mt-2 uppercase tracking-wide">${timeAgo(post.created_at)}</p>
-        </div>
-        `;
     }).join('');
 
     if (isRefresh) container.innerHTML = htmlString;
     else container.insertAdjacentHTML('beforeend', htmlString);
 }
-// 🚀 NEW: Spam Lock to prevent 409 Conflict Errors
-window._likeLocks = window._likeLocks || {};
 
 window.handleLike = async function(postId, btnElement) {
     if (!currentUser || window._likeLocks[postId]) return; 
