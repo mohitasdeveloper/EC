@@ -16,7 +16,7 @@ window.addEventListener('load', () => {
         initPullToRefresh();
     }
 
-   // 2. Splash Screen Logic
+  // 2. Splash Screen Logic
     setTimeout(() => {
         const splash = document.getElementById('app-splash-screen');
         if (splash) {
@@ -30,8 +30,7 @@ window.addEventListener('load', () => {
                 splash.remove();
             }, 500); 
         }
-    }, 3000);
-});
+    }, 2500); // 🚀 Increased from 600 to 2500 (2.5 seconds)
 
 // ==========================================
 // GLOBAL CLOUDINARY COMPRESSION ENGINE
