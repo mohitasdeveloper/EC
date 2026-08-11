@@ -421,6 +421,25 @@ async function fetchPosts(isRefresh = false) {
         if (oldSentinel) oldSentinel.remove();
 
         renderPosts(data, isRefresh);
+
+        // 🚀 INJECT SUGGESTIONS WIDGET ON FIRST LOAD AFTER 1ST POST
+        if (isRefresh && currentFeedPage === 0) {
+            setTimeout(async () => {
+                const suggestions = await fetchUserSuggestions();
+                if (suggestions.length > 0) {
+                    const suggestionsHtml = generateSuggestionsHTML(suggestions);
+                    const container = document.getElementById('feed-posts-container');
+                    const firstPost = container.firstElementChild; 
+                    
+                    if (firstPost && !document.getElementById('suggestions-widget')) {
+                        firstPost.insertAdjacentHTML('afterend', suggestionsHtml);
+                    } else if (!document.getElementById('suggestions-widget')) {
+                        container.insertAdjacentHTML('afterbegin', suggestionsHtml);
+                    }
+                }
+            }, 800); // Wait almost 1 sec so feed content renders fully first
+        }
+
         currentFeedPage++;
         
         if (hasMorePosts) setupIntersectionObserver();
@@ -438,6 +457,116 @@ async function fetchPosts(isRefresh = false) {
         isFetchingFeed = false;
     }
 }
+
+// ==========================================
+// 🚀 NEW: SUGGESTIONS ENGINE
+// ==========================================
+
+window.dismissSuggestion = function(btn) {
+    const card = btn.closest('.suggestion-card');
+    if (card) {
+        card.style.transition = 'all 0.3s ease';
+        card.style.width = '0px';
+        card.style.opacity = '0';
+        card.style.margin = '0px';
+        card.style.padding = '0px';
+        card.style.border = 'none';
+        
+        setTimeout(() => {
+            card.remove();
+            const container = document.getElementById('suggestions-widget-container');
+            if (container && container.children.length === 0) {
+                const widget = document.getElementById('suggestions-widget');
+                if (widget) {
+                    widget.style.transition = 'all 0.3s ease';
+                    widget.style.opacity = '0';
+                    widget.style.height = '0px';
+                    setTimeout(() => widget.remove(), 300);
+                }
+            }
+        }, 300);
+    }
+};
+
+async function fetchUserSuggestions() {
+    try {
+        // Find everyone we are already connected with, have pending requests with, or blocked
+        const { data: connData } = await supabase
+            .from('connections')
+            .select('user_one_id, user_two_id')
+            .or(`user_one_id.eq.${currentUser.id},user_two_id.eq.${currentUser.id}`);
+        
+        let excludeIds = [currentUser.id];
+        if (connData) {
+            connData.forEach(c => {
+                excludeIds.push(c.user_one_id === currentUser.id ? c.user_two_id : c.user_one_id);
+            });
+        }
+
+        // Fetch remaining users, prioritize by same course maybe? Randomize limits
+        const { data: users, error } = await supabase
+            .from('users')
+            .select('id, full_name, profile_img_url, tick_type, role, course')
+            .eq('is_deleted', false)
+            .eq('is_deactivated', false)
+            .not('id', 'in', `(${excludeIds.join(',')})`)
+            .limit(12);
+        
+        if (error) throw error;
+        
+        // Simple shuffle for variety
+        return users ? users.sort(() => 0.5 - Math.random()) : [];
+    } catch (e) {
+        console.error("Suggestions fetch error:", e);
+        return [];
+    }
+}
+
+function generateSuggestionsHTML(users) {
+    if (!users || users.length === 0) return '';
+
+    const cards = users.map(user => {
+        const optimizedAvatar = typeof window.optimizeImageUrl === 'function' ? window.optimizeImageUrl(user.profile_img_url, 'avatar') : user.profile_img_url;
+        const fallback = `this.onerror=null; this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&background=e1e3e4';`;
+        const tickHtml = window.getTickHtml ? window.getTickHtml(user.tick_type) : '';
+        
+        // Pages use Follow, Students use Connect
+        let actionBtn = '';
+        if (user.role === 'page') {
+            actionBtn = `<button onclick="window.handleFollowAction('${user.id}', 'follow', this); setTimeout(() => window.dismissSuggestion(this), 500);" class="w-full bg-primary text-white py-1.5 rounded-xl text-[12px] font-bold active:scale-95 transition-transform shadow-sm">Follow</button>`;
+        } else {
+            actionBtn = `<button onclick="window.handleConnectionAction('${user.id}', 'request', this); setTimeout(() => window.dismissSuggestion(this), 500);" class="w-full bg-primary text-white py-1.5 rounded-xl text-[12px] font-bold active:scale-95 transition-transform shadow-sm">Connect</button>`;
+        }
+
+        return `
+        <div class="suggestion-card relative flex flex-col items-center p-3.5 bg-surface dark:bg-neutral-900 border border-surface-variant/60 dark:border-neutral-800 rounded-2xl w-[140px] snap-start shrink-0 shadow-sm overflow-hidden">
+            <button onclick="window.dismissSuggestion(this)" class="absolute top-2 right-2 text-on-surface-variant hover:text-on-surface p-1 rounded-full bg-surface-variant/20 dark:bg-black/50 active:scale-90 transition-transform">
+                <span class="material-symbols-outlined text-[14px]">close</span>
+            </button>
+            <img onclick="window.viewUserProfile('${user.id}')" loading="lazy" src="${optimizedAvatar || fallback}" onerror="${fallback}" class="w-[60px] h-[60px] rounded-full object-cover border border-surface-variant/50 shadow-sm cursor-pointer mb-2.5">
+            <p onclick="window.viewUserProfile('${user.id}')" class="font-bold text-[13px] text-on-surface dark:text-gray-100 w-full text-center cursor-pointer hover:underline flex items-center justify-center gap-0.5 truncate leading-tight">${user.full_name.split(' ')[0]} ${tickHtml}</p>
+            <p class="text-[11px] font-medium text-on-surface-variant dark:text-gray-500 mb-3 truncate w-full text-center">${user.role === 'page' ? 'Official Page' : 'Suggested for you'}</p>
+            ${actionBtn}
+        </div>
+        `;
+    }).join('');
+
+    return `
+    <div id="suggestions-widget" class="bg-surface-variant/5 dark:bg-[#121212] py-4 mb-6 border-b border-surface-variant/40 dark:border-neutral-800 animate-fadeIn">
+        <div class="flex justify-between items-center px-4 mb-3">
+            <h4 class="text-[14px] font-extrabold text-on-surface dark:text-gray-100 tracking-tight">Suggested for you</h4>
+            <span onclick="window.switchTab('search')" class="text-[12px] font-bold text-primary cursor-pointer active:opacity-70">See All</span>
+        </div>
+        <div id="suggestions-widget-container" class="flex gap-3 overflow-x-auto hide-scrollbar px-4 pb-2 snap-x scroll-smooth">
+            ${cards}
+        </div>
+    </div>
+    `;
+}
+
+// ==========================================
+// RESUME EXISTING FEED.JS LOGIC
+// ==========================================
 
 function setupIntersectionObserver() {
     const container = document.getElementById('feed-posts-container');
