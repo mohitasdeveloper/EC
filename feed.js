@@ -490,20 +490,33 @@ window.dismissSuggestion = function(btn) {
 
 async function fetchUserSuggestions() {
     try {
-        // Find everyone we are already connected with, have pending requests with, or blocked
+        // 1. Find everyone we are already connected with, have pending requests with, or blocked (Students)
         const { data: connData } = await supabase
             .from('connections')
             .select('user_one_id, user_two_id')
             .or(`user_one_id.eq.${currentUser.id},user_two_id.eq.${currentUser.id}`);
         
         let excludeIds = [currentUser.id];
+        
         if (connData) {
             connData.forEach(c => {
                 excludeIds.push(c.user_one_id === currentUser.id ? c.user_two_id : c.user_one_id);
             });
         }
 
-        // Fetch remaining users, prioritize by same course maybe? Randomize limits
+        // 🚀 FIX: 2. Find all Official Pages the user already follows
+        const { data: followData } = await supabase
+            .from('page_followers')
+            .select('page_id')
+            .eq('follower_id', currentUser.id);
+
+        if (followData) {
+            followData.forEach(f => {
+                excludeIds.push(f.page_id);
+            });
+        }
+
+        // 3. Fetch remaining users, excluding all the IDs we just gathered
         const { data: users, error } = await supabase
             .from('users')
             .select('id, full_name, profile_img_url, tick_type, role, course')
