@@ -129,11 +129,37 @@
         <span id="ptr-spinner" class="material-symbols-outlined text-primary text-[20px]">refresh</span>
         <span id="ptr-text" class="text-[13px] font-bold text-on-surface dark:text-gray-100">Pull to refresh</span>
     </div>
-    <!-- ========================================== -->
+   <!-- ========================================== -->
     <!-- NATIVE APP SPLASH SCREEN                   -->
     <!-- ========================================== -->
-    <div id="app-splash-screen" class="fixed inset-0 z-[9999] bg-[#0c121e] transition-opacity duration-500 flex items-center justify-center">
-        <img src="https://i.ibb.co/xKYKKS7V/splash.png" class="w-full h-full object-cover pointer-events-none select-none" alt="ECampus Splash">
+    <div id="app-splash-screen" class="fixed inset-0 z-[9999] bg-surface dark:bg-[#121212] flex items-center justify-center transition-opacity duration-500 overflow-hidden">
+        
+        <!-- 🚀 NEW FULL-SCREEN IMAGE (Hidden until fully loaded) -->
+        <img src="https://i.postimg.cc/JzzJDQsJ/s.png" 
+             onload="this.classList.remove('opacity-0'); document.getElementById('splash-original').classList.add('opacity-0');" 
+             class="absolute inset-0 w-full h-full object-cover z-20 transition-opacity duration-300 opacity-0 pointer-events-none select-none" 
+             alt="ECampus Splash">
+
+        <!-- 🚀 ORIGINAL SPLASH SCREEN (Shows instantly as a fallback) -->
+        <div id="splash-original" class="absolute inset-0 flex flex-col items-center justify-center z-10 transition-opacity duration-300 w-full h-full">
+            <!-- Center Logo Area -->
+            <div class="flex-1 flex flex-col items-center justify-center mt-12 w-full">
+                <!-- Pulsing Logo -->
+                <img src="https://i.ibb.co/1tx99nVT/EC-nobg.png" class="w-28 h-28 mb-4 animate-pulse drop-shadow-xl object-contain" alt="Logo">
+                <!-- App Name -->
+                <span style="font-family:'Courgette',cursive;" class="text-[56px] leading-tight bg-gradient-to-r from-[#00C853] via-[#00A2FF] to-[#2962FF] bg-clip-text text-transparent select-none drop-shadow-sm pb-1">
+                    ECampus
+                </span>
+            </div>
+            
+            <!-- Instagram Style Footer -->
+            <div class="pb-10 flex flex-col items-center safe-pb w-full">
+                <span class="text-[13px] text-on-surface-variant/70 dark:text-gray-500 font-medium mb-1 tracking-wide">from</span>
+                <span class="text-[17px] font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-primary to-green-400 tracking-widest uppercase">
+                    BKBNC
+                </span>
+            </div>
+        </div>
     </div>
    <!-- 🚀 GLOBAL TOAST CONTAINER (Moved outside to fix z-index stacking over modals) -->
 <div id="toast-container" class="fixed top-[max(4.5rem,env(safe-area-inset-top))] left-1/2 -translate-x-1/2 w-full max-w-md p-4 space-y-2 z-[10000] pointer-events-none flex flex-col items-center"></div>
