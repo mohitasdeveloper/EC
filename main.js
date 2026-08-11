@@ -695,7 +695,10 @@ window.fetchMyProfileFeed = async function(userId) {
                 users ( id, full_name, profile_img_url, role, tick_type ),
                 post_likes ( user_id ),
                 post_comments ( id, content, created_at, is_deleted, parent_comment_id, users(id, full_name, profile_img_url, tick_type) ),
+                post_polls (*),
                 post_poll_votes ( user_id, option_id ),
+                post_events (*),
+                post_event_rsvps ( user_id, status ),
                 saved_posts ( user_id )
             `)
             .eq('user_id', userId)
@@ -1588,11 +1591,20 @@ async function viewUserProfile(userId) {
         renderSocialLinks(user.social_links, document.getElementById('public-profile-social-links'));
         renderProfileActions(user, connection, followRecord);
 
-       // Fetch their Posts Feed
+      // Fetch their Posts Feed
         try {
             const { data: posts, error: postsError } = await supabase
                 .from('posts')
-                .select(`*, users ( id, full_name, profile_img_url, role, tick_type ), post_likes ( user_id ), post_comments ( id, content, created_at, is_deleted, parent_comment_id, users(id, full_name, profile_img_url, tick_type) ), post_poll_votes ( user_id, option_id )`)
+                .select(`
+                    *, 
+                    users ( id, full_name, profile_img_url, role, tick_type ), 
+                    post_likes ( user_id ), 
+                    post_comments ( id, content, created_at, is_deleted, parent_comment_id, users(id, full_name, profile_img_url, tick_type) ), 
+                    post_polls (*), 
+                    post_poll_votes ( user_id, option_id ),
+                    post_events (*),
+                    post_event_rsvps ( user_id, status )
+                `)
                 .eq('user_id', userId).eq('is_deleted', false).order('created_at', { ascending: false }).limit(20);
 
             if (postsError) throw postsError;
@@ -2945,11 +2957,14 @@ window.fetchSavedPosts = async function() {
     container.innerHTML = FEED_SKELETON; 
 
     try {
-        const { data, error } = await supabase.from('posts').select(`
+       const { data, error } = await supabase.from('posts').select(`
             *, users ( id, full_name, profile_img_url, role, tick_type ),
             post_likes ( user_id ),
             post_comments ( id, content, created_at, is_deleted, parent_comment_id, users(id, full_name, profile_img_url, tick_type) ),
+            post_polls (*),
             post_poll_votes ( user_id, option_id ),
+            post_events (*),
+            post_event_rsvps ( user_id, status ),
             saved_posts!inner ( user_id )
         `)
         .eq('saved_posts.user_id', currentUserProfile.id)
@@ -2975,11 +2990,14 @@ window.fetchLikedPosts = async function() {
     container.innerHTML = FEED_SKELETON;
 
     try {
-        const { data, error } = await supabase.from('posts').select(`
+      const { data, error } = await supabase.from('posts').select(`
             *, users ( id, full_name, profile_img_url, role, tick_type ),
             post_likes!inner ( user_id ),
             post_comments ( id, content, created_at, is_deleted, parent_comment_id, users(id, full_name, profile_img_url, tick_type) ),
+            post_polls (*),
             post_poll_votes ( user_id, option_id ),
+            post_events (*),
+            post_event_rsvps ( user_id, status ),
             saved_posts ( user_id )
         `)
         .eq('post_likes.user_id', currentUserProfile.id)
@@ -3005,11 +3023,14 @@ window.fetchArchivedPosts = async function() {
     container.innerHTML = FEED_SKELETON;
 
     try {
-        const { data, error } = await supabase.from('posts').select(`
+       const { data, error } = await supabase.from('posts').select(`
             *, users ( id, full_name, profile_img_url, role, tick_type ),
             post_likes ( user_id ),
             post_comments ( id, content, created_at, is_deleted, parent_comment_id, users(id, full_name, profile_img_url, tick_type) ),
+            post_polls (*),
             post_poll_votes ( user_id, option_id ),
+            post_events (*),
+            post_event_rsvps ( user_id, status ),
             saved_posts ( user_id )
         `)
         .eq('user_id', currentUserProfile.id)
@@ -3043,7 +3064,7 @@ window.openSinglePostView = async function(postId) {
     
     container.innerHTML = FEED_SKELETON; 
     
-    try {
+   try {
         const { data: posts, error } = await supabase
             .from('posts')
             .select(`
@@ -3051,11 +3072,14 @@ window.openSinglePostView = async function(postId) {
                 users ( id, full_name, profile_img_url, role, tick_type ),
                 post_likes ( user_id ),
                 post_comments ( id, content, created_at, is_deleted, parent_comment_id, users(id, full_name, profile_img_url, tick_type) ),
+                post_polls (*),
                 post_poll_votes ( user_id, option_id ),
+                post_events (*),
+                post_event_rsvps ( user_id, status ),
                 saved_posts ( user_id )
             `)
             .eq('id', postId)
-            .eq('is_deleted', false);
+            .eq('is_deleted', false)
             
         if (error) throw error;
         
