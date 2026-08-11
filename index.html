@@ -132,25 +132,8 @@
     <!-- ========================================== -->
     <!-- NATIVE APP SPLASH SCREEN                   -->
     <!-- ========================================== -->
-    <div id="app-splash-screen" class="fixed inset-0 z-[9999] bg-surface dark:bg-[#121212] flex flex-col items-center justify-center transition-opacity duration-500">
-        <!-- Center Logo Area -->
-        <div class="flex-1 flex flex-col items-center justify-center mt-12">
-            <!-- Pulsing Logo (New Transparent PNG) -->
-            <img src="https://i.ibb.co/1tx99nVT/EC-nobg.png" class="w-28 h-28 mb-4 animate-pulse drop-shadow-xl object-contain" alt="Logo">
-            
-            <!-- App Name -->
-            <span style="font-family:'Courgette',cursive;" class="text-[56px] leading-tight bg-gradient-to-r from-[#00C853] via-[#00A2FF] to-[#2962FF] bg-clip-text text-transparent select-none drop-shadow-sm pb-1">
-                ECampus
-            </span>
-        </div>
-        
-        <!-- Instagram Style Footer -->
-        <div class="pb-10 flex flex-col items-center safe-pb">
-            <span class="text-[13px] text-on-surface-variant/70 dark:text-gray-500 font-medium mb-1 tracking-wide">from</span>
-            <span class="text-[17px] font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-primary to-green-400 tracking-widest uppercase">
-                BKBNC
-            </span>
-        </div>
+    <div id="app-splash-screen" class="fixed inset-0 z-[9999] bg-[#0c121e] transition-opacity duration-500 flex items-center justify-center">
+        <img src="https://i.ibb.co/4R0cz8QS/full-splash.png" class="w-full h-full object-cover pointer-events-none select-none" alt="ECampus Splash">
     </div>
    <!-- 🚀 GLOBAL TOAST CONTAINER (Moved outside to fix z-index stacking over modals) -->
 <div id="toast-container" class="fixed top-[max(4.5rem,env(safe-area-inset-top))] left-1/2 -translate-x-1/2 w-full max-w-md p-4 space-y-2 z-[10000] pointer-events-none flex flex-col items-center"></div>
