@@ -3723,15 +3723,23 @@ window.addToCustomList = async function(userId) {
 
 window.removeFromCustomList = async function(userId) {
     currentCustomList = currentCustomList.filter(id => id !== userId);
-    const { error } = await supabase.from('users').update({ custom_voters_list: currentCustomList }).eq('id', currentUserProfile.id);
+    const { error } = await supabase
+        .from('users')
+        .update({ custom_voters_list: currentCustomList })
+        .eq('id', currentUserProfile.id);
+
     if (!error) window.fetchCustomList();
 };
 
 // Wire up the new Panel open event
 const originalOpenSettingsSubPanel = window.openSettingsSubPanel;
+
 window.openSettingsSubPanel = function(panelId) {
     if (panelId === 'settings-custom-list-panel') {
         window.fetchCustomList();
     }
-    if (originalOpenSettingsSubPanel) originalOpenSettingsSubPanel(panelId);
+
+    if (originalOpenSettingsSubPanel) {
+        originalOpenSettingsSubPanel(panelId);
+    }
 };
