@@ -628,7 +628,6 @@ function capturePhoto() {
     }, 'image/webp', 0.9);
 }
 let animationFrameId = null;
-
 function startRecording() {
     if (!currentCameraStream) return;
     isRecording = true;
@@ -651,50 +650,8 @@ function startRecording() {
     circle.style.transition = 'stroke-dashoffset 30s linear';
     circle.style.strokeDashoffset = '0';
 
+    // 🚀 STABILITY FIX: Record the raw hardware stream directly. Do not use Canvas capture.
     let streamToRecord = currentCameraStream;
-
-    // 🚀 CRITICAL FIX: To capture LIVE, dynamic zooming in and out on video, 
-    // we must record a Canvas stream instead of the raw camera feed!
-    if (!isHardwareZoomActive) {
-        const video = document.getElementById('hotpost-camera-feed');
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth || 1280;
-        canvas.height = video.videoHeight || 720;
-        const ctx = canvas.getContext('2d');
-
-        const drawFrame = () => {
-            if (!isRecording) return;
-            
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.save();
-            
-            if (currentFacingMode === 'user') {
-                ctx.translate(canvas.width, 0);
-                ctx.scale(-1, 1);
-            }
-
-            // Dynamically apply current zoom level frame-by-frame
-            ctx.translate(canvas.width / 2, canvas.height / 2);
-            ctx.scale(videoZoomScale, videoZoomScale);
-            ctx.translate(-canvas.width / 2, -canvas.height / 2);
-            
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            ctx.restore();
-            
-            animationFrameId = requestAnimationFrame(drawFrame);
-        };
-        drawFrame(); // Start the loop
-
-        const canvasStream = canvas.captureStream(30); // 30 FPS
-        const audioTracks = currentCameraStream.getAudioTracks();
-
-        // Merge Canvas Video Track with Original Audio
-        if (audioTracks.length > 0) {
-            streamToRecord = new MediaStream([canvasStream.getVideoTracks()[0], audioTracks[0]]);
-        } else {
-            streamToRecord = canvasStream;
-        }
-    }
 
     let options = { mimeType: 'video/webm;codecs=vp8,opus', videoBitsPerSecond: 2500000 };
     if (!MediaRecorder.isTypeSupported(options.mimeType)) {
@@ -712,8 +669,6 @@ function startRecording() {
     };
     
     mediaRecorder.onstop = () => {
-        if (animationFrameId) cancelAnimationFrame(animationFrameId);
-
         const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
         currentPhotoBlob = blob;
         
@@ -724,10 +679,10 @@ function startRecording() {
         videoEl.src = currentPreviewObjectURL;
         
         videoEl.onloadeddata = () => {
-            // 🚀 Because the dynamic zoom is physically baked frame-by-frame into the file,
-            // we RESET the UI scale to 1 so it doesn't double-zoom the review screen!
-            imgTransform = { scale: 1, x: 0, y: 0 };
-            videoEl.style.transform = `translate(0px, 0px) scale(1)`;
+            // Apply the software zoom purely via CSS instead of burning it into the file
+            const reviewScale = isHardwareZoomActive ? 1 : videoZoomScale;
+            imgTransform = { scale: reviewScale, x: 0, y: 0 };
+            videoEl.style.transform = `translate(0px, 0px) scale(${reviewScale})`;
              
             videoEl.play().catch(e => console.error("Playback blocked:", e));
             showPreviewUI();
