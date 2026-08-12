@@ -20,27 +20,34 @@ function initQuillEditor() {
             mention: {
                 allowedChars: /^[A-Za-z\sÅÄÖåäö]*$/,
                 mentionDenotationChars: ["@"],
-                source: async function (searchTerm, renderList) {
+                source: function (searchTerm, renderList) {
                     if (searchTerm.length === 0) {
                         renderList([], searchTerm);
                         return;
                     }
-                    try {
-                        const { data, error } = await supabase.rpc('search_mentionable_users', {
-                            p_search_term: searchTerm,
-                            p_current_user_id: currentUser.id
-                        });
-                        if (error) throw error;
-                        
-                        const matches = data.map(u => ({
-                            id: u.id,
-                            value: u.full_name,
-                            avatar: u.profile_img_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.full_name)}`
-                        }));
-                        renderList(matches, searchTerm);
-                    } catch (e) {
-                        renderList([], searchTerm);
-                    }
+                    
+                    // Clear previous timeout if user is still typing
+                    clearTimeout(window._quillMentionTimeout);
+                    
+                    // Wait 300ms after they stop typing before hitting the database
+                    window._quillMentionTimeout = setTimeout(async () => {
+                        try {
+                            const { data, error } = await supabase.rpc('search_mentionable_users', {
+                                p_search_term: searchTerm,
+                                p_current_user_id: currentUser.id
+                            });
+                            if (error) throw error;
+                            
+                            const matches = data.map(u => ({
+                                id: u.id,
+                                value: u.full_name,
+                                avatar: u.profile_img_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.full_name)}`
+                            }));
+                            renderList(matches, searchTerm);
+                        } catch (e) {
+                            renderList([], searchTerm);
+                        }
+                    }, 300);
                 },
                 renderItem: function(item) {
                     return `<div class="flex items-center gap-3">
@@ -1507,6 +1514,8 @@ document.getElementById('post-comment-input')?.addEventListener('input', functio
     handleNativeMentions(this.value, this);
 });
 
+let nativeMentionTimeout = null;
+
 async function handleNativeMentions(text) {
     const list = document.getElementById('comment-mention-list');
     if (!list) return;
@@ -1518,8 +1527,11 @@ async function handleNativeMentions(text) {
         list.classList.remove('hidden');
         list.innerHTML = `<p class="text-xs text-center py-2 text-gray-500">Searching...</p>`;
         
-        try {
-            const { data, error } = await supabase.rpc('search_mentionable_users', {
+        clearTimeout(nativeMentionTimeout);
+        
+        nativeMentionTimeout = setTimeout(async () => {
+            try {
+                const { data, error } = await supabase.rpc('search_mentionable_users', {
                 p_search_term: query,
                 p_current_user_id: currentUser.id
             });
