@@ -1551,6 +1551,7 @@ async function handleNativeMentions(text) {
         } catch (e) {
             list.classList.add('hidden');
         }
+    });
     } else {
         list.classList.add('hidden');
     }
