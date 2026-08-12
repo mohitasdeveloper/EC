@@ -650,8 +650,16 @@ function startRecording() {
     circle.style.transition = 'stroke-dashoffset 30s linear';
     circle.style.strokeDashoffset = '0';
 
-    // 🚀 STABILITY FIX: Record the raw hardware stream directly. Do not use Canvas capture.
+  // 🚀 STABILITY FIX: Record the raw hardware stream directly. Do not use Canvas capture.
     let streamToRecord = currentCameraStream;
+
+    // 🚀 FIX: If software zoom was used, reset it for video since it won't be recorded natively!
+    if (!isHardwareZoomActive && videoZoomScale > 1) {
+        videoZoomScale = 1;
+        const video = document.getElementById('hotpost-camera-feed');
+        if (video) video.style.transform = currentFacingMode === 'user' ? `scaleX(-1) scale(1)` : `scale(1)`;
+        import('./ui.js').then(({ showToast }) => showToast('Software zoom is disabled for videos to maintain quality.', 'info'));
+    }
 
     let options = { mimeType: 'video/webm;codecs=vp8,opus', videoBitsPerSecond: 2500000 };
     if (!MediaRecorder.isTypeSupported(options.mimeType)) {
@@ -793,16 +801,16 @@ function showPreviewUI() {
     document.getElementById('editor-tools-container').classList.remove('hidden');
     document.getElementById('editor-tools-container').classList.add('flex');
     
-    if (currentMediaType === 'video') {
+   if (currentMediaType === 'video') {
         document.getElementById('hotpost-preview-img').classList.add('hidden');
         const vidEl = document.getElementById('hotpost-preview-video');
         vidEl.classList.remove('hidden');
         
-        // 🚀 Ensure audio plays and show the Mute toggle button
-        vidEl.muted = false;
+        // 🚀 FIX: Start muted so iOS/Android WebViews allow autoplay!
+        vidEl.muted = true;
         const muteBtn = document.getElementById('hotpost-mute-btn');
         muteBtn.classList.remove('hidden');
-        muteBtn.querySelector('span').textContent = 'volume_up';
+        muteBtn.querySelector('span').textContent = 'volume_off';
     } else {
         document.getElementById('hotpost-preview-video').classList.add('hidden');
         document.getElementById('hotpost-preview-img').classList.remove('hidden');
@@ -850,11 +858,11 @@ function activateTextTool(textId = null) {
     textarea.removeEventListener('input', adjustHeight);
     textarea.addEventListener('input', adjustHeight);
 
-    updateTextUIPreview();
-    setTimeout(() => {
-        textarea.focus();
-        adjustHeight(); 
-    }, 50);
+ updateTextUIPreview();
+    
+    // 🚀 FIX: Call focus synchronously so mobile browsers don't block the keyboard
+    textarea.focus();
+    adjustHeight(); 
 }
 
 // 🚀 RESTORED MISSING FUNCTION: Handles Live UI Updates for Fonts, Alignment & Colors
@@ -1672,7 +1680,8 @@ function renderHotpostCircles() {
     container.innerHTML = ''; 
 
     const addCircle = document.createElement('div');
-    addCircle.className = 'hotpost-circle flex flex-col items-center gap-1.5 shrink-0 cursor-pointer active:scale-95 transition-transform relative z-20';
+    // 🚀 FIX: Disable pointer events if uploading to prevent double-taps
+    addCircle.className = `hotpost-circle flex flex-col items-center gap-1.5 shrink-0 transition-transform relative z-20 ${isUploadingBackground ? 'pointer-events-none opacity-80' : 'cursor-pointer active:scale-95'}`;
     
     if (isUploadingBackground) {
         addCircle.innerHTML = `
