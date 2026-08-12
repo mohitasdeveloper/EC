@@ -107,8 +107,15 @@ function getTickHtml(tickType) {
     return `<span class="material-symbols-outlined text-[14px]" style="color: ${tickType.trim()}; font-variation-settings: 'FILL' 1;">verified</span>`;
 }
 // Search across all users and services
+let latestSearchToken = 0; // Tracks the most recent search
+
+// Search across all users and services
 async function performSearch(query) {
     const container = document.getElementById('search-results-container');
+    
+    // Increment token for this specific search
+    latestSearchToken++;
+    const thisSearchToken = latestSearchToken;
     
     try {
         const blockedIds = await window.getBlockedUserIds(currentUser.id);
@@ -138,6 +145,8 @@ async function performSearch(query) {
 
         if (usersRes.error) throw usersRes.error;
         if (servicesRes.error) throw servicesRes.error;
+        // If a new search started while we were waiting for the database, abort this one!
+        if (thisSearchToken !== latestSearchToken) return;
 
         const allUsers = usersRes.data || [];
         const studentsData = allUsers.filter(u => u.role !== 'page');
