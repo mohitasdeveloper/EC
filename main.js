@@ -2211,7 +2211,7 @@ function setupAppBackButton() {
             { id: 'modal-blocked-users', close: () => window.closeBlockedUsersModal() },
             { id: 'modal-single-post', close: () => window.closeSinglePostView() },
             { id: 'modal-notifications', close: () => window.closeNotifications() },
-            { id: 'modal-view-connections', close: () => window.closeUserConnectionsModal() },
+           { id: 'modal-view-connections', close: () => window.closeUserConnectionsModal() },
             
             // --- NEW: Hardware back support for sub-panels ---
             { id: 'settings-password-panel', close: () => window.closeSettingsSubPanel('settings-password-panel') },
@@ -2222,7 +2222,16 @@ function setupAppBackButton() {
             // -------------------------------------------------
 
             { id: 'settings-sidebar', close: () => window.closeSettingsSidebar() },
-            { id: 'view-create-post', close: () => window.closeCreatePostView() },
+            { id: 'view-create-post', close: () => {
+                window.closeCreatePostView();
+                // Clear any preview blobs memory when backing out of Create Post
+                const imgUpload = document.getElementById('post-image-upload');
+                if (imgUpload) imgUpload.value = '';
+                const previewContainer = document.getElementById('post-image-preview-container');
+                if (previewContainer && previewContainer.querySelector('img')) {
+                    previewContainer.innerHTML = `<span class="material-symbols-outlined text-[32px] mb-2" id="img-icon-placeholder">add_photo_alternate</span><span class="text-sm font-medium" id="img-text-placeholder">Tap to upload image</span>`;
+                }
+            }},
             { id: 'modal-profile-public', close: () => window.closeProfileModals() },
             { id: 'modal-profile-private', close: () => window.closeProfileModals() },
             { id: 'modal-hotpost-camera', close: () => document.getElementById('close-hotpost-camera-btn')?.click() },
