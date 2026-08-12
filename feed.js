@@ -1907,22 +1907,31 @@ function setupLikesModalTouchPhysics() {
     }, { passive: true });
 }
 
-window.openLikesModal = async function(postId) {
+let currentLikesPostId = null;
+let currentLikesPage = 0;
+const LIKES_PER_PAGE = 30;
+
+window.openLikesModal = async function(postId, isLoadMore = false) {
     const modal = document.getElementById('modal-likes-list');
     const card = document.getElementById('likes-modal-card');
     const container = document.getElementById('likes-list-container');
-    if (!modal) return;
+    if (!modal || !container) return;
 
-    modal.classList.replace('hidden', 'flex');
-    setTimeout(() => {
-        modal.classList.remove('opacity-0');
-        if (card) {
-            card.style.transform = ''; 
-            card.classList.remove('translate-y-full');
-        }
-    }, 10);
+    if (!isLoadMore) {
+        currentLikesPostId = postId;
+        currentLikesPage = 0;
+        modal.classList.replace('hidden', 'flex');
+        setTimeout(() => {
+            modal.classList.remove('opacity-0');
+            if (card) {
+                card.style.transform = ''; 
+                card.classList.remove('translate-y-full');
+            }
+        }, 10);
+        
+        const oldBtn = document.getElementById('load-more-likes-btn');
+        if (oldBtn) oldBtn.remove();
 
-    if (container) {
         container.innerHTML = `
             <div class="flex items-center gap-3 p-3 animate-pulse">
                 <div class="w-11 h-11 rounded-full bg-surface-variant/50 dark:bg-neutral-800 shrink-0"></div>
@@ -1931,18 +1940,26 @@ window.openLikesModal = async function(postId) {
                     <div class="h-2.5 bg-surface-variant/50 dark:bg-neutral-800 rounded w-1/4"></div>
                 </div>
             </div>`.repeat(5);
+    } else {
+        const loadBtn = document.getElementById('load-more-likes-btn');
+        if (loadBtn) loadBtn.innerHTML = `<span class="material-symbols-outlined animate-spin">progress_activity</span>`;
     }
 
     try {
+        const from = currentLikesPage * LIKES_PER_PAGE;
+        const to = from + LIKES_PER_PAGE - 1;
+
         const { data: likes, error } = await supabase
             .from('post_likes')
             .select('users(id, full_name, profile_img_url, tick_type)')
-            .eq('post_id', postId)
-            .order('created_at', { ascending: false });
+            .eq('post_id', currentLikesPostId)
+            .order('created_at', { ascending: false })
+            .range(from, to);
 
         if (error) throw error;
-        if (likes.length === 0) {
-            if (container) container.innerHTML = `<div class="py-12 flex flex-col items-center opacity-50"><span class="material-symbols-outlined text-4xl mb-2">favorite</span><p class="text-sm font-bold">No likes yet.</p></div>`;
+        
+        if (!isLoadMore && likes.length === 0) {
+            container.innerHTML = `<div class="py-12 flex flex-col items-center opacity-50"><span class="material-symbols-outlined text-4xl mb-2">favorite</span><p class="text-sm font-bold">No likes yet.</p></div>`;
             return;
         }
 
@@ -1951,30 +1968,49 @@ window.openLikesModal = async function(postId) {
             return `<span class="material-symbols-outlined text-[14px]" style="color: ${type.trim()}; font-variation-settings: 'FILL' 1;">verified</span>`;
         };
 
-        if (container) {
-            container.innerHTML = likes.map(like => {
-                const u = like.users;
-                const avatar = u.profile_img_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.full_name)}&background=e1e3e4`;
-                
-                return `
-                    <div class="flex items-center justify-between p-3 hover:bg-surface-variant/20 dark:hover:bg-neutral-800/50 rounded-2xl transition-colors active:scale-[0.98]">
-                        <div class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onclick="closeLikesModal(); setTimeout(() => viewUserProfile('${u.id}'), 200);">
-                            <img src="${avatar}" class="w-11 h-11 rounded-full object-cover border border-surface-variant/50 dark:border-neutral-800 shadow-sm shrink-0">
-                            <div class="flex-1 min-w-0 truncate">
-                                <p class="text-[14.5px] font-extrabold text-on-surface dark:text-gray-100 flex items-center gap-1">${u.full_name} ${getTick(u.tick_type)}</p>
-                            </div>
+        const likesHtml = likes.map(like => {
+            const u = like.users;
+            const avatar = u.profile_img_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.full_name)}&background=e1e3e4`;
+            
+            return `
+                <div class="flex items-center justify-between p-3 hover:bg-surface-variant/20 dark:hover:bg-neutral-800/50 rounded-2xl transition-colors active:scale-[0.98]">
+                    <div class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onclick="closeLikesModal(); setTimeout(() => viewUserProfile('${u.id}'), 200);">
+                        <img src="${avatar}" class="w-11 h-11 rounded-full object-cover border border-surface-variant/50 dark:border-neutral-800 shadow-sm shrink-0">
+                        <div class="flex-1 min-w-0 truncate">
+                            <p class="text-[14.5px] font-extrabold text-on-surface dark:text-gray-100 flex items-center gap-1">${u.full_name} ${getTick(u.tick_type)}</p>
                         </div>
                     </div>
-                `;
-            }).join('');
+                </div>
+            `;
+        }).join('');
+
+        if (!isLoadMore) {
+            container.innerHTML = likesHtml;
+        } else {
+            const oldBtn = document.getElementById('load-more-likes-btn');
+            if (oldBtn) oldBtn.remove();
+            container.insertAdjacentHTML('beforeend', likesHtml);
+        }
+
+        // Add "Load More" button if we hit the limit
+        if (likes.length === LIKES_PER_PAGE) {
+            currentLikesPage++;
+            container.insertAdjacentHTML('beforeend', `
+                <button id="load-more-likes-btn" onclick="window.openLikesModal(null, true)" class="w-full py-3 mt-2 mb-4 text-sm font-bold text-primary bg-primary/10 rounded-xl active:scale-95 transition-transform flex justify-center items-center">
+                    Load More
+                </button>
+            `);
         }
 
     } catch (err) {
         console.error("Likes fetch error:", err);
-        if (container) container.innerHTML = `<div class="py-10 text-center text-error text-sm font-bold">Failed to load likes.</div>`;
+        if (!isLoadMore && container) container.innerHTML = `<div class="py-10 text-center text-error text-sm font-bold">Failed to load likes.</div>`;
+        else {
+            const oldBtn = document.getElementById('load-more-likes-btn');
+            if(oldBtn) oldBtn.innerHTML = "Error loading. Tap to retry.";
+        }
     }
 };
-
 window.closeLikesModal = function() {
     const modal = document.getElementById('modal-likes-list');
     const card = document.getElementById('likes-modal-card');
