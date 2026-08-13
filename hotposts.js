@@ -661,11 +661,11 @@ function startRecording() {
         import('./ui.js').then(({ showToast }) => showToast('Software zoom is disabled for videos to maintain quality.', 'info'));
     }
 
-    let options = { mimeType: 'video/webm;codecs=vp8,opus', videoBitsPerSecond: 2500000 };
+   // 🚀 FIX: Increased bitrate to 4 Mbps for much higher local video quality
+    let options = { mimeType: 'video/webm;codecs=vp8,opus', videoBitsPerSecond: 4000000 };
     if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-        options = { mimeType: 'video/mp4', videoBitsPerSecond: 2500000 }; 
+        options = { mimeType: 'video/mp4', videoBitsPerSecond: 4000000 }; 
     }
-
     try { 
         mediaRecorder = new MediaRecorder(streamToRecord, options); 
     } catch(e) { 
@@ -1478,8 +1478,8 @@ async function submitHotpost() {
             const vidData = await vidRes.json();
             if (vidData.error) throw new Error(vidData.error.message);
 
-            // 🚀 Standard optimized delivery. (Dynamic zoom is natively baked into the file now!)
-            finalMediaUrl = vidData.secure_url.replace('/upload/', `/upload/q_auto:eco,vc_auto/`);
+          // 🚀 FIX: Removed aggressive 'eco' compression. 'q_auto' dynamically balances crisp quality and fast loading.
+            finalMediaUrl = vidData.secure_url.replace('/upload/', `/upload/q_auto,vc_auto/`);
         } else {
             // ORIGINAL IMAGE BAKE LOGIC
             const finalBlob = await new Promise((resolve, reject) => {
