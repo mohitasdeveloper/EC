@@ -392,24 +392,6 @@ async function fetchPosts(isRefresh = false) {
     const from = currentFeedPage * POSTS_PER_PAGE;
     const to = from + POSTS_PER_PAGE - 1;
 
-    // 🚀 OFFLINE CACHE: Instantly render cached posts on boot like Instagram
-    if (isRefresh && currentFeedPage === 0) {
-        const cachedData = localStorage.getItem('ecampus_feed_cache');
-        if (cachedData) {
-            try {
-                // Instantly draw the UI using the cached JSON
-                renderPosts(JSON.parse(cachedData), true);
-            } catch(e) {}
-        }
-        
-        // If the user has no internet, stop the function here. The cache is already on screen.
-        if (!navigator.onLine) {
-            isFetchingFeed = false;
-            import('./ui.js').then(({ showToast }) => showToast('You are offline. Showing cached posts.', 'warning'));
-            return;
-        }
-    }
-
     try {
         const blockedIds = await window.getBlockedUserIds(currentUser.id);
         let query = supabase
@@ -442,15 +424,10 @@ async function fetchPosts(isRefresh = false) {
 
         if (data.length < POSTS_PER_PAGE) hasMorePosts = false;
 
-      const oldSentinel = document.getElementById('feed-bottom-sentinel');
+        const oldSentinel = document.getElementById('feed-bottom-sentinel');
         if (oldSentinel) oldSentinel.remove();
 
         renderPosts(data, isRefresh);
-
-        // 🚀 CACHE SAVE: Save the fresh first page of the feed to local storage for the next time the app opens offline
-        if (isRefresh && currentFeedPage === 0 && data.length > 0) {
-            localStorage.setItem('ecampus_feed_cache', JSON.stringify(data));
-        }
 
         // 🚀 INJECT SUGGESTIONS WIDGET ON FIRST LOAD AFTER 1ST POST
         if (isRefresh && currentFeedPage === 0) {
