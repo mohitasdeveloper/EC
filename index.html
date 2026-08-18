@@ -422,9 +422,12 @@
                 <!-- Native Services Horizontal Scroller -->
 <!-- Native Links Horizontal Scroller (My Profile) -->
 <div id="my-profile-services-wrapper" class="hidden mt-6 mb-2">
-    <div class="flex items-center gap-2 mb-3 px-1">
-        <span class="material-symbols-outlined text-primary text-[18px]">widgets</span>
-        <h4 class="text-[13px] font-extrabold text-on-surface dark:text-gray-100 tracking-widest uppercase">Services</h4>
+    <div class="flex items-center justify-between mb-3 px-1">
+        <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-[18px]">widgets</span>
+            <h4 class="text-[13px] font-extrabold text-on-surface dark:text-gray-100 tracking-widest uppercase">Services</h4>
+        </div>
+        <button id="my-services-view-all" class="text-[12px] font-bold text-primary active:opacity-70 hidden">View All</button>
     </div>
     <div id="my-profile-services-container" class="flex gap-3 overflow-x-auto hide-scrollbar pb-4 pt-1 snap-x snap-mandatory px-1 text-left">
         <!-- Service Cards Inject Here -->
@@ -1310,9 +1313,12 @@
                 <div class="flex gap-3 justify-center mb-6" id="public-profile-social-links"></div>
               <!-- Native Links Horizontal Scroller (Public Profile) -->
 <div id="public-profile-services-wrapper" class="hidden w-full mb-6 text-left">
-    <div class="flex items-center gap-2 mb-3 px-2">
-        <span class="material-symbols-outlined text-primary text-[18px]">widgets</span>
-        <h4 class="text-[13px] font-extrabold text-on-surface dark:text-gray-100 tracking-widest uppercase">Services</h4>
+  <div class="flex items-center justify-between mb-3 px-2">
+        <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-[18px]">widgets</span>
+            <h4 class="text-[13px] font-extrabold text-on-surface dark:text-gray-100 tracking-widest uppercase">Services</h4>
+        </div>
+        <button id="public-services-view-all" class="text-[12px] font-bold text-primary active:opacity-70 hidden">View All</button>
     </div>
     <div id="public-profile-services-container" class="flex gap-3 overflow-x-auto hide-scrollbar pb-4 pt-1 snap-x snap-mandatory px-2 text-left">
         <!-- Service Cards Inject Here -->
@@ -1502,7 +1508,30 @@
             <div id="view-connections-list" class="max-w-screen-md mx-auto space-y-1"></div>
         </div>
     </div>
-    
+    <!-- ALL SERVICES LIST MODAL -->
+    <div id="modal-view-services" class="fixed inset-0 z-[170] bg-surface dark:bg-[#121212] hidden flex-col transition-transform duration-300 translate-x-full">
+        <div class="pt-[max(1rem,env(safe-area-inset-top))] pb-4 flex items-center px-4 border-b border-surface-variant/40 dark:border-neutral-800 bg-surface/90 dark:bg-[#121212]/90 backdrop-blur-xl shrink-0">
+            <button onclick="closeAllServicesModal()" class="p-2 -ml-2 rounded-full hover:bg-surface-variant/50 transition-colors text-on-surface dark:text-gray-100">
+                <span class="material-symbols-outlined text-[24px]">arrow_back</span>
+            </button>
+            <div class="flex-1 min-w-0 ml-2">
+                <h2 id="view-services-title" class="text-lg font-bold text-on-surface dark:text-gray-100 truncate">Services</h2>
+            </div>
+        </div>
+        
+        <div class="px-4 py-3 shrink-0 border-b border-surface-variant/40 dark:border-neutral-800 bg-surface dark:bg-[#121212]">
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-on-surface-variant">
+                    <span class="material-symbols-outlined text-[20px]">search</span>
+                </div>
+                <input type="text" id="view-services-search" class="w-full bg-surface-variant/30 dark:bg-neutral-900/50 border border-surface-variant/50 dark:border-neutral-700 text-on-surface dark:text-gray-100 text-[14px] rounded-xl focus:ring-primary focus:border-primary block pl-10 p-2.5 outline-none placeholder-on-surface-variant/70 transition-colors" placeholder="Search services...">
+            </div>
+        </div>
+        
+        <div class="flex-1 overflow-y-auto p-4 bg-surface-container-lowest dark:bg-[#121212] hide-scrollbar">
+            <div id="view-services-list" class="max-w-screen-md mx-auto space-y-2"></div>
+        </div>
+    </div>
     <!-- LIST MODALS (Connections, Blocked) -->
     <div id="modal-connections" class="fixed inset-0 z-[500] bg-black/40 backdrop-blur-sm hidden flex-col justify-end">
         <div
