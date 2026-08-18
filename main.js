@@ -3451,7 +3451,7 @@ window.fetchPageServices = async function(userId, isMyProfile = false) {
         // Add 'Add Link' button for owners
         if (isMyProfile) {
             html += `
-            <div onclick="window.openManageServiceModal()" class="w-[180px] min-h-[150px] rounded-[24px] border-2 border-dashed border-surface-variant dark:border-neutral-700 bg-transparent flex flex-col items-center justify-center p-4 shrink-0 snap-start cursor-pointer active:scale-[0.98] transition-all hover:border-primary/50 group">
+            <div onclick="window.openManageServiceModal()" class="w-[75vw] sm:w-[280px] min-h-[150px] rounded-[24px] border-2 border-dashed border-surface-variant dark:border-neutral-700 bg-transparent flex flex-col items-center justify-center p-4 shrink-0 snap-start cursor-pointer active:scale-[0.98] transition-all hover:border-primary/50 group">
                 <div class="w-12 h-12 rounded-full bg-surface-variant/30 dark:bg-neutral-800 text-on-surface dark:text-gray-300 flex items-center justify-center mb-3 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
                     <span class="material-symbols-outlined text-[24px]">add</span>
                 </div>
@@ -3467,7 +3467,7 @@ window.fetchPageServices = async function(userId, isMyProfile = false) {
                 : `window.openServiceLink('${service.url}', ${service.open_in_app})`;
 
             html += `
-            <div onclick="${clickAction}" class="w-[180px] min-h-[150px] rounded-[24px] border border-surface-variant/60 dark:border-neutral-800 bg-surface dark:bg-neutral-900 flex flex-col p-4 shrink-0 snap-start cursor-pointer active:scale-[0.98] transition-all shadow-sm hover:shadow-md hover:border-primary/40 group text-left relative overflow-hidden">
+            <div onclick="${clickAction}" class="w-[75vw] sm:w-[280px] min-h-[150px] rounded-[24px] border border-surface-variant/60 dark:border-neutral-800 bg-surface dark:bg-neutral-900 flex flex-col p-4 shrink-0 snap-start cursor-pointer active:scale-[0.98] transition-all shadow-sm hover:shadow-md hover:border-primary/40 group text-left relative overflow-hidden">
                 
                 <!-- Icon -->
                 <div class="w-11 h-11 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-3">
