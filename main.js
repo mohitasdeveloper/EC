@@ -2220,7 +2220,7 @@ function setupAppBackButton() {
             { id: 'settings-notifications-panel', close: () => window.closeSettingsSubPanel('settings-notifications-panel') },
             { id: 'settings-account-panel', close: () => window.closeSettingsSubPanel('settings-account-panel') },
             // -------------------------------------------------
-
+{ id: 'modal-view-services', close: () => window.closeAllServicesModal() },
             { id: 'settings-sidebar', close: () => window.closeSettingsSidebar() },
             { id: 'view-create-post', close: () => {
                 window.closeCreatePostView();
@@ -3446,6 +3446,20 @@ window.fetchPageServices = async function(userId, isMyProfile = false) {
         }
 
         wrapper.classList.remove('hidden');
+        
+        // Setup "View All" Button
+        const viewAllBtnId = isMyProfile ? 'my-services-view-all' : 'public-services-view-all';
+        const viewAllBtn = document.getElementById(viewAllBtnId);
+        if (viewAllBtn) {
+            if (data.length > 0) {
+                viewAllBtn.classList.remove('hidden');
+                const userName = isMyProfile ? 'My' : document.getElementById('public-profile-name').textContent.replace(/(<([^>]+)>)/gi, "").trim();
+                viewAllBtn.onclick = () => window.openAllServicesModal(userId, isMyProfile, userName);
+            } else {
+                viewAllBtn.classList.add('hidden');
+            }
+        }
+
         let html = '';
 
         // Add 'Add Link' button for owners
@@ -3468,24 +3482,17 @@ window.fetchPageServices = async function(userId, isMyProfile = false) {
 
             html += `
             <div onclick="${clickAction}" class="w-[75vw] sm:w-[280px] min-h-[150px] rounded-[24px] border border-surface-variant/60 dark:border-neutral-800 bg-surface dark:bg-neutral-900 flex flex-col p-4 shrink-0 snap-start cursor-pointer active:scale-[0.98] transition-all shadow-sm hover:shadow-md hover:border-primary/40 group text-left relative overflow-hidden">
-                
-                <!-- Icon -->
                 <div class="w-11 h-11 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-3">
                     <span class="material-symbols-outlined text-[22px]">${service.icon_name}</span>
                 </div>
-                
-                <!-- Content -->
                 <div class="flex flex-col flex-1 mb-4">
                     <p class="text-[15px] font-extrabold text-on-surface dark:text-gray-100 leading-snug line-clamp-1 mb-1">${service.title}</p>
                     ${service.description ? `<p class="text-[12px] font-medium text-on-surface-variant dark:text-gray-500 line-clamp-2 leading-snug">${service.description}</p>` : ''}
                 </div>
-                
-                <!-- Footer Action -->
                 <div class="mt-auto pt-3 border-t border-surface-variant/40 dark:border-neutral-800 w-full flex items-center justify-between text-[11px] font-extrabold ${isMyProfile ? 'text-on-surface-variant dark:text-gray-400' : 'text-primary'} uppercase tracking-wider">
                     <span>${isMyProfile ? 'Edit Service' : 'Open Link'}</span>
                     <span class="material-symbols-outlined text-[14px] transition-transform ${isMyProfile ? '' : 'group-hover:translate-x-1'}">${isMyProfile ? 'edit' : 'arrow_forward'}</span>
                 </div>
-
             </div>
             `;
         });
@@ -3745,3 +3752,86 @@ window.openSettingsSubPanel = function(panelId) {
     }
     if (originalOpenSettingsSubPanel) originalOpenSettingsSubPanel(panelId);
 };
+
+// --- All Services Modal & Search Logic ---
+let currentViewedServices = [];
+
+window.openAllServicesModal = async function(userId, isMyProfile, userName) {
+    const modal = document.getElementById('modal-view-services');
+    const title = document.getElementById('view-services-title');
+    const list = document.getElementById('view-services-list');
+    const searchInput = document.getElementById('view-services-search');
+
+    modal.classList.replace('hidden', 'flex');
+    setTimeout(() => modal.classList.remove('translate-x-full'), 10);
+
+    title.textContent = isMyProfile ? 'My Services' : `${userName}'s Services`;
+    searchInput.value = '';
+    list.innerHTML = LIST_SKELETON; // Show loading shimmer
+    currentViewedServices = [];
+
+    try {
+        const { data, error } = await supabase
+            .from('page_services')
+            .select('*')
+            .eq('page_id', userId)
+            .eq('is_active', true)
+            .order('order_index', { ascending: true })
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        currentViewedServices = data;
+        renderViewServicesList(data, isMyProfile);
+
+        // LIVE SEARCH FILTER
+        searchInput.oninput = (e) => {
+            const q = e.target.value.toLowerCase().trim();
+            const filtered = currentViewedServices.filter(s => 
+                s.title.toLowerCase().includes(q) || 
+                (s.description && s.description.toLowerCase().includes(q))
+            );
+            renderViewServicesList(filtered, isMyProfile, q !== '');
+        };
+
+    } catch (error) {
+        console.error('Error fetching services list:', error);
+        list.innerHTML = `<p class="text-sm italic text-center py-8 text-error">Failed to load services.</p>`;
+    }
+};
+
+window.closeAllServicesModal = function() {
+    const modal = document.getElementById('modal-view-services');
+    modal.classList.add('translate-x-full');
+    setTimeout(() => modal.classList.replace('flex', 'hidden'), 300);
+};
+
+function renderViewServicesList(services, isMyProfile, isSearch = false) {
+    const list = document.getElementById('view-services-list');
+
+    if (services.length === 0) {
+        list.innerHTML = `<div class="py-16 flex flex-col items-center justify-center opacity-40 text-on-surface-variant"><span class="material-symbols-outlined text-[42px] mb-2">search_off</span><p class="text-sm font-semibold">${isSearch ? 'No services found.' : 'No services available.'}</p></div>`;
+        return;
+    }
+
+    list.innerHTML = services.map(service => {
+        const clickAction = isMyProfile 
+            ? `window.openManageServiceModal('${service.id}', '${service.title.replace(/'/g, "\\'")}', '${(service.description || '').replace(/'/g, "\\'")}', '${service.url}', '${service.icon_name}', ${service.open_in_app})`
+            : `window.openServiceLink('${service.url}', ${service.open_in_app})`;
+
+        return `
+        <div onclick="${clickAction}" class="flex items-center gap-4 p-4 bg-surface-container-lowest dark:bg-neutral-900/50 rounded-2xl border border-surface-variant/40 dark:border-neutral-800 shadow-sm cursor-pointer hover:bg-surface-variant/20 transition-colors group">
+            <div class="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20">
+                <span class="material-symbols-outlined text-[24px]">${service.icon_name}</span>
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="font-extrabold text-[15px] text-on-surface dark:text-gray-100 truncate">${service.title}</p>
+                ${service.description ? `<p class="text-[12px] font-medium text-on-surface-variant dark:text-gray-500 mt-0.5 truncate">${service.description}</p>` : ''}
+            </div>
+            <button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant group-hover:text-primary transition-colors shrink-0">
+                <span class="material-symbols-outlined text-[20px]">${isMyProfile ? 'edit' : 'arrow_forward'}</span>
+            </button>
+        </div>
+        `;
+    }).join('');
+}
