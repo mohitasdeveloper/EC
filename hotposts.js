@@ -2535,31 +2535,49 @@ window.refreshHotposts = fetchHotposts;
 // 🚀 FIX: Expose these functions to the global window object
 window.closeActivityPanel = closeActivityPanel;
 window.closeHotpostViewer = closeHotpostViewer;
-
 // ==========================================
 // SAVE TO DEVICE ENGINE
 // ==========================================
 window.downloadCurrentMedia = function() {
     if (!currentPhotoBlob) {
-        showToast('No media to save.', 'warning');
+        import('./ui.js').then(({ showToast }) => showToast('No media to save.', 'warning'));
         return;
     }
     
+    const fileName = currentMediaType === 'video' ? `Hotpost_${Date.now()}.mp4` : `Hotpost_${Date.now()}.jpg`;
+    
     try {
+        // 🚀 ROUTE 1: NATIVE ANDROID APP
+        // If the user is in the Android App, send the file directly to the native bridge
+        if (window.AndroidDownloader && window.AndroidDownloader.saveBase64File) {
+            import('./ui.js').then(({ showToast }) => showToast('Processing save...', 'info'));
+            const reader = new FileReader();
+            reader.readAsDataURL(currentPhotoBlob);
+            reader.onloadend = function() {
+                // The Android Java code will handle the final "Saved to Downloads" Toast!
+                window.AndroidDownloader.saveBase64File(reader.result, fileName);
+            };
+            return;
+        }
+
+        // 🚀 ROUTE 2: STANDARD WEB BROWSER / PWA
         const url = URL.createObjectURL(currentPhotoBlob);
         const a = document.createElement('a');
         a.href = url;
-        // Automatically assign correct extension
-        a.download = currentMediaType === 'video' ? `Hotpost_${Date.now()}.mp4` : `Hotpost_${Date.now()}.jpg`;
+        a.download = fileName;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(url);
         
-        showToast('Saved to camera roll!', 'success');
+        // FIX: Delay revoking the URL so the browser has time to actually start the download
+        setTimeout(() => {
+            URL.revokeObjectURL(url);
+        }, 2000);
+        
+        import('./ui.js').then(({ showToast }) => showToast('Saved to device!', 'success'));
     } catch (err) {
         console.error("Save Error:", err);
-        showToast('Failed to save media.', 'error');
+        import('./ui.js').then(({ showToast }) => showToast('Failed to save media.', 'error'));
     }
 };
 // ==========================================
