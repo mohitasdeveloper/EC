@@ -2547,20 +2547,17 @@ window.downloadCurrentMedia = function() {
     const fileName = currentMediaType === 'video' ? `Hotpost_${Date.now()}.mp4` : `Hotpost_${Date.now()}.jpg`;
     
     try {
-        // 🚀 ROUTE 1: NATIVE ANDROID APP
-        // If the user is in the Android App, send the file directly to the native bridge
+        // 🚀 ROUTE 1: Native Android App (Native Toast handles alert)
         if (window.AndroidDownloader && window.AndroidDownloader.saveBase64File) {
-            import('./ui.js').then(({ showToast }) => showToast('Processing save...', 'info'));
             const reader = new FileReader();
             reader.readAsDataURL(currentPhotoBlob);
             reader.onloadend = function() {
-                // The Android Java code will handle the final "Saved to Downloads" Toast!
                 window.AndroidDownloader.saveBase64File(reader.result, fileName);
             };
             return;
         }
 
-        // 🚀 ROUTE 2: STANDARD WEB BROWSER / PWA
+        // 🚀 ROUTE 2: Web Browser / PWA (Browser fallback)
         const url = URL.createObjectURL(currentPhotoBlob);
         const a = document.createElement('a');
         a.href = url;
@@ -2569,10 +2566,9 @@ window.downloadCurrentMedia = function() {
         a.click();
         document.body.removeChild(a);
         
-        // FIX: Delay revoking the URL so the browser has time to actually start the download
         setTimeout(() => {
             URL.revokeObjectURL(url);
-        }, 2000);
+        }, 3000);
         
         import('./ui.js').then(({ showToast }) => showToast('Saved to device!', 'success'));
     } catch (err) {
