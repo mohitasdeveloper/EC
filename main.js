@@ -1,6 +1,6 @@
 import { initHotposts } from './hotposts.js';
 import { showToast } from './ui.js';
-import { timeAgo } from './utils.js';
+import { timeAgo, getActionQueue, clearAction, getFeedFromCache } from './utils.js';
 import { supabase } from './supabase.js';
 import { initFeed } from './feed.js';
 import { initSearch } from './search.js';
@@ -11,7 +11,7 @@ import { CLOUDINARY_CLOUD_NAME, CLOUDINARY_AVATARS_PRESET } from './config.js';
 let currentUserProfile = null;
 window.addEventListener('load', () => {
     // 1. Initialize the Pull-to-Refresh Engine
-    // This allows the user to drag down to refresh the feed
+    // This allows the user to drag down to refresh
     if (typeof initPullToRefresh === 'function') {
         initPullToRefresh();
     }
@@ -33,6 +33,60 @@ window.addEventListener('load', () => {
     }, 2000);
 });
 
+// 🚀 BACKGROUND SYNC PROCESSOR
+window.processOfflineQueue = async function() {
+    if (!navigator.onLine) return;
+    
+    const queue = await getActionQueue();
+    if (queue.length === 0) return;
+
+    let successCount = 0;
+    for (const action of queue) {
+        try {
+            if (action.type === 'like_post') {
+                if (action.payload.isLiked) await supabase.from('post_likes').delete().match({ post_id: action.payload.postId, user_id: action.payload.userId });
+                else await supabase.from('post_likes').insert({ post_id: action.payload.postId, user_id: action.payload.userId });
+            } 
+            else if (action.type === 'save_post') {
+                if (action.payload.isSaved) await supabase.from('saved_posts').delete().match({ post_id: action.payload.postId, user_id: action.payload.userId });
+                else await supabase.from('saved_posts').insert({ post_id: action.payload.postId, user_id: action.payload.userId });
+            }
+            else if (action.type === 'rsvp_event') {
+                if (action.payload.isCurrentlyAttending) await supabase.from('post_event_rsvps').delete().match({ post_id: action.payload.postId, user_id: action.payload.userId });
+                else await supabase.from('post_event_rsvps').insert({ post_id: action.payload.postId, user_id: action.payload.userId, status: 'attending' });
+            }
+            else if (action.type === 'comment_post') {
+                await supabase.from('post_comments').insert(action.payload);
+            }
+            else if (action.type === 'poll_vote') {
+                await supabase.rpc('cast_poll_vote', {
+                    p_post_id: action.payload.postId,
+                    p_user_id: action.payload.userId,
+                    p_option_id: String(action.payload.optionId),
+                    p_is_undo: action.payload.isUndo
+                });
+            }
+            
+            // Remove from queue once successfully pushed to Supabase
+            await clearAction(action.id);
+            successCount++;
+        } catch (err) {
+            console.error("Queue process error:", err);
+        }
+    }
+    
+    if (successCount > 0) {
+        setTimeout(() => {
+            showToast(`Synced ${successCount} offline actions!`, 'success');
+            if (typeof window.executeContextualRefresh === 'function') window.executeContextualRefresh();
+        }, 1500);
+    }
+};
+
+// Trigger the sync when the device comes back online
+window.addEventListener('online', () => {
+    setTimeout(window.processOfflineQueue, 2000); 
+});
 // ==========================================
 // GLOBAL CLOUDINARY COMPRESSION ENGINE
 // ==========================================
@@ -222,8 +276,13 @@ window.executeContextualRefresh = async function() {
 };
 
 // 🚀 NEW: Dedicated function to sync your profile data with the database natively
+// 🚀 NEW: Dedicated function to sync your profile data with the database natively
 window.refreshMyProfile = async function() {
     if (!currentUserProfile) return;
+    
+    // Do NOT attempt to refresh the profile if the user is currently offline
+    if (!navigator.onLine) return; 
+
     try {
         const { data: profile, error } = await supabase
             .from('users')
@@ -232,8 +291,11 @@ window.refreshMyProfile = async function() {
             .single();
         
         if (error) throw error;
+        
         currentUserProfile = profile;
-        populateProfileUI(currentUserProfile); // This automatically calls fetchMyProfileFeed internally!
+        localStorage.setItem('ecampus_profile_cache', JSON.stringify(profile));
+        
+        populateProfileUI(currentUserProfile); 
     } catch (err) {
         console.error("Error refreshing profile:", err);
     }
@@ -344,31 +406,61 @@ const LIST_SKELETON = `
 // APP INITIALIZATION & LAYOUT
 // ========================================================
 document.addEventListener('DOMContentLoaded', async () => {
-    // 1. Check user sessions
-    const { data: { session } } = await supabase.auth.getSession();
+  // 1. Check user sessions
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-    if (!session) {
-        window.location.href = "./auth/login.html";
+    // If there is strictly no session, go to login.
+    if (sessionError || !session) {
+        window.location.replace("./auth/login.html");
         return;
     }
 
-    // 2. Fetch user profile
-    const { data: profile, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('auth_user_id', session.user.id)
-        .single();
+   // 2. Fetch user profile (Instant Offline Short-Circuit)
+    let profile = null;
 
-    if (error || !profile) {
-        console.error('Error fetching profile:', error);
-        showToast('Could not load your profile. Please try logging in again.', 'error');
-        await supabase.auth.signOut();
-        window.location.replace('auth/login.html');
-        return;
+    if (!navigator.onLine) {
+        // 🚀 INSTANT OFFLINE BOOT: Skip the network completely to prevent the 30-second hang
+        const cachedProfile = localStorage.getItem('ecampus_profile_cache');
+        if (cachedProfile) {
+            profile = JSON.parse(cachedProfile);
+            console.log("Loaded profile instantly from offline cache.");
+        } else {
+            showToast('Could not load your profile. Please reconnect to the internet.', 'error');
+            return; // Halt boot, but don't log them out!
+        }
+    } else {
+        // NORMAL ONLINE BOOT
+        try {
+            const { data, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('auth_user_id', session.user.id)
+                .single();
+
+            if (error || !data) throw error;
+            
+            // Save to cache for offline use
+            profile = data;
+            localStorage.setItem('ecampus_profile_cache', JSON.stringify(profile));
+
+        } catch (error) {
+            console.error('Error fetching profile from DB:', error);
+            
+            // Try to load from offline cache as a last resort
+            const cachedProfile = localStorage.getItem('ecampus_profile_cache');
+            if (cachedProfile) {
+                profile = JSON.parse(cachedProfile);
+                console.log("Loaded profile from offline cache after network failure.");
+            } else {
+                showToast('Could not load your profile. Please try logging in again.', 'error');
+                await supabase.auth.signOut();
+                window.location.replace('auth/login.html');
+                return;
+            }
+        }
     }
 
     currentUserProfile = profile;
-
     // 🚀 HOTFIX: Prevent verification screen flash on boot
     const verifyView = document.getElementById('view-verification');
     if (verifyView) verifyView.style.setProperty('display', 'none', 'important');
@@ -410,6 +502,8 @@ function initializeApp(profile) {
     initSearch(profile);
     initNotifications(profile);
     initUpdates();
+
+    window.processOfflineQueue(); // <-- ADD THIS LINE HERE
 
     updateHeaderAvatar(profile.profile_img_url, profile.full_name);
     populateProfileUI(profile);
@@ -687,6 +781,30 @@ window.fetchMyProfileFeed = async function(userId) {
 
     feedContainer.innerHTML = FEED_SKELETON; 
     
+    // 🚀 OFFLINE INTERCEPTOR for Profile Feed
+    if (!navigator.onLine) {
+        try {
+            const cachedPosts = await getFeedFromCache();
+            // Filter the cached feed for only this user's posts
+            const myPosts = cachedPosts.filter(post => post.user_id === userId);
+            
+            if (myPosts.length === 0) {
+                feedContainer.innerHTML = `
+                    <div class="py-12 flex flex-col items-center justify-center opacity-40 text-on-surface-variant">
+                        <span class="material-symbols-outlined text-[42px] mb-2">cloud_off</span>
+                        <p class="text-sm font-medium">No cached posts for this profile.</p>
+                    </div>`;
+                return;
+            }
+            feedContainer.innerHTML = generatePostHTML(myPosts, currentUserProfile.id);
+            const countEl = document.getElementById('my-profile-posts-count');
+            if (countEl) countEl.textContent = myPosts.length;
+        } catch (e) {
+            console.error("Offline profile feed error:", e);
+        }
+        return;
+    }
+
     try {
         const { data: posts, error } = await supabase
             .from('posts')
