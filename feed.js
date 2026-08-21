@@ -1,6 +1,6 @@
 import { supabase } from './supabase.js';
 import { showToast } from './ui.js';
-import { timeAgo, compressImage } from './utils.js';
+import { timeAgo, compressImage, saveFeedToCache, getFeedFromCache, queueOfflineAction } from './utils.js'; // <-- Updated
 import { CLOUDINARY_CLOUD_NAME } from './config.js';
 
 let currentUser = null;
@@ -93,6 +93,9 @@ export function initFeed(user) {
     refreshMainFeed();
     setupImagePreviews();
     setupLikesModalTouchPhysics();
+    
+    // 🚀 NEW: Initialize the Realtime listener for new posts
+    setupRealtimeFeed();
     
     document.addEventListener('openCreatePostView', () => {
         if(currentUser) {
@@ -372,13 +375,13 @@ async function submitPost() {
     }
 }
 
-let currentFeedPage = 0;
+let lastPostDate = null; // We use a date cursor instead of page numbers now
 const POSTS_PER_PAGE = 7; 
 let isFetchingFeed = false;
 let hasMorePosts = true;
 
 window.refreshMainFeed = async function() {
-    currentFeedPage = 0;
+    lastPostDate = null; // Reset the cursor on refresh
     hasMorePosts = true;
     const container = document.getElementById('feed-posts-container');
     if (container) container.innerHTML = FEED_SKELETON;
@@ -389,11 +392,27 @@ async function fetchPosts(isRefresh = false) {
     if (isFetchingFeed || (!hasMorePosts && !isRefresh)) return;
     isFetchingFeed = true;
 
-    const from = currentFeedPage * POSTS_PER_PAGE;
-    const to = from + POSTS_PER_PAGE - 1;
+    // 🚀 FIXED: Removed dynamic import that was crashing offline
+    if (!navigator.onLine) {
+        showToast('You are offline. Showing saved posts.', 'warning');
+        try {
+            const cachedPosts = await getFeedFromCache();
+            const oldSentinel = document.getElementById('feed-bottom-sentinel');
+            if (oldSentinel) oldSentinel.remove();
+            
+            renderPosts(cachedPosts, true);
+        } catch (e) {
+            console.error("Offline cache error:", e);
+        } finally {
+            isFetchingFeed = false;
+        }
+        return;
+    }
 
     try {
         const blockedIds = await window.getBlockedUserIds(currentUser.id);
+        
+        // 1. Build the base query using .limit() instead of .range()
         let query = supabase
             .from('posts')
             .select(`
@@ -413,7 +432,12 @@ async function fetchPosts(isRefresh = false) {
             .eq('users.is_deleted', false)
             .eq('users.is_deactivated', false)
             .order('created_at', { ascending: false })
-            .range(from, to);
+            .limit(POSTS_PER_PAGE);
+
+        // 2. Apply Cursor: If scrolling down, fetch posts older than the last one we saw
+        if (lastPostDate && !isRefresh) {
+            query = query.lt('created_at', lastPostDate);
+        }
 
         if (blockedIds.length > 0) {
             query = query.not('user_id', 'in', `(${blockedIds.join(',')})`);
@@ -422,6 +446,11 @@ async function fetchPosts(isRefresh = false) {
         const { data, error } = await query;
         if (error) throw error;
 
+        // 3. Update the cursor for the next scroll
+        if (data.length > 0) {
+            lastPostDate = data[data.length - 1].created_at;
+        }
+
         if (data.length < POSTS_PER_PAGE) hasMorePosts = false;
 
         const oldSentinel = document.getElementById('feed-bottom-sentinel');
@@ -429,8 +458,17 @@ async function fetchPosts(isRefresh = false) {
 
         renderPosts(data, isRefresh);
 
+        // 🚀 SAVE TO OFFLINE CACHE (Only cache the first page so we don't overload storage)
+        if (isRefresh && data.length > 0) {
+            try {
+                saveFeedToCache(data);
+            } catch (cacheErr) {
+                console.error("Failed to save to cache:", cacheErr);
+            }
+        }
+
         // 🚀 INJECT SUGGESTIONS WIDGET ON FIRST LOAD AFTER 1ST POST
-        if (isRefresh && currentFeedPage === 0) {
+        if (isRefresh) {
             setTimeout(async () => {
                 const suggestions = await fetchUserSuggestions();
                 if (suggestions.length > 0) {
@@ -444,10 +482,8 @@ async function fetchPosts(isRefresh = false) {
                         container.insertAdjacentHTML('afterbegin', suggestionsHtml);
                     }
                 }
-            }, 800); // Wait almost 1 sec so feed content renders fully first
+            }, 800);
         }
-
-        currentFeedPage++;
         
         if (hasMorePosts) setupIntersectionObserver();
 
@@ -457,14 +493,13 @@ async function fetchPosts(isRefresh = false) {
             const container = document.getElementById('feed-posts-container');
             if (container) container.innerHTML = `<p class="text-center py-10 text-error">Failed to load feed.</p>`;
         } else {
-            showToast('Network error. Scroll down to retry.', 'error');
+            import('./ui.js').then(({ showToast }) => showToast('Network error. Scroll down to retry.', 'error'));
             if (hasMorePosts) setupIntersectionObserver();
         }
     } finally {
         isFetchingFeed = false;
     }
 }
-
 // ==========================================
 // 🚀 NEW: SUGGESTIONS ENGINE
 // ==========================================
@@ -496,6 +531,9 @@ window.dismissSuggestion = function(btn) {
 };
 
 async function fetchUserSuggestions() {
+    // 🚀 NEW: Don't try to fetch suggestions if offline
+    if (!navigator.onLine) return []; 
+
     try {
         // 1. Find everyone we are already connected with, have pending requests with, or blocked (Students)
         const { data: connData } = await supabase
@@ -981,12 +1019,19 @@ window.handleLike = async function(postId, btnElement) {
             setTimeout(() => postCard.remove(), 300);
         }
     }
+    
     try {
-        if (!nextLikedState) {
-            await supabase.from('post_likes').delete().match({ post_id: postId, user_id: currentUser.id });
+        if (!navigator.onLine) {
+            // 🚀 OFFLINE QUEUE
+            await queueOfflineAction('like_post', { postId, userId: currentUser.id, isLiked });
         } else {
-            const { error } = await supabase.from('post_likes').insert({ post_id: postId, user_id: currentUser.id });
-            if (error && error.code !== '23505') throw error; 
+            // NORMAL ONLINE SYNC
+            if (!nextLikedState) {
+                await supabase.from('post_likes').delete().match({ post_id: postId, user_id: currentUser.id });
+            } else {
+                const { error } = await supabase.from('post_likes').insert({ post_id: postId, user_id: currentUser.id });
+                if (error && error.code !== '23505') throw error; 
+            }
         }
     } catch (error) {
         console.error("Like error:", error);
@@ -1004,22 +1049,29 @@ window.handlePollVote = async function(postId, optionId, isUndo) {
     if (postEl) postEl.style.opacity = '0.6';
 
     try {
-        const { error } = await supabase.rpc('cast_poll_vote', {
-            p_post_id: postId,
-            p_user_id: currentUser.id, // 🚀 NEW: Explicitly pass the correct public profile ID
-            p_option_id: String(optionId),
-            p_is_undo: isUndo
-        });
+        if (!navigator.onLine) {
+            // 🚀 OFFLINE QUEUE
+            await queueOfflineAction('poll_vote', { postId, userId: currentUser.id, optionId, isUndo });
+            import('./ui.js').then(({ showToast }) => showToast(isUndo ? 'Vote removal saved offline.' : 'Vote saved offline.', 'info'));
+        } else {
+            // NORMAL ONLINE SYNC
+            const { error } = await supabase.rpc('cast_poll_vote', {
+                p_post_id: postId,
+                p_user_id: currentUser.id, 
+                p_option_id: String(optionId),
+                p_is_undo: isUndo
+            });
 
-        if (error) {
-            import('./ui.js').then(({ showToast }) => showToast(error.message, 'error'));
-            throw error;
-        }
+            if (error) {
+                import('./ui.js').then(({ showToast }) => showToast(error.message, 'error'));
+                throw error;
+            }
 
-        if (typeof window.updatePollUI === 'function') {
-            await window.updatePollUI(postId);
-        } else if (typeof window.refreshMainFeed === 'function') {
-            await window.refreshMainFeed(); 
+            if (typeof window.updatePollUI === 'function') {
+                await window.updatePollUI(postId);
+            } else if (typeof window.refreshMainFeed === 'function') {
+                await window.refreshMainFeed(); 
+            }
         }
     } catch (error) {
         console.error("Poll vote error:", error);
@@ -1739,37 +1791,53 @@ async function submitComment(postId) {
     };
     if (activeReplyCommentId) payload.parent_comment_id = activeReplyCommentId;
 
-    const { error } = await supabase.from('post_comments').insert(payload);
-
-    if (error) {
-        showToast('Failed to post comment.', 'error');
-    } else {
-        if (input) {
-            input.value = '';
-            input.style.height = 'auto';
-        }
-        window.cancelReply();
-        currentMentionIds = [];
-        
-        openCommentsModal(postId); 
-        
-        const commentBtns = document.querySelectorAll(`.comment-btn[data-post-id="${postId}"]`);
-        commentBtns.forEach(commentBtn => {
-            const html = commentBtn.innerHTML;
-            if (html.includes('View')) {
-                const countMatch = html.match(/\d+/);
-                if (countMatch) {
-                    commentBtn.innerHTML = `View all ${parseInt(countMatch[0]) + 1} comments`;
-                } else if (html.includes('View 1 comment')) {
-                    commentBtn.innerHTML = `View all 2 comments`;
-                }
+    try {
+        if (!navigator.onLine) {
+            // 🚀 OFFLINE QUEUE
+            await queueOfflineAction('comment_post', payload);
+            import('./ui.js').then(({ showToast }) => showToast('Comment saved offline. Will post when reconnected.', 'info'));
+            
+            if (input) {
+                input.value = '';
+                input.style.height = 'auto';
             }
-        });
-    }
-    
-    if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = 'Post';
+            window.cancelReply();
+            currentMentionIds = [];
+            window.closeCommentsModal();
+        } else {
+            // NORMAL ONLINE SYNC
+            const { error } = await supabase.from('post_comments').insert(payload);
+            if (error) throw error;
+
+            if (input) {
+                input.value = '';
+                input.style.height = 'auto';
+            }
+            window.cancelReply();
+            currentMentionIds = [];
+            
+            openCommentsModal(postId); 
+            
+            const commentBtns = document.querySelectorAll(`.comment-btn[data-post-id="${postId}"]`);
+            commentBtns.forEach(commentBtn => {
+                const html = commentBtn.innerHTML;
+                if (html.includes('View')) {
+                    const countMatch = html.match(/\d+/);
+                    if (countMatch) {
+                        commentBtn.innerHTML = `View all ${parseInt(countMatch[0]) + 1} comments`;
+                    } else if (html.includes('View 1 comment')) {
+                        commentBtn.innerHTML = `View all 2 comments`;
+                    }
+                }
+            });
+        }
+    } catch (error) {
+        import('./ui.js').then(({ showToast }) => showToast('Failed to post comment.', 'error'));
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = 'Post';
+        }
     }
 }
 
@@ -2072,18 +2140,31 @@ window.handleRSVP = async function(postId, isCurrentlyAttending) {
     if (postEl) postEl.style.opacity = '0.6';
 
     try {
-        if (isCurrentlyAttending) {
-            const { error } = await supabase.from('post_event_rsvps').delete().match({ post_id: postId, user_id: currentUser.id });
-            if (error) throw error;
-            showToast('RSVP Cancelled', 'info');
+        if (!navigator.onLine) {
+            // 🚀 OFFLINE QUEUE
+            await queueOfflineAction('rsvp_event', { postId, userId: currentUser.id, isCurrentlyAttending });
+            showToast(isCurrentlyAttending ? 'RSVP Cancelled (Saved Offline)' : 'RSVP Confirmed (Saved Offline)', 'info');
+            
+            // Optimistic UI update for offline mode
+            const btn = postEl.querySelector('button[onclick^="window.handleRSVP"]');
+            if (btn) {
+                const nowAttending = !isCurrentlyAttending;
+                btn.className = `block w-full mt-3 ${nowAttending ? 'bg-surface-variant/50 text-on-surface dark:text-gray-100' : 'bg-primary text-white'} text-center py-2 rounded-xl text-[13px] font-bold active:scale-95 transition-all`;
+                btn.textContent = nowAttending ? '✓ Attending' : 'RSVP Now';
+                btn.setAttribute('onclick', `window.handleRSVP('${postId}', ${nowAttending})`);
+            }
         } else {
-            const { error } = await supabase.from('post_event_rsvps').insert({ post_id: postId, user_id: currentUser.id, status: 'attending' });
-            if (error) throw error;
-            showToast('RSVP Confirmed!', 'success');
-        }
-
-        if (typeof window.refreshMainFeed === 'function') {
-            await window.refreshMainFeed(); 
+            // NORMAL ONLINE SYNC
+            if (isCurrentlyAttending) {
+                const { error } = await supabase.from('post_event_rsvps').delete().match({ post_id: postId, user_id: currentUser.id });
+                if (error) throw error;
+                showToast('RSVP Cancelled', 'info');
+            } else {
+                const { error } = await supabase.from('post_event_rsvps').insert({ post_id: postId, user_id: currentUser.id, status: 'attending' });
+                if (error) throw error;
+                showToast('RSVP Confirmed!', 'success');
+            }
+            if (typeof window.refreshMainFeed === 'function') await window.refreshMainFeed(); 
         }
 
     } catch (error) {
@@ -2153,10 +2234,16 @@ window.handleSavePost = async function(postId, btnElement) {
     }
 
     try {
-        if (!nextSavedState) {
-            await supabase.from('saved_posts').delete().match({ post_id: postId, user_id: activeUser.id });
+        if (!navigator.onLine) {
+            // 🚀 OFFLINE QUEUE
+            await queueOfflineAction('save_post', { postId, userId: activeUser.id, isSaved });
         } else {
-            await supabase.from('saved_posts').insert({ post_id: postId, user_id: activeUser.id });
+            // NORMAL ONLINE SYNC
+            if (!nextSavedState) {
+                await supabase.from('saved_posts').delete().match({ post_id: postId, user_id: activeUser.id });
+            } else {
+                await supabase.from('saved_posts').insert({ post_id: postId, user_id: activeUser.id });
+            }
         }
     } catch(e) { console.error("Save error:", e); }
     finally { setTimeout(() => { window._saveLocks[postId] = false; }, 300); }
@@ -2321,3 +2408,39 @@ window.setPollDeadline = function(val, label) {
     window.togglePollDeadlineInputs();
     window.closeActionSheet();
 };
+// ==========================================
+// 🚀 SUPABASE REALTIME ENGINE
+// ==========================================
+function setupRealtimeFeed() {
+    // 🚀 NEW: Disable realtime WebSockets if offline
+    if (!currentUser || !navigator.onLine) return;
+
+    // Listen for new rows inserted into the 'posts' table
+    supabase
+        .channel('public-posts-channel')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, payload => {
+            // Ignore the event if the new post was created by the currently logged-in user
+            if (payload.new.user_id === currentUser.id) return;
+
+            const container = document.getElementById('feed-posts-container');
+            if (!container) return;
+
+            // Don't spawn multiple pills if multiple posts come in quickly
+            if (document.getElementById('new-posts-pill')) return;
+
+            // Create a sticky floating pill button
+            const pillHtml = `
+                <div id="new-posts-pill" class="flex justify-center w-full sticky top-2 z-[60] animate-fadeIn mb-4">
+                    <button onclick="window.scrollTo({ top: 0, behavior: 'smooth' }); window.refreshMainFeed(); this.parentElement.remove();" 
+                            class="bg-primary text-white px-5 py-2 rounded-full text-sm font-bold shadow-lg flex items-center gap-2 active:scale-95 transition-transform border-2 border-surface dark:border-[#1e1e1e]">
+                        <span class="material-symbols-outlined text-[18px]">arrow_upward</span>
+                        New posts
+                    </button>
+                </div>
+            `;
+            
+            // Inject it at the very top of the feed container
+            container.insertAdjacentHTML('afterbegin', pillHtml);
+        })
+        .subscribe();
+}
