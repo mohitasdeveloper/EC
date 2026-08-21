@@ -116,15 +116,10 @@
 
 <body class="bg-surface dark:bg-[#121212] text-on-surface dark:text-gray-100 antialiased mb-24 relative overflow-x-hidden transition-colors duration-300 selection:bg-primary/20 overflow-hidden overscroll-y-none">
 
-  <!-- Offline Screen Overlay -->
-    <div id="offline-overlay" class="fixed inset-0 bg-white dark:bg-[#121212] z-[9999] hidden flex-col items-center justify-center text-center px-6">
-        
-        <h2 class="text-3xl font-black text-gray-900 dark:text-gray-100 mb-3">You're Offline</h2>
-        <p class="text-gray-500 dark:text-gray-400 mb-8 font-medium max-w-sm">It looks like you've lost your internet connection. Please check your network.</p>
-        
-        <!-- The icon and retry button have been completely removed -->
+<!-- SMART OFFLINE BANNER -->
+    <div id="smart-offline-banner" class="fixed top-[max(0px,env(safe-area-inset-top))] left-0 w-full text-white text-[13px] font-bold py-1.5 text-center z-[10000] hidden shadow-sm tracking-wide transition-colors duration-300">
+        No Internet Connection
     </div>
-
       <div id="ptr-container" class="fixed top-0 left-1/2 z-[9999] flex items-center justify-center gap-2 bg-surface dark:bg-[#1e1e1e] border border-surface-variant/50 dark:border-neutral-800 shadow-[0_10px_40px_rgba(0,0,0,0.3)] rounded-full px-5 py-2.5 opacity-0 pointer-events-none" style="transform: translate(-50%, -100px); will-change: transform, opacity;">
         <span id="ptr-spinner" class="material-symbols-outlined text-primary text-[20px]">refresh</span>
         <span id="ptr-text" class="text-[13px] font-bold text-on-surface dark:text-gray-100">Pull to refresh</span>
@@ -2276,53 +2271,63 @@ window.setVisibility = function(val, icon, label) {
             document.getElementById('post-viewers-label').innerHTML = `<span class="material-symbols-outlined text-[13px]">${icon}</span> ${compactLabel}`;
             window.closeActionSheet();
         };
+// 🚀 SMART OFFLINE BANNER LOGIC (With Soft Reconnect)
+        function toggleOfflineBanner(e) {
+            const banner = document.getElementById('smart-offline-banner');
+            const header = document.querySelector('header');
+            
+            // Add a smooth transition to the header so it slides down gracefully
+            if (header) header.style.transition = 'margin-top 0.3s ease';
 
-
-    const offlineOverlay = document.getElementById('offline-overlay');
-
-        // Function to show the offline screen
-        function showOfflineScreen() {
-            offlineOverlay.classList.remove('hidden');
-            offlineOverlay.classList.add('flex');
+            if (!navigator.onLine) {
+                // Device went offline
+                banner.textContent = 'No Internet Connection';
+                banner.className = 'fixed top-[max(0px,env(safe-area-inset-top))] left-0 w-full bg-error text-white text-[13px] font-bold py-1.5 text-center z-[10000] shadow-sm tracking-wide transition-colors duration-300';
+                
+                // Push the header down by the exact height of the banner (approx 32px)
+                if (header) header.style.marginTop = '32px';
+                
+            } else if (e && e.type === 'online') {
+                // Device reconnected
+                banner.textContent = 'Back Online';
+                banner.classList.replace('bg-error', 'bg-green-500');
+                if (header) header.style.marginTop = '32px';
+                
+                // Wait 2.5 seconds to show "Back Online", then hide the banner and softly refresh
+                setTimeout(() => {
+                    // Hide the banner and slide the header back up
+                    banner.classList.add('hidden');
+                    if (header) header.style.marginTop = '0px';
+                    
+                    // 🚀 SOFT REFRESH: Fetch latest data dynamically without reloading the browser!
+                    if (typeof window.executeContextualRefresh === 'function') {
+                        window.executeContextualRefresh();
+                    }
+                }, 2500);
+                
+            } else {
+                // Initial boot with internet
+                banner.classList.add('hidden');
+                if (header) header.style.marginTop = '0px';
+            }
         }
 
-        // Function to hide the offline screen
-        function hideOfflineScreen() {
-            offlineOverlay.classList.add('hidden');
-            offlineOverlay.classList.remove('flex');
-        }
-
-        // 1. Check the connection instantly when the app first opens
-        if (!navigator.onLine) {
-            showOfflineScreen();
-        }
-
-        // 2. Listen for the exact moment the phone loses internet
-        window.addEventListener('offline', () => {
-            showOfflineScreen();
-        });
-
-        // 3. Listen for the exact moment the internet comes back
-        window.addEventListener('online', () => {
-            hideOfflineScreen();
-            // Optional: Automatically reload the page when connection returns to fetch fresh data
-            window.location.reload(); 
-        });
-
-        // 🚀 GLOBAL OFFLINE INTERCEPTOR
-// We use 'true' as the third argument to enable the "capture phase".
-// This ensures this function runs BEFORE any other click events or link navigations on the page.
-document.addEventListener('click', function(event) {
-    if (!navigator.onLine) {
-        // Stop the link from opening
-        event.preventDefault();
-        // Stop other JavaScript click handlers from running
-        event.stopPropagation(); 
+        window.addEventListener('online', toggleOfflineBanner);
+        window.addEventListener('offline', toggleOfflineBanner);
         
-        // Show your custom offline UI
-        showOfflineScreen();
-    }
-}, true);
+        // Check on boot
+        toggleOfflineBanner();
+
+        // 🚀 REGISTER SERVICE WORKER
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').then(registration => {
+                    console.log('ServiceWorker registration successful');
+                }).catch(err => {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+            });
+        }
     </script>
 </body>
 
